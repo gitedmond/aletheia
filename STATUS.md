@@ -35,7 +35,7 @@ no task-specific HR gate, but their PRs remain unmerged. No Phase 1A exit gate h
 | T02 | done: records, canonical hashes, nine schemas | PR #3 draft | c717897 |
 | T03 | done: transactional metadata, opaque artifacts, cache foundations | PR #4 draft | 001acbe |
 | T04 | done: bounded Docker runner and worker protocol; CI repaired | PR #5 draft | 0328420, 59cbbd4, 0eec482 |
-| T05 | source linter implemented as a work-in-progress checkpoint; 33 added tests pass | No T05 PR yet; final task review pending | 039b6fc (WIP checkpoint) |
+| T05 | validated: source policy and CLI; 35 acceptance cases | Task draft PR pending; no T05 HR gate | 039b6fc, 62c861d |
 | T06-T27 | planned dependency roadmap in spec Section 17 | Required HR gates pending; no T06 programs authored | none |
 | T30-T32 | deferred, LLM lane disabled | none | none |
 
@@ -160,3 +160,32 @@ full sandbox validation, live GitHub checks, and T05 draft PR creation remain pe
 Cloud-local build adaptations live outside the checkout: writable Buildx/uv caches
 and a combined CA bundle mounted as a BuildKit secret, with TLS/signature/hash
 verification preserved. Historical image inventory/audit/source records are unchanged.
+
+
+## Completed cloud validation (2026-10-14)
+
+T05 source at 62c861dc7321e0bd987da7b8d744b11f12a53d8d was validated as part of
+T06 source checkpoint 3d6f2c9 (same Python package). Full normal command:
+env -u FORCE_COLOR TERM=dumb NO_COLOR=1 python3 /workspace/.setup/aletheia/cloud/run-checks.py
+uv run pytest -m "not slow" -q -s: **109 passed in 87.40 seconds**.
+This includes all 99 foundation/T05 tests (64 foundation + 35 T05) and 10 T06 checks.
+Ruff passed; strict Pyright reported 0 errors and 0 warnings. Both aliases --help
+and doctor exited 0 with cloud-local image fields. Original configuration/lock bytes
+were restored; git diff --check and protected setup-file diff checks passed.
+No slow tests currently exist; full end-to-end, replay, and X1-X10 remain unvalidated.
+
+The initially missing --program selector was repaired without weakening acceptance.
+The initial full run had 4 worker setup failures (mode 0600/root-owned test script under
+cloud umask 0077), diagnosed from container stderr. Validation umask 0022 fixed access.
+Subsequent VFS/scan disk exhaustion interrupted checks and was not counted as passing.
+After storage recovery and verified analysis-image flattening, all seven worker tests
+passed in 63.63 seconds; the final complete 109-test run passed.
+
+Cloud image IDs, complete flattening proof, installed worker source hashes, and fresh
+static scan evidence are recorded in docs/cloud-environment.json and explained in
+docs/cloud-environment.md. Host versions remain different from historical pins, and
+Ghidra security review remains open. No provider calls, protected fixture edits,
+automatic merges, image/package releases, or environment publication were performed.
+Network destinations now respond; no external setup access blocker remains.
+Reusable managed install/start instructions are being updated from the old main-only
+bootstrap to the tested checkpoint workflow. T05 review and T06 HR remain separate.

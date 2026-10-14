@@ -1,0 +1,59 @@
+{
+  "analysis_image": "sha256:b3148c7aa100c6bfc7a92c21862f828fd86b76d69528738e808b4b6c034230c5",
+  "audits": {
+    "analysis": {
+      "findings": 64,
+      "raw_report_sha256": "b804fb8e7512a90d22c5b00167242687c6af1c9f2befa8038aeaf2fe77883efb",
+      "scan_date": "2026-10-14",
+      "scanned_image": "sha256:f1dfe23fff34297ef56ec1d2ab3cf8cadff6f17f380d6fa6fa21442d9d735d1c",
+      "scanner": "0.75.0",
+      "severity": {
+        "CRITICAL": 3,
+        "HIGH": 23,
+        "LOW": 4,
+        "MEDIUM": 34
+      }
+    },
+    "build": {
+      "findings": 2670,
+      "raw_report_sha256": "db2d556a108be8e87f21f290eee993fc7ee862ffb83c6988019c146a9c762913",
+      "scan_date": "2026-10-14",
+      "scanned_image": "sha256:ea13f398a0a0db21e60b5389f94280f1ed788c5dbac246f47509c61783f6e4d2",
+      "scanner": "0.75.0",
+      "severity": {
+        "HIGH": 72,
+        "LOW": 138,
+        "MEDIUM": 2460
+      }
+    }
+  },
+  "build_image": "sha256:0d62a62235770bf4f62cfb2c3ad0bf532d593287fa25a3f544c188fa49cac959",
+  "environment_id": "ccarenv_b64_Y2NhcmVudl9iNGY4ZTZiM2I1MDA4MTkxOGFhMjI3NTY0OWRhY2E5Mg",
+  "flattening": {
+    "config_equal": true,
+    "filesystem_entries": 23533,
+    "filesystem_equal": true,
+    "filesystem_sha256": "edade9c398a9966935ab8c8362343d0f802a23ec8eb34a9c75103ae9cad78387",
+    "flattened": "sha256:b3148c7aa100c6bfc7a92c21862f828fd86b76d69528738e808b4b6c034230c5",
+    "original": "sha256:f1dfe23fff34297ef56ec1d2ab3cf8cadff6f17f380d6fa6fa21442d9d735d1c"
+  },
+  "host": {
+    "architecture": "amd64",
+    "containerd": "1.7.28",
+    "cpu_quota": 4,
+    "disk_gib": 32,
+    "docker": "28.4.0",
+    "gid": 1000,
+    "memory_gib": 32,
+    "os": "Debian 13",
+    "runc": "1.3.0",
+    "uid": 1000
+  },
+  "inputs_sha256": "5500cd39fa5fbe527e8feab5e31cab03f3c62b1d3aad6493ed4a323176c87e1e",
+  "worker_sources": {
+    "schema/canonical.py": "efd396244e4458616d52b8bfa95705164dd1233c72a7afa0d3d7261d45f18b3f",
+    "schema/models.py": "f6f2e71bfd95cf5210ff0e87b577f18fd1b5fe4107fa578729744e37ca1c6729",
+    "worker/__main__.py": "9d82aec81a714b3e17194364c4319660784ca9097f7cab3da7ca2a17fbac944e",
+    "worker/main.py": "5d9e22a455a27d8b3d78ead347ca3e677009130c000860c687e956e27f2636a2"
+  }
+}
