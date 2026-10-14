@@ -53,20 +53,42 @@ def image(tmp_path_factory):
     cfg = Config.read(Path("aletheia.toml"))
     directory = tmp_path_factory.mktemp("sandbox-test-image")
     (directory / "test_worker.py").write_text(TEST_WORKER)
+    # BuildKit resolves FROM as a named reference, not a Docker config image ID.
+    base = "aletheia-test-base:" + cfg.sandbox.image_analysis.removeprefix("sha256:")
+    subprocess.run(["docker", "image", "tag", cfg.sandbox.image_analysis, base], check=True)
+    assert (
+        subprocess.check_output(
+            ["docker", "image", "inspect", base, "--format", "{{.Id}}"], text=True
+        ).strip()
+        == cfg.sandbox.image_analysis
+    )
     (directory / "Dockerfile").write_text(
-        f"FROM {cfg.sandbox.image_analysis}\nCOPY test_worker.py /opt/test_worker.py\n"
+        f"FROM {base}\nCOPY test_worker.py /opt/test_worker.py\n"
         'ENTRYPOINT ["python","/opt/test_worker.py"]\n'
     )
+    tag = "aletheia-test-worker:" + cfg.sandbox.image_analysis.removeprefix("sha256:")
     result = subprocess.run(
-        ["docker", "build", "--quiet", str(directory)],
+        ["docker", "build", "--quiet", "--pull=false", "--network=none", "-t", tag, str(directory)],
         capture_output=True,
         text=True,
-        check=True,
         timeout=120,
     )
-    image = result.stdout.strip().splitlines()[-1]
-    yield image
-    subprocess.run(["docker", "image", "rm", image], capture_output=True, check=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert (
+        subprocess.check_output(
+            ["docker", "image", "inspect", base, "--format", "{{.Id}}"], text=True
+        ).strip()
+        == cfg.sandbox.image_analysis
+    )
+    image = subprocess.check_output(
+        ["docker", "image", "inspect", tag, "--format", "{{.Id}}"], text=True
+    ).strip()
+    try:
+        yield image
+    finally:
+        subprocess.run(
+            ["docker", "image", "rm", tag, base], capture_output=True, check=True, timeout=30
+        )
 
 
 def runner(tmp_path, image, **changes):

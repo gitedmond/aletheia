@@ -27,7 +27,8 @@ You are working on Aletheia Phase 1a. Read SPEC-PHASE-1A.md before anything else
 Work only in the Linux checkout as edmond. Read STATUS.md before choosing a task.
 The IP prerequisite is not applicable per author confirmation. Public gitedmond/aletheia and
 MIT were selected by the author. uv_build and required locked upstream dependencies are approved.
-T00-T04 are the active milestone. Lane G is deferred; never initiate provider calls.
+The author approved the design conversion and foundation direction. Fix T04 CI, complete T05,
+and prepare T06 for author review. Keep the Ghidra security review open. Lane G is deferred; never initiate provider calls.
 Never mark a task done without its acceptance evidence and any required author sign-off.
 Original Windows staging documents are immutable. Protected fixture proposals are separate
 reviews; no golden, fixture, mapping, or analyzer configuration has been approved.

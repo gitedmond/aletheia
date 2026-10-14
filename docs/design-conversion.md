@@ -9,5 +9,5 @@ Explicit line breaks and tabs were read from OOXML; monospaced code was fenced.
 Word's generated page-based contents, repeating header/footer, and empty footnote/endnote
 parts were omitted. Sections and appendix references remain intact.
 
-Author review of DESIGN.md remains pending; this check confirms text retention, not visual
-or semantic approval. SPEC-PHASE-1A.md remains authoritative.
+Author approved the design conversion on 2026-10-14. The retention checks above remain
+mechanical evidence; the author's approval records acceptance of the maintained Markdown source. SPEC-PHASE-1A.md remains authoritative.

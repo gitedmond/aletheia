@@ -15,7 +15,7 @@ Main contains the approved document baseline; code is on the stacked task branch
   agent power analysis awaits real agent data. Draft verifiability is recorded.
 - C1-C7 are settled spec choices. Their later implementation remains in the assigned tasks.
 - Protected goldens, fixtures, mappings, analyzer options, and every HR gate remain human-owned.
-- DESIGN.md is the maintained design source after conversion; semantic author review is pending.
+- DESIGN.md is the maintained design source after conversion; author approved the conversion on 2026-10-14.
 - Original OneDrive staging documents are unchanged. On final recheck, design DOCX SHA-256 was
   1aaaf52a274efee2c737b78b1e962bc08dc1601ad5292ace11e4aaa6dc97f51d and staging Phase 1A
   SHA-256 was 9fb6f1802b589777f5cae5eebb637bfcddffdb690af60693179cffc0c640e6fe.
@@ -68,8 +68,11 @@ Full T04 checkout on 2026-10-14:
 - Artifact concurrency/corruption/traversal and malformed-result/cleanup failure checks pass.
 
 GitHub checks and sandbox jobs for the latest T01-T03 PR heads passed. T00's latest checks
-passed. T04 quick checks passed at 0328420; its sandbox CI is still running as of this record.
-Do not infer success for pending checks or later documentation heads.
+passed. T04 sandbox CI at 59cbbd4 failed with 59 passed / 5 setup errors while building the test image.
+BuildKit cannot use a local config image ID directly in FROM (moby/moby issue 39769).
+The test builder now uses a local named alias checked against that exact image ID, exposes
+build stderr on failure, and executes the resulting image by inspected immutable ID.
+The sandbox assertions and production policy are unchanged. Remote validation is pending.
 Initial T00 CI failed under forced terminal color; setting a stable plain-text CI environment
 fixed captured help output with the test assertions unchanged.
 
@@ -80,7 +83,7 @@ logs are in /home/edmond/.cache/aletheia. Exact immutable image IDs are in versi
 
 ## Reviews, blockers, and next eligible work
 
-Design conversion semantic review remains pending; retention checks covered 48 tables,
+Design conversion approved by the author on 2026-10-14; retention checks covered 48 tables,
 102 headings, and all extracted text. No F1-F7 or HR gate is approved. Review packages are the
 task PR diffs, acceptance tests, schemas, pin/license/audit evidence, and these task states.
 
@@ -95,7 +98,8 @@ T09 must measure peak Ghidra RAM and establish headroom before concurrent analys
 silently raise WSL memory or restart Docker. Host-kernel/daemon vulnerability assessment,
 dynamic exploit reachability, slow end-to-end checks, and X1-X10 are not validated.
 
-The next implementation task is T05 after review of this foundation milestone. T06 and protected
+The author approved the foundation direction and authorized the T04 CI fix, T05, and preparation
+of T06 for review on 2026-10-14. No future HR gate or security exception is approved. T06 and protected
 fixture proposals require their explicit HR review. T09 must wait for analyzer option proposal F6;
 T15 must wait for T11 and its HR, and T17 retains T08/T02/T03 dependencies. Follow the spec roadmap.
 T16 owns the engine and construction of complete effective harness/cache inputs. No general
