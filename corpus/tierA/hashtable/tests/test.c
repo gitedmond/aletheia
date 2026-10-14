@@ -13,6 +13,7 @@ int main(void) {
     CHECK(djb2_buf(NULL, 0) == UINT32_C(5381));
     CHECK(djb2_buf(a, 1) == UINT32_C(0x0002b606));
     CHECK(djb2a_buf(a, 1) == UINT32_C(0x0002b5c4));
+    CHECK(djb2a_buf(NULL, 0) == UINT32_C(5381));
     const uint8_t binary[] = {'a', 0, 'b'};
     CHECK(djb2_buf(binary, 3) == UINT32_C(0x0b884fe8));
     CHECK(djb2((const char *)binary) == UINT32_C(0x0002b606));
