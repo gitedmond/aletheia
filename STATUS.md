@@ -28,9 +28,23 @@ Account edmond UID/GID 1001, Docker group 110. Python managed by pinned uv 0.13.
 |---|---|---|
 | T00 | validated; conversion awaiting human review | CLI acceptance failed with missing aletheia.cli before implementation; after implementation Ruff/Pyright passed, pytest 2 passed; both aliases --help exit 0 |
 | T01 | validated; draft review pending | Config tests failed before implementation, then 7 passed; both images built with verified hashes; Ghidra startup and compiler/strip smoke pass; doctor exits 0. 73-package OSV query has zero advisories; image scans retain findings, see docs/toolchain-review.md |
-| T02 | planned | Contract models, canonicalization, export |
+| T02 | validated; draft review pending | Initial import failure preceded implementation; canonical fixed vectors, IDs, every job type, registry, schema discriminator, and Appendix B checks pass; nine schemas exported |
 | T03 | planned | SQLite and artifact store |
 | T04 | planned | Container runner and worker protocol |
 
 No human review gates are signed off. Conversion review remains pending.
-T01 acceptance is validated. T02 contracts are next; ordinary PR review and design conversion review remain pending.
+T00-T02 acceptance is validated. T03 storage is next; ordinary PR review and design conversion review remain pending.
+
+### 2026-10-14 — authorized PR review follow-up
+
+The author authorized ready-for-review conversion, CodeRabbit review, necessary
+corrections, and merges of the existing PR stack. This supersedes the earlier
+no-merge instruction for PRs #1–#7; future task/security prerequisites remain.
+CodeRabbit skipped drafts, then skipped non-default base branches; manual review
+requests were posted on #2–#7. PR #1 fixes disable checkout credential persistence
+and clarify the quick test selection. T02 reproduces and fixes six exported-schema
+acceptance gaps (invalid/hashless/private paths and unknown/cross-family variants),
+retains runtime validation, and checks committed exports against a fresh export.
+`uv run ruff check`, `uv run pyright`, both contract test files (30 passed), and
+`git diff --check` passed in the pinned cloud Python environment. Merge results and
+remaining review dispositions will be recorded after live CI/review checks.
