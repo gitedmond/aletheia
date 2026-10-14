@@ -1,6 +1,7 @@
 """Phase 1A command-line entry points."""
 
 import json
+import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Annotated
@@ -95,6 +96,48 @@ def corpus_lint(
             typer.echo(f"{error.path}:{error.line}: {error.rule}: {error.message}")
         typer.echo(f"{len(programs)} programs, {len(errors)} errors")
     raise typer.Exit(1 if errors else 0)
+
+
+@corpus_app.command("build")
+def corpus_build(
+    ctx: typer.Context,
+    directory: Annotated[Path, typer.Argument()] = Path("corpus/tierA"),
+    program: Annotated[str | None, typer.Option("--program")] = None,
+) -> None:
+    """Build reproducible O2/stripped and private O0 binaries in the pinned sandbox."""
+    from aletheia.config import Config
+    from aletheia.corpus.build import BuildError, Variant, build_program
+
+    cfg = options(ctx)
+    selected = directory / program if program is not None else directory
+    programs = (
+        ([selected] if (selected / "src").is_dir() else [])
+        if (program is not None or (selected / "src").is_dir())
+        else sorted(p for p in selected.iterdir() if (p / "src").is_dir())
+        if (selected.is_dir())
+        else []
+    )
+    try:
+        if not programs:
+            raise BuildError("program_missing: no selected corpus programs")
+        config = Config.read(cfg.config)
+        variant = Variant(image=config.sandbox.image_build, output_root=Path(config.paths.build))
+        built = [build_program(path, variant) for path in programs]
+        result = {
+            "status": "ok",
+            "programs": [
+                {
+                    "program_id": output.program_id,
+                    "binary_sha256": output.binary_sha256,
+                    "build_json": str(output.metadata),
+                }
+                for output in built
+            ],
+        }
+    except (BuildError, OSError, ValueError, subprocess.SubprocessError) as error:
+        result = {"status": "error", "error": str(error)}
+    typer.echo(json.dumps(result, sort_keys=True) if cfg.json_output else str(result))
+    raise typer.Exit(0 if result["status"] == "ok" else 1)
 
 
 def main() -> None:
