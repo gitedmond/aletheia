@@ -13,3 +13,10 @@ dist/
 
 # Verified build bootstrap, fetched from the pinned upstream URL.
 docker/ca-certificates.deb
+
+# Planning, specifications, reviews, and evidence stay in the cloud workspace.
+/*.md
+!/README.md
+!/LICENSES.md
+!/versions.lock.md
+/docs/

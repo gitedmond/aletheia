@@ -1,9 +1,0 @@
-{
-  "image": "sha256:ba2695133fd3b74d0e96eeea69fa2a1b5eb83340c75789164153c389cc2056fd",
-  "sources": {
-    "worker/main.py": "5d9e22a455a27d8b3d78ead347ca3e677009130c000860c687e956e27f2636a2",
-    "worker/__main__.py": "9d82aec81a714b3e17194364c4319660784ca9097f7cab3da7ca2a17fbac944e",
-    "schema/canonical.py": "efd396244e4458616d52b8bfa95705164dd1233c72a7afa0d3d7261d45f18b3f",
-    "schema/models.py": "f6f2e71bfd95cf5210ff0e87b577f18fd1b5fe4107fa578729744e37ca1c6729"
-  }
-}

@@ -18,20 +18,12 @@ dependencies or bundled third-party components. No images or third-party binarie
 | Trivy (audit tool only) | Apache-2.0 | https://github.com/aquasecurity/trivy |
 
 The version-specific metadata for all 73 locked Python dependencies is retained in
-[dependency-licenses.json](docs/dependency-licenses.json). ida-settings omits the license in its
+[dependencies.json](licenses/dependencies.json). ida-settings omits the license in its
 PyPI metadata; its upstream ida-plugin.json declares Apache 2.0:
 https://github.com/williballenthin/ida-settings/blob/master/ida-plugin.json.
 Its installed package is used by capa, and this source-level declaration is recorded explicitly.
 The upstream declaration is not a license grant invented by Aletheia.
 
-Native package versions are in [image-inventory.json](docs/image-inventory.json); the images
-retain Ubuntu package copyright files under /usr/share/doc, Ghidra license notices, the JDK
+The images retain Ubuntu package copyright files under /usr/share/doc, Ghidra license notices, the JDK
 legal directory, and upstream plugin/rule notices. Local use is the current scope. Any later
 distribution of images requires a separate review of copyleft source and notice obligations.
-
-OSV queried every locked Python dependency on 2026-10-13 and returned zero advisories; this is
-the limited result of that database query, not a clean bill of health for the image.
-Trivy 0.75.0 scanned both images, including OS, Java, and Python contents. Every reported finding
-is retained in [image-audit.json](docs/image-audit.json); raw scanner output stays in the local
-audit cache. [toolchain-review.md](docs/toolchain-review.md) describes residual risks and
-scanner limitations. Scanning never suppresses findings automatically.
