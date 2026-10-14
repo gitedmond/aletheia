@@ -1,0 +1,150 @@
+"""Strict Phase 1A pack declarations and safe YAML loading."""
+
+from pathlib import Path
+from typing import Annotated, Literal, Protocol, Self, cast
+
+import yaml
+from pydantic import Field, model_validator
+
+from aletheia.schema.models import REGISTRY, Strict
+from aletheia.verify.probes.oracles import ORACLE_VARIANTS
+
+type Role = Literal["seed", "buf", "len", "cstr", "out"]
+Identifier = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]*$")]
+HexInput = Annotated[str, Field(pattern=r"^(?:[0-9a-f]{2})*$")]
+SHAPES: dict[str, list[Role]] = {
+    "seed_buf_len": ["seed", "buf", "len"],
+    "buf_len": ["buf", "len"],
+    "cstr": ["cstr"],
+    "buf_len_out": ["buf", "len", "out"],
+}
+FAMILY_SHAPES: dict[str, set[str]] = {
+    "crc32": {"seed_buf_len", "buf_len"},
+    "adler32": {"seed_buf_len", "buf_len"},
+    "fnv": {"buf_len"},
+    "djb2": {"buf_len", "cstr"},
+    "base64": {"buf_len_out"},
+}
+
+
+class CallShape(Strict):
+    id: Identifier
+    roles: list[Role]
+    return_width: Literal[32, 64]
+    out_size: Literal["base64_encode"] | None = None
+
+    @model_validator(mode="after")
+    def semantics(self) -> Self:
+        if self.roles != SHAPES.get(self.id):
+            raise ValueError("unknown call shape or role order")
+        if ("out" in self.roles) != (self.out_size is not None):
+            raise ValueError("output shape must declare its output allocation")
+        if self.return_width != (64 if "out" in self.roles else 32):
+            raise ValueError("return width does not match the Phase 1A call shape")
+        return self
+
+    def output_size(self, input_len: int) -> int:
+        if input_len < 0:
+            raise ValueError("negative input length")
+        if self.out_size is None:
+            return 0
+        return 4 * ((input_len + 2) // 3) + 4
+
+
+def _empty_bindings() -> dict[Literal["seed"], int]:
+    return {}
+
+
+class VariantProbe(Strict):
+    oracle: Identifier
+    bind: dict[Literal["seed"], Annotated[int, Field(ge=0, le=0xFFFFFFFF)]] = Field(
+        default_factory=_empty_bindings
+    )
+
+
+class RandomInputs(Strict):
+    count: int = Field(ge=0)
+    max_len: int = Field(ge=0)
+    seed: int
+
+
+class Inputs(Strict):
+    fixed: list[str]
+    fixed_hex: list[HexInput] = Field(default_factory=list)
+    random: RandomInputs
+
+    @model_validator(mode="after")
+    def nonempty(self) -> Self:
+        if not self.fixed and not self.fixed_hex and not self.random.count:
+            raise ValueError("pack must declare at least one input")
+        return self
+
+
+class Pack(Strict):
+    family: str
+    version: int = Field(gt=0)
+    call_shapes: list[CallShape] = Field(min_length=1)
+    variants: dict[str, VariantProbe] = Field(min_length=1)
+    inputs: Inputs
+    near_miss: list[Identifier]
+
+    @model_validator(mode="after")
+    def relationships(self) -> Self:
+        if self.family not in REGISTRY or self.family not in FAMILY_SHAPES:
+            raise ValueError("family has no Phase 1A pack support")
+        ids = [shape.id for shape in self.call_shapes]
+        if len(ids) != len(set(ids)):
+            raise ValueError("duplicate call shape")
+        if not set(ids) <= FAMILY_SHAPES[self.family]:
+            raise ValueError("call shape is not supported for this family")
+        needs_seed = "seed_buf_len" in ids
+        for variant, probe in self.variants.items():
+            if variant not in REGISTRY[self.family]:
+                raise ValueError("unknown variant for family")
+            if ORACLE_VARIANTS.get(probe.oracle) != (self.family, variant):
+                raise ValueError("oracle does not implement the declared family/variant")
+            if needs_seed and "seed" not in probe.bind:
+                raise ValueError("seed call shape requires an explicit variant binding")
+            if probe.bind and self.family not in {"crc32", "adler32"}:
+                raise ValueError("family does not accept seed bindings")
+        if len(self.near_miss) != len(set(self.near_miss)):
+            raise ValueError("duplicate near-miss identifier")
+        return self
+
+    @property
+    def unsupported_variants(self) -> tuple[str, ...]:
+        return tuple(sorted(set(REGISTRY[self.family]) - self.variants.keys()))
+
+
+class _UniqueLoader(yaml.SafeLoader):
+    """Reject ambiguous duplicate keys instead of silently using the last value."""
+
+
+class _Constructor(Protocol):
+    def construct_object(self, node: yaml.Node, deep: bool = False) -> object: ...
+
+
+def _mapping(loader: _UniqueLoader, node: yaml.MappingNode) -> dict[object, object]:
+    loader.flatten_mapping(node)
+    result: dict[object, object] = {}
+    for key_node, value_node in node.value:
+        constructor = cast(_Constructor, loader)
+        key = constructor.construct_object(key_node, deep=True)
+        try:
+            if key in result:
+                raise ValueError(f"duplicate YAML key: {key}")
+            result[key] = constructor.construct_object(value_node, deep=True)
+        except TypeError as error:
+            raise ValueError("invalid YAML mapping key") from error
+    return result
+
+
+_UniqueLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _mapping)
+
+
+def load_pack(path: Path) -> Pack:
+    try:
+        raw: object = yaml.load(path.read_text(encoding="utf-8"), Loader=_UniqueLoader)
+    except yaml.YAMLError as error:
+        raise ValueError(f"invalid pack YAML: {path}") from error
+    return Pack.model_validate(raw)
