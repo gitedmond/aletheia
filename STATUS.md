@@ -34,3 +34,17 @@ Account edmond UID/GID 1001, Docker group 110. Python managed by pinned uv 0.13.
 
 No human review gates are signed off. Conversion review remains pending.
 T00-T02 acceptance is validated. T03 storage is next; ordinary PR review and design conversion review remain pending.
+
+### 2026-10-14 — authorized PR review follow-up
+
+The author authorized ready-for-review conversion, CodeRabbit review, necessary
+corrections, and merges of the existing PR stack. This supersedes the earlier
+no-merge instruction for PRs #1–#7; future task/security prerequisites remain.
+CodeRabbit skipped drafts, then skipped non-default base branches; manual review
+requests were posted on #2–#7. PR #1 fixes disable checkout credential persistence
+and clarify the quick test selection. T02 reproduces and fixes six exported-schema
+acceptance gaps (invalid/hashless/private paths and unknown/cross-family variants),
+retains runtime validation, and checks committed exports against a fresh export.
+`uv run ruff check`, `uv run pyright`, both contract test files (30 passed), and
+`git diff --check` passed in the pinned cloud Python environment. Merge results and
+remaining review dispositions will be recorded after live CI/review checks.
