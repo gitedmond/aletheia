@@ -118,3 +118,22 @@ def test_cleanup_exceptions_preserve_compiler_failure(tmp_path, monkeypatch, cle
     monkeypatch.setattr(subprocess, "run", fail)
     with pytest.raises(BuildError, match="sandbox unavailable:.*compiler Docker.*cleanup failed"):
         _execute("sha256:" + "1" * 64, tmp_path / "snapshot", tmp_path / "out", "example")
+
+
+def test_backup_cleanup_failure_is_explicit_and_publication_succeeds(tmp_path, monkeypatch):
+    from aletheia.corpus import build
+
+    previous, staging = tmp_path / "previous", tmp_path / "staging"
+    previous.mkdir()
+    staging.mkdir()
+    (previous / "build.json").write_text("old")
+    (staging / "build.json").write_text("new")
+    def fail_remove(path):
+        raise PermissionError("injected backup removal failure")
+    monkeypatch.setattr(build.shutil, "rmtree", fail_remove)
+    with pytest.warns(RuntimeWarning, match="backup_cleanup_failed"):
+        _publish(staging, previous)
+    assert (previous / "build.json").read_text() == "new"
+    backups = list(tmp_path.glob(".previous-*"))
+    assert len(backups) == 1
+    assert (backups[0] / "build.json").read_text() == "old"

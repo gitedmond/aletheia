@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import tempfile
 import uuid
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -294,7 +295,14 @@ def _publish(staging: Path, destination: Path) -> None:
             os.replace(backup, destination)
         raise
     if backup.exists():
-        shutil.rmtree(backup)
+        try:
+            shutil.rmtree(backup)
+        except OSError as error:
+            warnings.warn(
+                f"backup_cleanup_failed: retained superseded bundle {backup}: {error}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
 
 def build_program(program_dir: Path, variant: Variant) -> BuildOutput:
