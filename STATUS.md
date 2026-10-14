@@ -237,3 +237,79 @@ retains runtime validation, and checks committed exports against a fresh export.
 `git diff --check` passed in the pinned cloud Python environment. Merge results and
 remaining review dispositions will be recorded after live CI/review checks.
 
+
+
+## PR review and authorized merges (2026-10-14)
+
+The author's subsequent instruction authorized reviewing, marking ready, addressing
+CodeRabbit findings, and merging the existing PR stack. All seven drafts became
+ready for review. CodeRabbit initially skipped drafts, then skipped non-default
+base branches; explicit review requests on #2–#7 produced reviews on every task.
+Every actionable source finding was reproduced or checked against current code.
+
+Changes from those reviews:
+- T00/T01: disable credential persistence for both CI checkouts, distinguish quick
+  unit validation in README, enforce the recorded Docker host pin, and verify the
+  exact approved Python archive before image installation. Both Dockerfiles retain
+  bounded snapshot acquisition retries, original pins, TLS and signature checks.
+- T01: retain raw Unicorn PyPI license metadata alongside its reviewed GPL-2.0-only
+  engine/bundled-component classification; doctor tests work from outside the repo.
+  Historical workstation audit findings remain unchanged. Their count command and
+  per-record stale-SBOM caveat are documented in docs/toolchain-review.md.
+- T02: exported schemas reject invalid/private/hashless input paths and unknown or
+  cross-family variants; committed schemas must match a fresh deterministic export.
+- T03: sync artifact publication and fanout directory entries before returning.
+- T04: result artifact storage failures return explicit internal errors after cleanup,
+  preserve a missing result_artifact, and allow the rest of a batch to complete.
+- T05: a named non-program cannot silently lint nested programs; first-read order is
+  consistent with the authoritative Phase 1A spec.
+- T06: fixed embedded-NUL expectations exercise every file/stdin workflow. The five
+  original native programs and their annotations needed no functional corrections.
+
+Cloud source validation at b777b580fd887a5d0cf70b33f5736cc771e14b82: Ruff clean;
+strict Pyright 0 errors/warnings; full non-slow suite **122 passed in 97.90 seconds**
+(108 unit and 14 integration cases). Five native programs execute 172 assertions
+under NDEBUG; file/stdin, empty, embedded-NUL and missing-file paths pass. Later
+changes through b472cbda672fd9e289f03cbb674cc6b32a0e98e4 only clarify license/audit
+metadata and make doctor tests independent of cwd; all nine doctor/config tests
+passed from both the repo and /tmp. No test assertion was weakened.
+
+The cloud review image installs the checksum-verified approved Python archive and
+current worker/schema sources on the previously verified pinned base. Installed
+worker/main, worker entrypoint, canonicalizer and model hashes match this checkout.
+Flattening preserves all 28,644 filesystem entries and runtime configuration.
+Compiler image: sha256:0d62a62235770bf4f62cfb2c3ad0bf532d593287fa25a3f544c188fa49cac959.
+Review analysis image: sha256:f2385334393f7e8c0972252598fb2b19fec1497d6f20e29069d57591b07622a1.
+Fresh Trivy scan: 64 analysis findings (3 critical, 23 high, 34 medium, 4 low).
+Doctor now correctly exits 2 for Docker expected 29.1.3 / actual 28.4.0; every other
+cloud-local doctor check passes. Configuration/lock image fields are restored.
+The installer repeat verified cached artifacts and reused these inspected IDs.
+Exact scan, build, source, flatten, test and diagnostic hashes are recorded separately
+in docs/cloud-review-environment.json; earlier cloud/workstation evidence is retained.
+
+Clean CI image builds initially failed before tests because the pinned Ubuntu snapshot
+service returned 500/502/503. It later recovered; all three signed InRelease URLs
+responded 200, and the following latest-head clean CI runs passed both quick and
+sandbox jobs (obsolete-head runs were cancelled, never counted as passes):
+
+| PR | Head validated by CI | Run | Merge commit |
+|---|---|---|---|
+| #1 | d8fedc907a40c465e451613f7cf73b5c6ce3ad3c | 38571090109 | 4808d2de3de5cb435280f8766cca31b50fe0fe00 |
+| #2 | e1a6351243236889c4fabe27a96aa58ab04b419f | 38579238917 | 4fd327d9a82777d88437e575484b4908d0d6e180 |
+| #3 | 83949b233e7dba53c3b8ebb2898ac7f2f02ea092 | 38579249708 | fa28a028eb37e300fc80f9d0ffa3a687275a84dd |
+| #4 | d7f9bafaecaec2c46bad563e85a4fb39be98c400 | 38579261662 | de62cd6afb161bf3a16ff54bef03e54a9283bfce |
+| #5 | da9fb77a69c23f8f613f68f386f4d1fea77efd2a | 38579272496 | 295a5c2018beb2fd1dc52841e2673c50dc214011 |
+| #6 | 1ec8e7ef3c005728cbe82cbb39356bba7f935a97 | 38579276655 | cb8ca32713ae9b05b077a89048c6079a29c69d05 |
+| #7 | b472cbda672fd9e289f03cbb674cc6b32a0e98e4 | 38579280163 | This ledger is part of #7; final merge is authorized after its checks. |
+
+PRs #1–#6 are merged with merge commits, preserving checkpoint ancestry; each child
+was retargeted to main after its parent merged. PR #7's code and review are validated;
+this evidence update is its final review package. Live outcome/merge SHA is available
+at https://github.com/gitedmond/aletheia/pull/7. The author explicitly authorized its
+merge; no dependent implementation is performed here.
+
+The Ghidra reachability/disposition review remains open. Ordinary PR merge authority
+does not grant protected F1–F7 proposals, future HR gates, publication or provider
+calls. Record explicit T06 semantic/annotation HR disposition before dependent work;
+no such disposition is inferred solely from the ordinary merge instruction. No slow
+pipeline, replay or X1–X10 result is claimed. Retain the Phase 1A dependency roadmap.
