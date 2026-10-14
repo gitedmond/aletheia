@@ -33,7 +33,7 @@ no task-specific HR gate, but their PRs remain unmerged. No Phase 1A exit gate h
 | T01 | done: verified images, config, doctor, licenses and scans | PR #2 draft; residual security review open | 0d655e0 |
 | T02 | done: records, canonical hashes, nine schemas | PR #3 draft | c717897 |
 | T03 | done: transactional metadata, opaque artifacts, cache foundations | PR #4 draft | 001acbe |
-| T04 | done: bounded Docker runner and worker protocol | PR #5 draft | t04-sandbox implementation commit; see Git log |
+| T04 | done: bounded Docker runner and worker protocol | PR #5 draft | 0328420; later handoff documentation commit is in Git log |
 | T05-T27 | planned dependency roadmap in spec Section 17 | Required HR gates pending | none |
 | T30-T32 | deferred, LLM lane disabled | none | none |
 
@@ -59,6 +59,8 @@ Full T04 checkout on 2026-10-14:
 - uv run pytest -m "not slow" -q: 64 passed in 17.14 seconds.
 - uv run alth --json doctor: status ok, exit 0.
 - Both CLI aliases --help exit 0; schema export is deterministic.
+- Installed worker/main, worker entrypoint, canonicalizer, and model source SHA-256 hashes
+  match the checkout exactly; docs/image-worker-sources.json records them.
 - Nine real Docker checks: tool startup, C compile/strip, all-type contract round trips,
   echo/order/concurrency, network/root/input isolation and limits, timeout removal,
   OOMKilled reporting, wrong identity, and explicit unimplemented handler failure.
@@ -66,7 +68,8 @@ Full T04 checkout on 2026-10-14:
 - Artifact concurrency/corruption/traversal and malformed-result/cleanup failure checks pass.
 
 GitHub checks and sandbox jobs for the latest T01-T03 PR heads passed. T00's latest checks
-passed. T04 remote CI is pending until the final head completes; do not infer success.
+passed. T04 quick checks passed at 0328420; its sandbox CI is still running as of this record.
+Do not infer success for pending checks or later documentation heads.
 Initial T00 CI failed under forced terminal color; setting a stable plain-text CI environment
 fixed captured help output with the test assertions unchanged.
 
