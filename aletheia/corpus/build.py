@@ -205,11 +205,16 @@ def _execute(image: str, snapshot: Path, output: Path, program: str) -> None:
     except OSError as error:
         failure = BuildError(f"compiler sandbox unavailable: {error}")
     finally:
-        cleanup = subprocess.run(
-            ["docker", "rm", "--force", name], capture_output=True, text=True, timeout=15
-        )
-        if cleanup.returncode and "No such container" not in cleanup.stderr:
-            detail = "compiler container cleanup failed: " + cleanup.stderr
+        detail = ""
+        try:
+            cleanup = subprocess.run(
+                ["docker", "rm", "--force", name], capture_output=True, text=True, timeout=15
+            )
+            if cleanup.returncode and "No such container" not in cleanup.stderr:
+                detail = "compiler container cleanup failed: " + cleanup.stderr
+        except (OSError, subprocess.TimeoutExpired) as error:
+            detail = f"compiler container cleanup failed: {error}"
+        if detail:
             failure = BuildError(f"{failure}; {detail}" if failure else detail)
     if failure:
         raise failure

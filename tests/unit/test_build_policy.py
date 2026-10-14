@@ -99,3 +99,21 @@ def test_compiler_jobs_reject_root_identity(tmp_path, monkeypatch):
     monkeypatch.setattr(build.os, "getuid", lambda: 0)
     with pytest.raises(BuildError, match="non-root"):
         build._execute("sha256:" + "a" * 64, tmp_path, tmp_path, "p")
+
+
+@pytest.mark.parametrize("cleanup_timeout", [False, True])
+def test_cleanup_exceptions_preserve_compiler_failure(tmp_path, monkeypatch, cleanup_timeout):
+    import subprocess
+    from aletheia.corpus.build import _execute
+    source = tmp_path / "snapshot/tierA/example/src"
+    source.mkdir(parents=True)
+    (source / "main.c").write_text("int main(void) { return 0; }")
+    def fail(command, **kwargs):
+        if command[1] == "run":
+            raise FileNotFoundError("compiler Docker executable missing")
+        if cleanup_timeout:
+            raise subprocess.TimeoutExpired(command, 15)
+        raise FileNotFoundError("cleanup Docker executable missing")
+    monkeypatch.setattr(subprocess, "run", fail)
+    with pytest.raises(BuildError, match="sandbox unavailable:.*compiler Docker.*cleanup failed"):
+        _execute("sha256:" + "1" * 64, tmp_path / "snapshot", tmp_path / "out", "example")
