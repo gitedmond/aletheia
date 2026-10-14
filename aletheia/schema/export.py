@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from aletheia.schema.canonical import canonical_bytes
 from aletheia.schema.models import (
+    REGISTRY,
     Claim,
     ClaimSubmission,
     Grade,
@@ -34,6 +35,22 @@ def export_schemas(directory: Path) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     for name, model in sorted(MODELS.items()):
         schema = model.model_json_schema()
+        # Registry relationships are runtime validators, so export them explicitly.
+        for definition in ("Algorithm", "GroundAlgorithm"):
+            algorithm = schema.get("$defs", {}).get(definition)
+            if algorithm is None:
+                continue
+            families = {family: list(variants) for family, variants in sorted(REGISTRY.items())}
+            if definition == "GroundAlgorithm":
+                families["none"] = []
+            algorithm["properties"]["family"]["enum"] = sorted(families)
+            algorithm["allOf"] = [
+                {
+                    "if": {"properties": {"family": {"const": family}}, "required": ["family"]},
+                    "then": {"properties": {"variant": {"enum": [None, *variants]}}},
+                }
+                for family, variants in families.items()
+            ]
         if issubclass(model, ClaimSubmission):
             schema["allOf"] = [
                 {

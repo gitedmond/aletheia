@@ -150,3 +150,14 @@ def test_cli_missing_named_program_is_explicit_failure(tmp_path):
     )
     assert result.exit_code == 1
     assert json.loads(result.output)["errors"][0]["rule"] == "program_missing"
+
+
+def test_cli_named_nonprogram_does_not_scan_nested_programs(tmp_path):
+    program(tmp_path / "group")
+    result = CliRunner().invoke(
+        app, ["--json", "corpus", "lint", str(tmp_path), "--program", "group"]
+    )
+    assert result.exit_code == 1
+    value = json.loads(result.output)
+    assert value["programs"] == 0
+    assert value["errors"][0]["rule"] == "program_missing"

@@ -75,11 +75,10 @@ def corpus_lint(
 
     if program is not None:
         directory = directory / program
-    programs = (
-        [directory]
-        if (directory / "src").is_dir()
-        else sorted(p for p in directory.glob("*") if p.is_dir() and (p / "src").is_dir())
-    )
+    if program is not None or (directory / "src").is_dir():
+        programs = [directory] if (directory / "src").is_dir() else []
+    else:
+        programs = sorted(p for p in directory.glob("*") if p.is_dir() and (p / "src").is_dir())
     errors = [error for program in programs for error in lint_program(program)]
     if not programs:
         errors = [LintError(str(directory), 0, "program_missing", "no corpus programs found")]

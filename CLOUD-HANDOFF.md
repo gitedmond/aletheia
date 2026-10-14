@@ -25,7 +25,7 @@ checkpoint is an ancestor; record the actual checkout SHA in STATUS.md.
 If the directory already exists, inspect it and preserve changes rather than replacing it.
 If the expected branch/commit is inaccessible, report the blocker; do not start from main.
 
-Read AGENTS.md, then SPEC-PHASE-1A.md **v0.4 in full**, STATUS.md, and DESIGN.md
+Read SPEC-PHASE-1A.md **v0.4 in full**, then AGENTS.md, STATUS.md, and DESIGN.md
 (design v0.4.1, approved conversion), including tables and appendices.
 The spec is authoritative for Phase 1A; intentional design deviations are in Section 21.
 Do not use the Phase 1B spec to override Phase 1A. Report actual remaining contradictions.

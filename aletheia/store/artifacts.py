@@ -35,6 +35,13 @@ class ArtifactStore:
                 os.link(temporary, path)
             except FileExistsError:
                 self.get(digest)
+            # fsync(file) does not persist the link or a newly created fanout directory.
+            for directory in (path.parent, self.root):
+                directory_fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
         finally:
             Path(temporary).unlink(missing_ok=True)
         return digest

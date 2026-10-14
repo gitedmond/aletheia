@@ -10,11 +10,12 @@ RUN curl -fsSL --retry 2 -o /tmp/findcrypt.zip https://github.com/antoniovazquez
 COPY docker/capa-rules.lock /tmp/capa-rules.lock
 RUN . /tmp/capa-rules.lock && curl -fsSL --retry 2 -o /tmp/rules.tar.gz "$RULES_URL" && echo "$RULES_SHA256  /tmp/rules.tar.gz" | sha256sum -c - && mkdir -p /opt/capa-rules && tar -xzf /tmp/rules.tar.gz --strip-components=1 -C /opt/capa-rules && rm /tmp/rules.tar.gz
 ENV UV_PYTHON_INSTALL_DIR=/opt/python UV_PROJECT_ENVIRONMENT=/opt/venv JAVA_HOME=/opt/jdk GHIDRA_INSTALL_DIR=/opt/ghidra
-RUN uv python install 3.12.15
+COPY docs/python-release.json /tmp/python-release.json
+RUN PYTHON_URL="$(sed -n 's/^[[:space:]]*"url":[[:space:]]*"\([^" ]*\)".*/\1/p' /tmp/python-release.json)" && PYTHON_SHA256="$(sed -n 's/^[[:space:]]*"digest":[[:space:]]*"sha256:\([^" ]*\)".*/\1/p' /tmp/python-release.json)" && test -n "$PYTHON_URL" && test -n "$PYTHON_SHA256" && curl -fsSL --retry 2 -o /tmp/python.tar.gz "$PYTHON_URL" && printf '%s  /tmp/python.tar.gz\n' "$PYTHON_SHA256" | sha256sum -c - && mkdir -p /opt/python && tar -xzf /tmp/python.tar.gz --strip-components=1 -C /opt/python && rm /tmp/python.tar.gz
 WORKDIR /opt/aletheia
 COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY aletheia/ ./aletheia/
-RUN uv sync --frozen --no-dev --group analysis --no-editable && rm -rf /root/.cache/uv
+RUN uv sync --frozen --no-dev --group analysis --no-editable --python /opt/python/bin/python3.12 && rm -rf /root/.cache/uv
 ENV PATH=/opt/venv/bin:/opt/jdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin PYTHONDONTWRITEBYTECODE=1 HOME=/scratch JAVA_TOOL_OPTIONS="-Duser.home=/scratch -Djava.io.tmpdir=/scratch"
 RUN python --version && java -version && capa --version
 USER 1001:1001
