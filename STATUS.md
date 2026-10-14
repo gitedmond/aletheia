@@ -1,39 +1,110 @@
 # Aletheia status
 
-Active phase: Phase 1A. Active milestone: T00-T04 infrastructure.
-Author confirmed the employment/IP review is not applicable before implementation.
-This record contains project decisions, not private agreement contents.
+Active phase: Phase 1A. The T00-T04 foundation is implemented and validated.
+Author-confirmed employment/IP review: not applicable. No private agreement contents recorded.
+Checkout: /home/edmond/src/aletheia, edmond UID/GID 1001. Remote: https://github.com/gitedmond/aletheia.
+Main contains the approved document baseline; code is on the stacked task branches awaiting review.
 
-## Accepted setup decisions
+## Accepted decisions
 
-- Non-root WSL account edmond; checkout /home/edmond/src/aletheia.
-- Public personal repository gitedmond/aletheia; original code and dev corpus MIT.
-- Native Docker Engine reused; no existing workloads or data removed.
-- uv_build approved as build-only dependency; required upstream dependencies locked and audited.
-- Project images referenced by full local SHA-256 IDs; no image registry or image publishing.
-- Hosted spend zero; providers, lane G, held-out infrastructure, and agent power analysis deferred.
-- C1-C7 remain settled. No fixtures, mappings, analyzer options, or HR gates approved.
-- Original OneDrive documents are immutable staging sources; Linux checkout is maintained.
+- Public personal gitedmond/aletheia; original code and planned original dev corpus MIT.
+- Native Docker reused in Ubuntu WSL2. Existing users, unrelated images, and data preserved.
+- uv_build is approved build-only; required upstream dependencies are pinned and audited.
+- Local project images use full SHA-256 IDs. No image registry, package release, or image distribution.
+- LLM disabled, provider empty, cost cap zero. Lane G, held-out infrastructure/providers deferred;
+  agent power analysis awaits real agent data. Draft verifiability is recorded.
+- C1-C7 are settled spec choices. Their later implementation remains in the assigned tasks.
+- Protected goldens, fixtures, mappings, analyzer options, and every HR gate remain human-owned.
+- DESIGN.md is the maintained design source after conversion; author approved the conversion on 2026-10-14.
+- Original OneDrive staging documents are unchanged. On final recheck, design DOCX SHA-256 was
+  1aaaf52a274efee2c737b78b1e962bc08dc1601ad5292ace11e4aaa6dc97f51d and staging Phase 1A
+  SHA-256 was 9fb6f1802b589777f5cae5eebb637bfcddffdb690af60693179cffc0c640e6fe.
 
-## Environment observed
+## Task and review state
 
-Windows personal development host: AMD Ryzen 7 9700X (8 cores/16 threads), 32 GB RAM,
-RTX 5070 Ti. Ubuntu 24.04.4 WSL2, kernel 6.18.33.2; WSL memory about 15 GiB.
-Native Docker Engine/client 29.1.3, containerd 2.2.1, runc 1.3.4.
-Account edmond UID/GID 1001, Docker group 110. Python managed by pinned uv 0.13.0.
+Implemented means code exists. Validated means acceptance and normal checks passed.
+Awaiting review means a draft PR or designated human decision remains open. Done requires
+acceptance and any required HR approval; merge status is recorded separately. T00-T04 have
+no task-specific HR gate, but their PRs remain unmerged. No Phase 1A exit gate has passed.
 
-## Tasks
+| Task | Implementation/validation | Review | Implementation commits |
+|---|---|---|---|
+| T00 | done: scaffold, CLI aliases, pinned checks | PR #1 draft | 340438e, e84b587 |
+| T01 | done: verified images, config, doctor, licenses and scans | PR #2 draft; residual security review open | 0d655e0 |
+| T02 | done: records, canonical hashes, nine schemas | PR #3 draft | c717897 |
+| T03 | done: transactional metadata, opaque artifacts, cache foundations | PR #4 draft | 001acbe |
+| T04 | done: bounded Docker runner and worker protocol | PR #5 draft | 0328420; later handoff documentation commit is in Git log |
+| T05-T27 | planned dependency roadmap in spec Section 17 | Required HR gates pending | none |
+| T30-T32 | deferred, LLM lane disabled | none | none |
 
-| Task | State | Evidence / pending work |
-|---|---|---|
-| T00 | validated; conversion awaiting human review | CLI acceptance failed with missing aletheia.cli before implementation; after implementation Ruff/Pyright passed, pytest 2 passed; both aliases --help exit 0 |
-| T01 | validated; draft review pending | Config tests failed before implementation, then 7 passed; both images built with verified hashes; Ghidra startup and compiler/strip smoke pass; doctor exits 0. 73-package OSV query has zero advisories; image scans retain findings, see docs/toolchain-review.md |
-| T02 | validated; draft review pending | Initial import failure preceded implementation; canonical fixed vectors, IDs, every job type, registry, schema discriminator, and Appendix B checks pass; nine schemas exported |
-| T03 | validated; draft review pending | Missing module failure preceded implementation; CRUD/reopen, foreign keys, active-claim index, cache identity and invalidation, opaque artifact hashing/corruption/traversal checks pass |
-| T04 | planned | Container runner and worker protocol |
+PR stack: #1 targets main; #2 targets t00-scaffold; #3 targets t01-toolchain;
+#4 targets t02-contracts; #5 targets t03-storage. Review/merge in that order.
+After a base PR merges, rebase/retarget its child as needed; do not merge protected proposals.
 
-No human review gates are signed off. Conversion review remains pending.
-T00-T03 acceptance is validated. T04 sandbox transport is next; ordinary PR review and design conversion review remain pending.
+## Exact validation evidence
+
+Acceptance tests were written before their implementation and failed with the missing CLI,
+config, schema, store, and worker modules. Additional checks independently exposed timestamp
+hashing, schema body correlation, forbidden paths, compiler runtime requirements, and cleanup
+failure handling. Their assertions remain intact. The compiler sandbox setup explicitly permits
+execution in scratch; Docker's implicit tmpfs noexec prevented its independently authored smoke
+binary from running. Dropped capabilities, non-root UID, and network/read-only limits remain.
+
+Committed T01 snapshot: Ruff pass, strict Pyright 0 errors/warnings, 11 tests passed.
+Committed T02 snapshot: Ruff pass, strict Pyright 0 errors/warnings, 35 tests passed.
+Committed T03 snapshot: Ruff pass, strict Pyright 0 errors/warnings, 40 tests passed.
+Full T04 checkout on 2026-10-14:
+- uv run ruff check: pass.
+- uv run pyright: 0 errors, 0 warnings.
+- uv run pytest -m "not slow" -q: 64 passed in 17.14 seconds.
+- uv run alth --json doctor: status ok, exit 0.
+- Both CLI aliases --help exit 0; schema export is deterministic.
+- Installed worker/main, worker entrypoint, canonicalizer, and model source SHA-256 hashes
+  match the checkout exactly; docs/image-worker-sources.json records them.
+- Nine real Docker checks: tool startup, C compile/strip, all-type contract round trips,
+  echo/order/concurrency, network/root/input isolation and limits, timeout removal,
+  OOMKilled reporting, wrong identity, and explicit unimplemented handler failure.
+- Source guards reject private/truth/unstripped/O0/source/test paths and escaping symlinks.
+- Artifact concurrency/corruption/traversal and malformed-result/cleanup failure checks pass.
+
+GitHub checks and sandbox jobs for the latest T01-T03 PR heads passed. T00's latest checks
+passed. T04 sandbox CI at 59cbbd4 failed with 59 passed / 5 setup errors while building the test image.
+BuildKit cannot use a local config image ID directly in FROM (moby/moby issue 39769).
+The test builder now uses a local named alias checked against that exact image ID, exposes
+build stderr on failure, and executes the resulting image by inspected immutable ID.
+The sandbox assertions and production policy are unchanged. Remote validation is pending.
+Initial T00 CI failed under forced terminal color; setting a stable plain-text CI environment
+fixed captured help output with the test assertions unchanged.
+
+OSV checked all 73 locked Python dependencies and reported zero advisories on 2026-10-13.
+Trivy 0.75.0 scans report 2,670 build-image and 64 analysis-image findings, retained in
+docs/image-audit.json. This is not a claim of zero vulnerabilities. Raw scans and diagnostic
+logs are in /home/edmond/.cache/aletheia. Exact immutable image IDs are in versions.lock.md.
+
+## Reviews, blockers, and next eligible work
+
+Design conversion approved by the author on 2026-10-14; retention checks covered 48 tables,
+102 headings, and all extracted text. No F1-F7 or HR gate is approved. Review packages are the
+task PR diffs, acceptance tests, schemas, pin/license/audit evidence, and these task states.
+
+Ghidra 11.4.3 bundled Java vulnerabilities need reachability/disposition review before T09/T12
+introduce untrusted binary analysis. Keep the required 11.x pin until an explicit compatibility
+decision changes it; do not swap JARs silently. The current worker has no analysis handlers.
+Some Python findings are from bundled SBOMs rather than the active locked environment.
+The build header-package findings do not constitute a WSL host-kernel assessment.
+
+WSL currently exposes about 15 GiB despite 32 GB physical RAM. Default concurrency is four;
+T09 must measure peak Ghidra RAM and establish headroom before concurrent analysis. Do not
+silently raise WSL memory or restart Docker. Host-kernel/daemon vulnerability assessment,
+dynamic exploit reachability, slow end-to-end checks, and X1-X10 are not validated.
+
+The author approved the foundation direction and authorized the T04 CI fix, T05, and preparation
+of T06 for review on 2026-10-14. No future HR gate or security exception is approved. T06 and protected
+fixture proposals require their explicit HR review. T09 must wait for analyzer option proposal F6;
+T15 must wait for T11 and its HR, and T17 retains T08/T02/T03 dependencies. Follow the spec roadmap.
+T16 owns the engine and construction of complete effective harness/cache inputs. No general
+orchestrator, emulation, corpus binaries, sources, grading, replay, reports, or provider runs exist yet.
+
 ### 2026-10-14 — authorized PR review follow-up
 
 The author authorized ready-for-review conversion, CodeRabbit review, necessary
@@ -47,4 +118,5 @@ retains runtime validation, and checks committed exports against a fresh export.
 `uv run ruff check`, `uv run pyright`, both contract test files (30 passed), and
 `git diff --check` passed in the pinned cloud Python environment. Merge results and
 remaining review dispositions will be recorded after live CI/review checks.
+
 

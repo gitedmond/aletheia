@@ -1,6 +1,6 @@
 # Aletheia Design Document
 
-> Historical design v0.4.1 converted from the original DOCX. Phase 1A requirements and author-approved deviations are in SPEC-PHASE-1A.md. Conversion awaits author review.
+> Historical design v0.4.1 converted from the original DOCX. Phase 1A requirements and author-approved deviations are in SPEC-PHASE-1A.md. Design conversion approved by the author on 2026-10-14.
 
 Aletheia
 

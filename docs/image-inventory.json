@@ -134,7 +134,7 @@
     ]
   },
   "analysis": {
-    "image": "sha256:7d7fe5836ce0aea567ff277667058d30bb93b999c47eef235caa35b041fc4d80",
+    "image": "sha256:ba2695133fd3b74d0e96eeea69fa2a1b5eb83340c75789164153c389cc2056fd",
     "packages": [
       "apt 2.8.3",
       "base-files 13ubuntu10.5",
