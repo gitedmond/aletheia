@@ -29,8 +29,8 @@ Account edmond UID/GID 1001, Docker group 110. Python managed by pinned uv 0.13.
 | T00 | validated; conversion awaiting human review | CLI acceptance failed with missing aletheia.cli before implementation; after implementation Ruff/Pyright passed, pytest 2 passed; both aliases --help exit 0 |
 | T01 | validated; draft review pending | Config tests failed before implementation, then 7 passed; both images built with verified hashes; Ghidra startup and compiler/strip smoke pass; doctor exits 0. 73-package OSV query has zero advisories; image scans retain findings, see docs/toolchain-review.md |
 | T02 | validated; draft review pending | Initial import failure preceded implementation; canonical fixed vectors, IDs, every job type, registry, schema discriminator, and Appendix B checks pass; nine schemas exported |
-| T03 | planned | SQLite and artifact store |
+| T03 | validated; draft review pending | Missing module failure preceded implementation; CRUD/reopen, foreign keys, active-claim index, cache identity and invalidation, opaque artifact hashing/corruption/traversal checks pass |
 | T04 | planned | Container runner and worker protocol |
 
 No human review gates are signed off. Conversion review remains pending.
-T00-T02 acceptance is validated. T03 storage is next; ordinary PR review and design conversion review remain pending.
+T00-T03 acceptance is validated. T04 sandbox transport is next; ordinary PR review and design conversion review remain pending.
