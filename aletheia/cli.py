@@ -104,7 +104,7 @@ def corpus_build(
     directory: Annotated[Path, typer.Argument()] = Path("corpus/tierA"),
     program: Annotated[str | None, typer.Option("--program")] = None,
 ) -> None:
-    """Build reproducible O2/stripped and private O0 binaries in the pinned sandbox."""
+    """Build reproducible binaries, private truth, public targets and check leakage."""
     from aletheia.config import Config
     from aletheia.corpus.build import BuildError, Variant, build_program
 

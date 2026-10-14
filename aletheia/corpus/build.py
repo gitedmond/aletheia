@@ -376,6 +376,12 @@ def build_program(program_dir: Path, variant: Variant) -> BuildOutput:
             (output / "build.json").write_bytes(canonical_bytes(record))
             (output / "compiler.txt").unlink()
             (output / "inspection.json").unlink()
+            from aletheia.corpus.ground_truth import GroundTruthError, complete_staged_build
+
+            try:
+                complete_staged_build(output, variant.image, snapshot, program.name, str(program))
+            except GroundTruthError as error:
+                raise BuildError(str(error)) from error
             _publish(output, destination)
     return BuildOutput(
         "tierA/" + program.name,
@@ -386,3 +392,9 @@ def build_program(program_dir: Path, variant: Variant) -> BuildOutput:
         destination / "private/o0.bin",
         destination / "build.json",
     )
+
+
+# Private corpus stages share snapshot/publication policy, never verifier helpers.
+snapshot_program = _snapshot
+check_no_symlinks = _no_symlinks
+publish_bundle = _publish
