@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -6,7 +7,7 @@ from typer.testing import CliRunner
 
 from aletheia.cli import app
 from aletheia.config import Config
-from aletheia.doctor import read_lock
+from aletheia.doctor import diagnose, read_lock
 
 
 def test_config_defaults_disable_llm():
@@ -42,3 +43,23 @@ def test_doctor_missing_config_is_explicit(tmp_path: Path):
     assert result.exit_code == 2
     assert '"status":"error"' in result.output
     assert "config" in result.output
+
+
+@pytest.mark.parametrize("version,status", [("29.1.3", "ok"), ("28.4.0", "error")])
+def test_doctor_reports_docker_pin_mismatch(monkeypatch, version, status):
+    def command(args):
+        if args[:2] == ["docker", "version"]:
+            return json.dumps({"Server": {"Version": version}})
+        if args == ["uv", "--version"]:
+            return "uv 0.13.0"
+        if args[:3] == ["docker", "image", "inspect"]:
+            return args[3]
+        raise AssertionError(args)
+
+    monkeypatch.setattr("aletheia.doctor.command", command)
+    checks = diagnose(Path("aletheia.toml"))["checks"]
+    docker = next(check for check in checks if check["name"] == "docker")
+    assert docker["status"] == status
+    assert version in docker["detail"]
+    if status == "error":
+        assert "expected 29.1.3" in docker["detail"]

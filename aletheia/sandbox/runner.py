@@ -147,7 +147,16 @@ class JobRunner:
                         error_code="internal",
                         output={"detail": "container cleanup failed"},
                     )
-        handle.result_artifact = self.artifacts.put(canonical_bytes(result))
+        try:
+            handle.result_artifact = self.artifacts.put(canonical_bytes(result))
+        except (OSError, ValueError):
+            handle.result_artifact = None
+            result = JobResult(
+                job_id=handle.job.job_id,
+                status="error",
+                error_code="internal",
+                output={"detail": "result artifact storage failed"},
+            )
         return result
 
     def run_many(self, jobs: list[Job]) -> list[JobResult]:

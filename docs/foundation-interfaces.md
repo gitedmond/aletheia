@@ -39,8 +39,10 @@ missing handlers return bad_input. Tests inject a handler for verify_static usin
 test image; no echo handler or arbitrary plugin loader is in production. Infrastructure failures
 return explicit protocol codes. Invalid/missing worker identities fail, and results are bounded
 to 16 MiB. Docker's OOMKilled state determines oom; exit 137 alone does not.
+If artifact persistence fails, wait returns an internal error with result_artifact
+left unset; other jobs in the batch still return their own results.
 
-guarded_input rejects private paths, source/header files, truth/unstripped/O0 names, corpus/test
+guarded_input rejects private paths, .c/.h inputs, truth/unstripped/O0 names, corpus/test
 directories, traversal, and escaping symlinks. The host mounts only staged input files and a
 separate output directory. Input identity and these path checks are necessary constraints;
 T07/T09 must still establish stripped-binary provenance and check binary structure inside jobs.

@@ -316,24 +316,25 @@ class RunManifest(ManifestInput):
         return self
 
 
+InputPath = Annotated[
+    str,
+    Field(
+        pattern=r"^in/(?:[A-Za-z0-9_-]+/)*[0-9a-f]{64}\.[a-z0-9]+$",
+        json_schema_extra={"not": {"pattern": r"(^|/)private(/|$)"}},
+    ),
+]
+
+
 class JobInput(Record):
     type: JobType
-    inputs: dict[str, str] = Field(default_factory=dict)
+    inputs: dict[str, InputPath] = Field(default_factory=dict)
     params: dict[str, JsonValue] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def input_paths(self) -> Self:
         for path in self.inputs.values():
-            if not re.fullmatch(r"in/(?:[A-Za-z0-9_-]+/)*[0-9a-f]{64}\.[a-z0-9]+", path):
-                raise ValueError("job inputs require full content hash filenames")
-            parts = path.split("/")
-            if (
-                parts[0] != "in"
-                or len(parts) < 2
-                or any(part in ("", ".", "..", "private") for part in parts)
-                or "\\" in path
-            ):
-                raise ValueError("job inputs must be relative paths beneath in/")
+            if "private" in path.split("/"):
+                raise ValueError("job inputs cannot include private/")
         return self
 
 
