@@ -1,0 +1,31 @@
+[paths]
+build = "build"
+runs = "runs"
+artifacts = "artifacts"
+[sandbox]
+image_build = "sha256:32287de49948decfc85fa7f7d63f5636be723cfa34429524d617329ed98adbca"
+image_analysis = "sha256:7d7fe5836ce0aea567ff277667058d30bb93b999c47eef235caa35b041fc4d80"
+concurrency = 4
+memory_gb = 6
+wall_timeout_s = 60
+[budgets]
+instructions_per_invocation = 10000000
+instructions_per_claim = 200000000
+heap_mb = 64
+stack_mb = 1
+[ghidra]
+analysis_options = "configs/ghidra-analysis.json"
+[sources.capa]
+enabled = true
+mapping = "mappings/capa.yaml"
+[sources.findcrypt]
+enabled = true
+mapping = "mappings/findcrypt.yaml"
+[llm]
+enabled = false
+provider = ""
+cost_cap_usd = 0
+[metrics]
+bootstrap_resamples = 1000
+bootstrap_seed = 20261013
+cwr_thresholds = [0.8, 0.9]

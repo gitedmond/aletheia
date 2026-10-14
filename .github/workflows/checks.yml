@@ -1,5 +1,8 @@
 name: Checks
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
 permissions:
   contents: read
 jobs:
@@ -18,3 +21,37 @@ jobs:
       - run: uv run ruff check
       - run: uv run pyright
       - run: env -u FORCE_COLOR TERM=dumb NO_COLOR=1 uv run pytest -m "not slow and not integration"
+  sandbox:
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Install pinned uv
+        shell: bash
+        run: |
+          curl -fsSL --retry 2 -o /tmp/uv.tar.gz https://github.com/astral-sh/uv/releases/download/0.13.0/uv-x86_64-unknown-linux-gnu.tar.gz
+          echo '1468ebd5a5541121837c5a2817b9972ba6090fa6caa3d142620850a47fb75154  /tmp/uv.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/uv.tar.gz -C /tmp
+          echo /tmp/uv-x86_64-unknown-linux-gnu >> "$GITHUB_PATH"
+      - name: Build pinned image inputs
+        run: |
+          curl -fsSL --retry 2 -o docker/ca-certificates.deb https://archive.ubuntu.com/ubuntu/pool/main/c/ca-certificates/ca-certificates_20260601~24.04.1_all.deb
+          echo '6bac2a01979e210d9eac1d4d56747ec709ea60654744d66705dc3c36e7629e50  docker/ca-certificates.deb' | sha256sum -c -
+          docker build -f docker/build.Dockerfile -t aletheia-build .
+          docker build -f docker/analysis.Dockerfile -t aletheia-analysis .
+      - name: Record these CI-local image identities
+        run: |
+          python3 - <<'PY'
+          import re, subprocess
+          from pathlib import Path
+          for kind in ("build", "analysis"):
+              image = subprocess.check_output(["docker", "image", "inspect",
+                  "aletheia-" + kind, "--format", "{{.Id}}"], text=True).strip()
+              print(kind + " image: " + image)
+              path = Path("aletheia.toml")
+              path.write_text(re.sub(r'image_' + kind + r' = "[^"]*"',
+                  'image_' + kind + ' = "' + image + '"', path.read_text()))
+          PY
+      - run: uv sync --frozen
+      - run: env -u FORCE_COLOR TERM=dumb NO_COLOR=1 uv run pytest -m "not slow"

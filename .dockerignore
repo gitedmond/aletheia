@@ -1,0 +1,9 @@
+*
+!docker/
+!docker/**
+!pyproject.toml
+!uv.lock
+!README.md
+!LICENSE
+!aletheia/
+!aletheia/**
