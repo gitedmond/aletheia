@@ -91,3 +91,40 @@ def test_appendix_b_examples_validate_after_placeholder_substitution():
 def test_job_inputs_bind_opaque_content_to_full_hash_names():
     with pytest.raises(ValidationError):
         Job.create("ghidra_analyze", {"binary": "in/binary.bin"}, {})
+
+
+@pytest.mark.parametrize(
+    "path", ["../../etc/passwd", "in/binary.bin", "in/private/" + "a" * 64 + ".bin"]
+)
+def test_exported_job_schema_rejects_invalid_paths(path):
+    value = Job.create("ghidra_analyze", {"binary": "in/" + "a" * 64 + ".bin"}, {}).model_dump(
+        mode="json"
+    )
+    value["inputs"]["binary"] = path
+    schema = json.loads(Path("spec/claims-v1/job.json").read_text())
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(value, schema)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"family": "unknown", "variant": None},
+        {"family": "crc32", "variant": "unknown"},
+        {"family": "crc32", "variant": "zlib"},
+    ],
+)
+def test_exported_claim_schema_rejects_unregistered_algorithms(body):
+    value = {
+        "run_id": "r_" + "1" * 16,
+        "binary_sha256": "a" * 64,
+        "source": {"origin": "scripted", "source_id": "test"},
+        "subject": {"address": "0x00001230"},
+        "type": "algorithm_identity",
+        "body": body,
+        "confidence": 0.9,
+        "confidence_source": "scripted",
+    }
+    schema = json.loads(Path("spec/claims-v1/claim-submission.json").read_text())
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(value, schema)
