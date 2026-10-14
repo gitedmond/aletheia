@@ -35,8 +35,9 @@ no task-specific HR gate, but their PRs remain unmerged. No Phase 1A exit gate h
 | T02 | done: records, canonical hashes, nine schemas | PR #3 draft | c717897 |
 | T03 | done: transactional metadata, opaque artifacts, cache foundations | PR #4 draft | 001acbe |
 | T04 | done: bounded Docker runner and worker protocol; CI repaired | PR #5 draft | 0328420, 59cbbd4, 0eec482 |
-| T05 | validated: source policy and CLI; 35 acceptance cases | Task draft PR pending; no T05 HR gate | 039b6fc, 62c861d |
-| T06-T27 | planned dependency roadmap in spec Section 17 | Required HR gates pending; no T06 programs authored | none |
+| T05 | done: source policy and CLI; 35 acceptance cases, full cloud validation | PR #6 draft -> t04-sandbox; no T05 HR gate | 039b6fc, 62c861d, 57d504e |
+| T06 | prepared and validated: five C17 programs, 172 native assertions | Annotation/semantic HR pending; task draft PR pending | cc05cca, dc74d4e |
+| T07-T27 | planned dependency roadmap in spec Section 17 | Required HR gates pending | none |
 | T30-T32 | deferred, LLM lane disabled | none | none |
 
 PR stack: #1 targets main; #2 targets t00-scaffold; #3 targets t01-toolchain;
@@ -189,3 +190,34 @@ automatic merges, image/package releases, or environment publication were perfor
 Network destinations now respond; no external setup access blocker remains.
 Reusable managed install/start instructions are being updated from the old main-only
 bootstrap to the tested checkpoint workflow. T05 review and T06 HR remain separate.
+
+
+## T06 cloud review preparation (2026-10-14)
+
+The complete source/native acceptance run above exercised original T06 code at
+3d6f2c9. After a documentation-only T05 base update, equivalent source commits are
+cc05cca4e48850adf5c8afd5e3511526607656b3 and dc74d4e18ab59a479ed27fe29a1b979ee9a0f13d.
+The source changes are unchanged by the rebase; later commits record review evidence.
+The expected PC checkpoint 039b6fcd6121f27553e0c3a47e40ba6936703042 remains an ancestor.
+
+- Full normal cloud suite: 109 passed in 87.40 seconds; Ruff/Pyright passed.
+- alth --json corpus lint: 5 programs, 0 errors. Both CLI aliases --help exit 0.
+- Native assertions: crc32tool 19, adlerfletch 16, hashtable 35, b64 89,
+  cmd-dispatch 13; total 172, active under NDEBUG. File/stdin, empty input,
+  and missing-file behavior passed for every program.
+- Build image: sha256:0d62a62235770bf4f62cfb2c3ad0bf532d593287fa25a3f544c188fa49cac959.
+- Analysis image: sha256:b3148c7aa100c6bfc7a92c21862f828fd86b76d69528738e808b4b6c034230c5.
+- Pinned Capstone 5.0.9/pyelftools 0.33 are installed in the approved corpus group.
+- Tested installer repeat reused the inspected image IDs with the exact input/source
+  fingerprint. Cached outputs and tool activation are reusable; live processes are not.
+- Trivy freshly scanned the final compiler image: 2,670 findings; analysis scan of
+  the filesystem proven equal to the flattened image: 64 findings (including 3 critical,
+  23 high). Reachability/disposition is pending; no exception is approved.
+
+Review source/annotation/callback inventory and native results in docs/corpus-review.md.
+T05 draft: https://github.com/gitedmond/aletheia/pull/6 -> t04-sandbox.
+T06 is stacked on t05-corpus-lint; no automatic merge is authorized. No protected
+fixtures/mappings/analyzer settings or additional dependencies were created.
+
+**Next step: author T06 annotation/semantic HR review. Stop before T07/dependent work.**
+The separate Ghidra security review and all future applicable HR gates remain open.
