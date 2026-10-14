@@ -82,8 +82,11 @@ def scan_capa(directory: Path, job: Job) -> JobResult:
             output={"detail": "capa_scan failed: " + result.stderr[-1000:]},
         )
     report = REPORT.validate_python(json.loads(result.stdout))
-    meta = cast(dict[str, JsonValue], report["meta"])
-    analysis = cast(dict[str, JsonValue], meta["analysis"])
+    meta = report.get("meta")
+    analysis = meta.get("analysis") if isinstance(meta, dict) else None
+    sample = meta.get("sample") if isinstance(meta, dict) else None
+    if not isinstance(meta, dict) or not isinstance(analysis, dict) or not isinstance(sample, dict):
+        raise ValueError("capa report lacks meta/analysis/sample objects")
     base_source = "metadata"
     if "base_address" not in analysis:
         analysis["base_address"] = {"type": "absolute", "value": _fallback_base(binary)}
@@ -91,7 +94,6 @@ def scan_capa(directory: Path, job: Job) -> JobResult:
     # Wall-clock and invocation paths are informational, not content identity.
     meta.pop("timestamp", None)
     meta.pop("argv", None)
-    sample = cast(dict[str, JsonValue], meta["sample"])
     sample.pop("path", None)
     return JobResult(
         job_id=job.job_id,
