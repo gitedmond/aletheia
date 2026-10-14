@@ -353,3 +353,8 @@ def lint_program(program_dir: Path) -> list[LintError]:
             if library != "c":
                 error(makefile, 0, "libc_only", f"third-party link library: {library}")
     return sorted(errors, key=lambda e: (e.path, e.line, e.rule, e.message))
+
+
+def source_functions(text: str, path: Path) -> list[Function]:
+    """Locate controlled definitions with the same lexical rules as source lint."""
+    return _functions(_mask(text)[0], path)
