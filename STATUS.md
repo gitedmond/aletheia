@@ -2,7 +2,8 @@
 
 Active phase: Phase 1A. The T00-T04 foundation is implemented and validated.
 Author-confirmed employment/IP review: not applicable. No private agreement contents recorded.
-Checkout: /home/edmond/src/aletheia, edmond UID/GID 1001. Remote: https://github.com/gitedmond/aletheia.
+Historical workstation checkout: /home/edmond/src/aletheia, edmond UID/GID 1001.
+Active implementation destination: cloud Linux checkout (author request 2026-10-14). Remote: https://github.com/gitedmond/aletheia.
 Main contains the approved document baseline; code is on the stacked task branches awaiting review.
 
 ## Accepted decisions
@@ -34,7 +35,7 @@ no task-specific HR gate, but their PRs remain unmerged. No Phase 1A exit gate h
 | T02 | done: records, canonical hashes, nine schemas | PR #3 draft | c717897 |
 | T03 | done: transactional metadata, opaque artifacts, cache foundations | PR #4 draft | 001acbe |
 | T04 | done: bounded Docker runner and worker protocol; CI repaired | PR #5 draft | 0328420, 59cbbd4, 0eec482 |
-| T05 | source linter implemented as a work-in-progress checkpoint; 33 added tests pass | No T05 PR yet; final task review pending | See checkpoint commit in Git log and CLOUD-HANDOFF.md |
+| T05 | source linter implemented as a work-in-progress checkpoint; 33 added tests pass | No T05 PR yet; final task review pending | 039b6fc (WIP checkpoint) |
 | T06-T27 | planned dependency roadmap in spec Section 17 | Required HR gates pending; no T06 programs authored | none |
 | T30-T32 | deferred, LLM lane disabled | none | none |
 
