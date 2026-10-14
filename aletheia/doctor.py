@@ -80,7 +80,9 @@ def diagnose(config_path: Path) -> dict[str, Any]:
         "docker",
         lambda: exact(
             "Docker",
-            json.loads(command(["docker", "version", "--format", "{{json .}}"]))["Server"]["Version"],
+            json.loads(command(["docker", "version", "--format", "{{json .}}"]))["Server"][
+                "Version"
+            ],
             lock["host"]["docker"],
         ),
     )
