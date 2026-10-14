@@ -32,3 +32,16 @@ Audit evidence is static and date-specific. It does not cover every native tool 
 the WSL host kernel, Docker daemon, or dynamic reachability. Repeat the scan after changing
 image inputs; preserve findings and resolve applicable vulnerabilities before enabling their
 affected paths. Human review of the residual 11.x risks is pending.
+
+
+Review metadata clarification (2026-10-14): the six historical Python findings
+against msgpack 1.1.2, setuptools 70.3.0, and urllib3 2.7.0 are the possible
+stale-SBOM records discussed above. This caveat applies to each record; none is
+suppressed or treated as disposed. The historical scanner findings remain unchanged.
+The Unicorn inventory now distinguishes its PyPI BSD metadata from the reviewed
+GPL-2.0-only engine and bundled-component notices.
+
+Recompute historical finding counts from the retained JSON when preparing a review:
+```sh
+python3 -c 'import json; from pathlib import Path; print({r["image"]: len(r["findings"]) for r in json.loads(Path("docs/image-audit.json").read_text())})'
+```
