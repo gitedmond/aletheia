@@ -1,0 +1,20 @@
+name: Checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Install pinned uv
+        shell: bash
+        run: |
+          curl -fsSL --retry 2 -o /tmp/uv.tar.gz https://github.com/astral-sh/uv/releases/download/0.13.0/uv-x86_64-unknown-linux-gnu.tar.gz
+          echo '1468ebd5a5541121837c5a2817b9972ba6090fa6caa3d142620850a47fb75154  /tmp/uv.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/uv.tar.gz -C /tmp
+          echo /tmp/uv-x86_64-unknown-linux-gnu >> "$GITHUB_PATH"
+      - run: uv sync --frozen
+      - run: uv run ruff check
+      - run: uv run pyright
+      - run: uv run pytest -m "not slow and not integration"
