@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document | Phase 1a implementation spec |
-| Version | 0.3 |
+| Version | 0.4 |
 | Depends on | DESIGN.md v0.4.1 |
 | Scope | Phase 1a only: thin vertical slice, no LLM first |
 | Audience | The author, and AI coding agents working under the author's review |
@@ -235,7 +235,9 @@ aletheia/                        # public repo root
 
 1. Plain C17, no third-party dependencies, libc only.
 2. **Function names are unique within a program** (no two static functions share a name).
-3. Every non-trivial function carries annotations on the lines directly above its definition:
+3. Every source function definition, including `main` and trivial helpers, carries annotations
+   on the lines directly above its definition. The author approved this conservative T05
+   convention on 2026-10-14; exact non-triviality still comes from the O0 instruction count at T08:
    - `// @algorithm <family>/<variant>` or `// @algorithm none`
    - Optional `// @indirect-targets <fn1>,<fn2>,...` on any function that contains an indirect
      call, listing every function it can reach indirectly.
@@ -1317,6 +1319,8 @@ merges it.
 | V17 | Local project image IDs, registry digests only for downloaded bases | Immutable local execution without registry or image distribution |
 | V18 | Uniform schema_version defaults, matches_variant, unsupported_relocation, and deterministic full job IDs | Complete fields already required by the design/procedures |
 
+| V19 | Source annotations required on every function definition at T05, including main and trivial helpers | Author-approved conservative source check before exact O0 instruction counts exist |
+
 ### 21.1 Revision history
 
 | Version | Date | Change |
@@ -1325,8 +1329,10 @@ merges it.
 | 0.2 | 2026-10-13 | Recorded author-authorized C1-C7: disjoint emulator memory, deterministic scripted scenarios, unsupported-variant handling, arity-gated self-tests, semantic cache payloads, independent reliability reporting, and `.bss`/zero-filled `.data` state tracking; updated contracts and acceptance checks |
 
 | 0.3 | 2026-10-13 | Recorded author-approved foundation implementation decisions; completed protocol fields and local image references |
+| 0.4 | 2026-10-14 | Author approved the design conversion and foundation direction, authorized T04 CI/T05/T06 preparation, and required source annotations on every definition for T05; security review remains open |
 
 ---
+
 
 ## Appendix A: `AGENTS.md`
 

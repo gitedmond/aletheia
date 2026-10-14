@@ -33,8 +33,9 @@ no task-specific HR gate, but their PRs remain unmerged. No Phase 1A exit gate h
 | T01 | done: verified images, config, doctor, licenses and scans | PR #2 draft; residual security review open | 0d655e0 |
 | T02 | done: records, canonical hashes, nine schemas | PR #3 draft | c717897 |
 | T03 | done: transactional metadata, opaque artifacts, cache foundations | PR #4 draft | 001acbe |
-| T04 | done: bounded Docker runner and worker protocol | PR #5 draft | 0328420; later handoff documentation commit is in Git log |
-| T05-T27 | planned dependency roadmap in spec Section 17 | Required HR gates pending | none |
+| T04 | done: bounded Docker runner and worker protocol; CI repaired | PR #5 draft | 0328420, 59cbbd4, 0eec482 |
+| T05 | source linter implemented as a work-in-progress checkpoint; 33 added tests pass | No T05 PR yet; final task review pending | See checkpoint commit in Git log and CLOUD-HANDOFF.md |
+| T06-T27 | planned dependency roadmap in spec Section 17 | Required HR gates pending; no T06 programs authored | none |
 | T30-T32 | deferred, LLM lane disabled | none | none |
 
 PR stack: #1 targets main; #2 targets t00-scaffold; #3 targets t01-toolchain;
@@ -72,7 +73,8 @@ passed. T04 sandbox CI at 59cbbd4 failed with 59 passed / 5 setup errors while b
 BuildKit cannot use a local config image ID directly in FROM (moby/moby issue 39769).
 The test builder now uses a local named alias checked against that exact image ID, exposes
 build stderr on failure, and executes the resulting image by inspected immutable ID.
-The sandbox assertions and production policy are unchanged. Remote validation is pending.
+The sandbox assertions and production policy are unchanged. At 0eec482, both quick checks
+and the full sandbox job passed on GitHub (run 38554858480); locally all 64 tests passed.
 Initial T00 CI failed under forced terminal color; setting a stable plain-text CI environment
 fixed captured help output with the test assertions unchanged.
 
@@ -104,3 +106,26 @@ fixture proposals require their explicit HR review. T09 must wait for analyzer o
 T15 must wait for T11 and its HR, and T17 retains T08/T02/T03 dependencies. Follow the spec roadmap.
 T16 owns the engine and construction of complete effective harness/cache inputs. No general
 orchestrator, emulation, corpus binaries, sources, grading, replay, reports, or provider runs exist yet.
+
+Author clarification for T05 (2026-10-14): every source definition, including main and trivial
+helpers, must be annotated. T08 still derives exact non-triviality from O0 instructions.
+
+## Cloud handoff stop (2026-10-14)
+
+The author requested an immediate stop on this PC and a handoff to a cloud agent.
+No further implementation is authorized here. Existing T05 work is checkpointed on
+t05-corpus-lint; the cloud agent must clone that branch, not the docs-only main.
+No cloud agent has been started or messaged. See CLOUD-HANDOFF.md for resume instructions.
+
+Last T05 working-tree validation before the stop:
+- uv run ruff check: pass.
+- uv run pyright: 0 errors, 0 warnings.
+- uv run pytest -m "not slow" -q: 97 passed in 20.18 seconds (64 foundation + 33 T05).
+- git diff --check: pass.
+These are workstation results, not cloud validation. No T05 GitHub CI has run yet.
+Acceptance initially failed because aletheia.corpus.lint did not exist; later independent
+negative cases exposed source parsing/policy gaps before their fixes. Assertions remain intact.
+
+Next eligible cloud work: inspect the checkpoint, reproduce checks in its own environment,
+finish T05 and prepare T06's five programs/native tests for author review. T06 HR and the
+Ghidra security review remain open. No protected fixtures or Phase 1A exit gates are approved.
