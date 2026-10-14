@@ -36,7 +36,7 @@ no task-specific HR gate, but their PRs remain unmerged. No Phase 1A exit gate h
 | T03 | done: transactional metadata, opaque artifacts, cache foundations | PR #4 draft | 001acbe |
 | T04 | done: bounded Docker runner and worker protocol; CI repaired | PR #5 draft | 0328420, 59cbbd4, 0eec482 |
 | T05 | done: source policy and CLI; 35 acceptance cases, full cloud validation | PR #6 draft -> t04-sandbox; no T05 HR gate | 039b6fc, 62c861d, 57d504e |
-| T06 | prepared and validated: five C17 programs, 172 native assertions | Annotation/semantic HR pending; task draft PR pending | cc05cca, dc74d4e |
+| T06 | prepared and validated: five C17 programs, 172 native assertions | PR #7 draft -> t05-corpus-lint; annotation/semantic HR pending | cc05cca, dc74d4e |
 | T07-T27 | planned dependency roadmap in spec Section 17 | Required HR gates pending | none |
 | T30-T32 | deferred, LLM lane disabled | none | none |
 
@@ -216,7 +216,8 @@ The expected PC checkpoint 039b6fcd6121f27553e0c3a47e40ba6936703042 remains an a
 
 Review source/annotation/callback inventory and native results in docs/corpus-review.md.
 T05 draft: https://github.com/gitedmond/aletheia/pull/6 -> t04-sandbox.
-T06 is stacked on t05-corpus-lint; no automatic merge is authorized. No protected
+T06 draft: https://github.com/gitedmond/aletheia/pull/7 -> t05-corpus-lint.
+No automatic merge is authorized. No protected
 fixtures/mappings/analyzer settings or additional dependencies were created.
 
 **Next step: author T06 annotation/semantic HR review. Stop before T07/dependent work.**
