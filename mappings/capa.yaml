@@ -1,0 +1,16 @@
+address_base_field: meta.analysis.base_address.value
+capa_version: 9.4.0
+map:
+  encode data using Base64:
+    family: base64
+    variant: null
+  hash data using djb2:
+    family: djb2
+    variant: null
+  hash data using fnv:
+    family: fnv
+    variant: null
+  hash data with CRC32:
+    family: crc32
+    variant: null
+rules_tag: 9.4.0
