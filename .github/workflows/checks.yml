@@ -17,4 +17,4 @@ jobs:
       - run: uv sync --frozen
       - run: uv run ruff check
       - run: uv run pyright
-      - run: uv run pytest -m "not slow and not integration"
+      - run: env -u FORCE_COLOR TERM=dumb NO_COLOR=1 uv run pytest -m "not slow and not integration"
