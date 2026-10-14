@@ -1,0 +1,5 @@
+/tests/golden/ @gitedmond
+/tests/fixtures/ @gitedmond
+/mappings/ @gitedmond
+/configs/ghidra-analysis.json @gitedmond
+/CODEOWNERS @gitedmond
