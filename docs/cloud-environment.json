@@ -16,9 +16,9 @@
     },
     "build": {
       "findings": 2670,
-      "raw_report_sha256": "db2d556a108be8e87f21f290eee993fc7ee862ffb83c6988019c146a9c762913",
+      "raw_report_sha256": "1abaeca7660217d7e15fd07c080dbef5ac93a12d0bec5999e158d2a3e492b6c2",
       "scan_date": "2026-10-14",
-      "scanned_image": "sha256:ea13f398a0a0db21e60b5389f94280f1ed788c5dbac246f47509c61783f6e4d2",
+      "scanned_image": "sha256:0d62a62235770bf4f62cfb2c3ad0bf532d593287fa25a3f544c188fa49cac959",
       "scanner": "0.75.0",
       "severity": {
         "HIGH": 72,
