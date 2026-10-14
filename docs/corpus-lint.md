@@ -3,6 +3,8 @@
 Run `uv run alth corpus lint` for corpus/tierA, or pass a program directory positionally.
 Global `--json` precedes `corpus lint`. Empty corpora and any finding return exit 1.
 Each finding records a path, source line when available, stable rule code, and explanation.
+Use `uv run alth corpus lint --program crc32tool` to select one named program under
+the corpus root; an absent named program is an explicit `program_missing` failure.
 
 Source annotation completeness now applies to every definition, including main and trivial
 helpers, per the author's 2026-10-14 clarification. Exact non-triviality still uses more than

@@ -130,3 +130,33 @@ negative cases exposed source parsing/policy gaps before their fixes. Assertions
 Next eligible cloud work: inspect the checkpoint, reproduce checks in its own environment,
 finish T05 and prepare T06's five programs/native tests for author review. T06 HR and the
 Ghidra security review remain open. No protected fixtures or Phase 1A exit gates are approved.
+
+
+## Cloud resumption (2026-10-14)
+
+Existing clean /workspace/aletheia checkout switched to t05-corpus-lint at
+9864f6e1b95130e60f9e290be28868780e678533; expected implementation checkpoint
+039b6fcd6121f27553e0c3a47e40ba6936703042 verified as an ancestor.
+Managed environment: ccarenv_b64_Y2NhcmVudl9iNGY4ZTZiM2I1MDA4MTkxOGFhMjI3NTY0OWRhY2E5Mg.
+Debian 13 Linux amd64, non-root UID/GID 1000, 4 CPU quota, 32 GiB memory limit,
+about 30 GiB disk available. Docker 28.4.0/containerd 1.7.28/runc 1.3.0 differ
+from historical host pins; those pins have not been changed. No security exception.
+Pinned uv 0.13.0 and Python 3.12.15 downloaded from the locked release URLs and
+verified against their recorded SHA-256 values. uv sync --frozen succeeded.
+
+T05 review found the documented --program selector absent. Two independent CLI
+selection/missing-program acceptance checks first failed (exit 2); the selector
+was implemented with existing positional-directory behavior preserved. Cloud checks:
+- uv run ruff check: passed.
+- uv run pyright: 0 errors, 0 warnings.
+- env -u FORCE_COLOR TERM=dumb NO_COLOR=1 uv run pytest -m "not slow and not integration" -q:
+  90 passed, 9 deselected (full sandbox validation still pending).
+- git diff --check: passed.
+
+GitHub API and the locked Ubuntu snapshot domain initially denied HTTP CONNECT
+with 403. api.github.com and snapshot.ubuntu.com additions saved in the managed
+environment draft; saving does not apply/publish them. Full image rebuilding,
+full sandbox validation, live GitHub checks, and T05 draft PR creation remain pending.
+Cloud-local build adaptations live outside the checkout: writable Buildx/uv caches
+and a combined CA bundle mounted as a BuildKit secret, with TLS/signature/hash
+verification preserved. Historical image inventory/audit/source records are unchanged.

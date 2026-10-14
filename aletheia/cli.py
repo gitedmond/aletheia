@@ -66,11 +66,15 @@ app.add_typer(corpus_app, name="corpus")
 
 @corpus_app.command("lint")
 def corpus_lint(
-    ctx: typer.Context, directory: Annotated[Path, typer.Argument()] = Path("corpus/tierA")
+    ctx: typer.Context,
+    directory: Annotated[Path, typer.Argument()] = Path("corpus/tierA"),
+    program: Annotated[str | None, typer.Option("--program")] = None,
 ) -> None:
     """Check a program directory or all programs below a corpus root."""
     from aletheia.corpus.lint import LintError, lint_program
 
+    if program is not None:
+        directory = directory / program
     programs = (
         [directory]
         if (directory / "src").is_dir()

@@ -132,3 +132,21 @@ def test_no_programs_is_explicit_failure(tmp_path):
     result = CliRunner().invoke(app, ["--json", "corpus", "lint", str(tmp_path)])
     assert result.exit_code == 1
     assert json.loads(result.output)["errors"][0]["rule"] == "program_missing"
+
+
+def test_cli_selects_named_program(tmp_path):
+    program(tmp_path)
+    result = CliRunner().invoke(
+        app, ["--json", "corpus", "lint", str(tmp_path), "--program", "sample"]
+    )
+    assert result.exit_code == 0
+    assert json.loads(result.output) == {"programs": 1, "errors": []}
+
+
+def test_cli_missing_named_program_is_explicit_failure(tmp_path):
+    program(tmp_path)
+    result = CliRunner().invoke(
+        app, ["--json", "corpus", "lint", str(tmp_path), "--program", "missing"]
+    )
+    assert result.exit_code == 1
+    assert json.loads(result.output)["errors"][0]["rule"] == "program_missing"
