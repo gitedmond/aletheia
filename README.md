@@ -1,12 +1,9 @@
 # Aletheia
 
 Aletheia verifies structured reverse engineering claims with deterministic evidence.
-Phase 1A builds the no-LLM foundation; algorithm verification and the corpus follow
-after the infrastructure milestone.
-
-Development runs as `edmond` in Ubuntu-24.04 WSL2 at
-`/home/edmond/src/aletheia`. Original documents remain in the Windows staging folder.
-`SPEC-PHASE-1A.md` is authoritative for this phase; see `STATUS.md` for actual progress.
+The repository contains the CLI, contracts, storage, bounded sandbox runner, source
+linter, and five C17 corpus programs. The analysis and verification pipeline is
+under development. Development uses Linux amd64 and the pinned tools below.
 
 ```sh
 export PATH="$HOME/.local/bin:$PATH"

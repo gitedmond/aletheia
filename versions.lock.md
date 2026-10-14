@@ -141,4 +141,4 @@ runc = "1.3.4"
 [measurements]
 ```
 
-All Python dependency URLs and SHA-256 hashes are in uv.lock. Native package versions and licenses are retained in docs/image-inventory.json. Local image IDs are immutable; rebuilding requires an explicit lock update. T09 peak-RAM measurement is pending.
+All Python dependency URLs and SHA-256 hashes are in uv.lock. Native package versions and licenses are retained in the cloud environment, outside repository checkouts. Local image IDs are immutable; rebuilding requires an explicit lock update. T09 peak-RAM measurement is pending.

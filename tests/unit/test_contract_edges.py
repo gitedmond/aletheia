@@ -1,10 +1,11 @@
+import copy
 import json
-import re
 from pathlib import Path
 
 import jsonschema
 import pytest
 import yaml
+from contract_examples import CLAIM_EXAMPLES, VERDICT_EXAMPLE
 from pydantic import ValidationError
 
 from aletheia.schema.canonical import content_hash
@@ -62,10 +63,8 @@ def test_exported_claim_schema_checks_body_discriminator():
 
 
 def test_appendix_b_examples_validate_after_placeholder_substitution():
-    text = Path("SPEC-PHASE-1A.md").read_text().split("## Appendix B: Examples")[1]
-    blocks = re.findall(r"\x60\x60\x60(?:json)?\n(.*?)\x60\x60\x60", text, re.S)
-    examples = [json.loads(line) for line in blocks[0].splitlines()]
-    examples.append(json.loads(blocks[1]))
+    """Validate the exact preserved examples against both models and exported schemas."""
+    examples = copy.deepcopy(CLAIM_EXAMPLES)
     for value in examples:
         value["run_id"] = "r_" + "1" * 16
         value["binary_sha256"] = "a" * 64
@@ -78,7 +77,7 @@ def test_appendix_b_examples_validate_after_placeholder_substitution():
             stored.model_dump(mode="json"),
             json.loads(Path("spec/claims-v1/claim.json").read_text()),
         )
-    verdict = json.loads(blocks[2])
+    verdict = copy.deepcopy(VERDICT_EXAMPLE)
     verdict["env_digest"] = "sha256:" + "b" * 64
     verdict["evidence"][0]["artifact"] = "sha256:" + "c" * 64
     normalized = Verdict.model_validate(verdict)
