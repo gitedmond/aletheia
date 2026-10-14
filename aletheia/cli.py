@@ -48,6 +48,18 @@ def doctor(ctx: typer.Context) -> None:
     raise typer.Exit(0 if result["status"] == "ok" else 2)
 
 
+schema_app = typer.Typer(help="Export Phase 1A JSON Schemas.")
+app.add_typer(schema_app, name="schema")
+
+
+@schema_app.command("export")
+def schema_export(directory: Path = Path("spec/claims-v1")) -> None:
+    from aletheia.schema.export import export_schemas
+
+    export_schemas(directory)
+    typer.echo(str(directory))
+
+
 def main() -> None:
     app()
 
