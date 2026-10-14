@@ -57,7 +57,8 @@ def test_doctor_reports_docker_pin_mismatch(monkeypatch, version, status):
         raise AssertionError(args)
 
     monkeypatch.setattr("aletheia.doctor.command", command)
-    checks = diagnose(Path("aletheia.toml"))["checks"]
+    root = Path(__file__).resolve().parents[2]
+    checks = diagnose(root / "aletheia.toml")["checks"]
     docker = next(check for check in checks if check["name"] == "docker")
     assert docker["status"] == status
     assert version in docker["detail"]
