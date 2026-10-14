@@ -14,7 +14,7 @@ uv sync --frozen
 uv run alth --help
 uv run ruff check
 uv run pyright
-uv run pytest -m "not slow"
+uv run pytest -m "not slow and not integration"
 ```
 
 Global `--config PATH` and `--json` flags precede the command.
