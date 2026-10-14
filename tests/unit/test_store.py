@@ -1,4 +1,7 @@
+import os
 import sqlite3
+import stat
+from pathlib import Path
 
 import pytest
 
@@ -162,3 +165,21 @@ def test_cache_affecting_configuration_changes():
         )
     )
     assert verdict_cache_key(changed, context) != key
+
+
+def test_artifact_syncs_content_then_fanout_and_root(tmp_path, monkeypatch):
+    synced = []
+    original = os.fsync
+
+    def record(fd):
+        target = Path(os.readlink(f"/proc/self/fd/{fd}"))
+        synced.append((stat.S_ISDIR(os.fstat(fd).st_mode), target))
+        original(fd)
+
+    monkeypatch.setattr(os, "fsync", record)
+    store = ArtifactStore(tmp_path)
+    digest = store.put(b"abc")
+    assert len(synced) == 3
+    assert synced[0][0] is False
+    assert synced[1:] == [(True, tmp_path / "ba"), (True, tmp_path)]
+    assert store.get(digest) == b"abc"

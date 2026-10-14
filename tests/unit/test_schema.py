@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from pathlib import Path
 
 import jsonschema
 import pytest
@@ -121,3 +122,4 @@ def test_export_validates_examples(tmp_path):
     assert first == {p.name: p.read_bytes() for p in tmp_path.iterdir()}
     for _name, data in first.items():
         jsonschema.Draft202012Validator.check_schema(json.loads(data))
+    assert first == {p.name: p.read_bytes() for p in Path("spec/claims-v1").glob("*.json")}
