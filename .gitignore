@@ -10,3 +10,6 @@ artifacts/
 .cache/
 dist/
 *.egg-info/
+
+# Verified build bootstrap, fetched from the pinned upstream URL.
+docker/ca-certificates.deb

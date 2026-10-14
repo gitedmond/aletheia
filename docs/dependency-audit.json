@@ -1,0 +1,371 @@
+{
+  "date": "2026-10-13",
+  "source": "https://api.osv.dev/v1/querybatch",
+  "packages": [
+    {
+      "name": "annotated-doc",
+      "version": "0.0.5",
+      "advisories": []
+    },
+    {
+      "name": "annotated-types",
+      "version": "0.8.0",
+      "advisories": []
+    },
+    {
+      "name": "anyio",
+      "version": "4.15.1",
+      "advisories": []
+    },
+    {
+      "name": "attrs",
+      "version": "26.1.0",
+      "advisories": []
+    },
+    {
+      "name": "capstone",
+      "version": "5.0.9",
+      "advisories": []
+    },
+    {
+      "name": "certifi",
+      "version": "2026.7.22",
+      "advisories": []
+    },
+    {
+      "name": "click",
+      "version": "8.5.0",
+      "advisories": []
+    },
+    {
+      "name": "colorama",
+      "version": "0.4.6",
+      "advisories": []
+    },
+    {
+      "name": "cxxfilt",
+      "version": "0.3.0",
+      "advisories": []
+    },
+    {
+      "name": "dncil",
+      "version": "1.0.2",
+      "advisories": []
+    },
+    {
+      "name": "dnfile",
+      "version": "0.18.0",
+      "advisories": []
+    },
+    {
+      "name": "flare-capa",
+      "version": "9.4.0",
+      "advisories": []
+    },
+    {
+      "name": "funcy",
+      "version": "2.1",
+      "advisories": []
+    },
+    {
+      "name": "h11",
+      "version": "0.16.0",
+      "advisories": []
+    },
+    {
+      "name": "httpcore",
+      "version": "1.0.9",
+      "advisories": []
+    },
+    {
+      "name": "httpx",
+      "version": "0.28.1",
+      "advisories": []
+    },
+    {
+      "name": "humanize",
+      "version": "4.16.0",
+      "advisories": []
+    },
+    {
+      "name": "ida-hcli",
+      "version": "0.26.3",
+      "advisories": []
+    },
+    {
+      "name": "ida-netnode",
+      "version": "3.0",
+      "advisories": []
+    },
+    {
+      "name": "ida-settings",
+      "version": "3.5.2",
+      "advisories": []
+    },
+    {
+      "name": "idapro",
+      "version": "0.0.11",
+      "advisories": []
+    },
+    {
+      "name": "idna",
+      "version": "3.20",
+      "advisories": []
+    },
+    {
+      "name": "iniconfig",
+      "version": "2.3.1",
+      "advisories": []
+    },
+    {
+      "name": "intervaltree",
+      "version": "3.2.1",
+      "advisories": []
+    },
+    {
+      "name": "jpype1",
+      "version": "1.7.1",
+      "advisories": []
+    },
+    {
+      "name": "jsonschema",
+      "version": "4.26.0",
+      "advisories": []
+    },
+    {
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1",
+      "advisories": []
+    },
+    {
+      "name": "markdown-it-py",
+      "version": "4.2.0",
+      "advisories": []
+    },
+    {
+      "name": "mdurl",
+      "version": "0.1.2",
+      "advisories": []
+    },
+    {
+      "name": "msgpack",
+      "version": "1.2.3",
+      "advisories": []
+    },
+    {
+      "name": "msgspec",
+      "version": "0.22.0",
+      "advisories": []
+    },
+    {
+      "name": "networkx",
+      "version": "3.7",
+      "advisories": []
+    },
+    {
+      "name": "nodeenv",
+      "version": "1.11.0",
+      "advisories": []
+    },
+    {
+      "name": "nodejs-wheel-binaries",
+      "version": "24.19.0",
+      "advisories": []
+    },
+    {
+      "name": "packaging",
+      "version": "26.3",
+      "advisories": []
+    },
+    {
+      "name": "pefile",
+      "version": "2024.8.26",
+      "advisories": []
+    },
+    {
+      "name": "pip",
+      "version": "26.2.1",
+      "advisories": []
+    },
+    {
+      "name": "platformdirs",
+      "version": "4.13.0",
+      "advisories": []
+    },
+    {
+      "name": "pluggy",
+      "version": "1.6.0",
+      "advisories": []
+    },
+    {
+      "name": "prompt-toolkit",
+      "version": "3.0.53",
+      "advisories": []
+    },
+    {
+      "name": "protobuf",
+      "version": "7.36.2",
+      "advisories": []
+    },
+    {
+      "name": "pyasn1",
+      "version": "0.6.4",
+      "advisories": []
+    },
+    {
+      "name": "pyasn1-modules",
+      "version": "0.4.2",
+      "advisories": []
+    },
+    {
+      "name": "pycparser",
+      "version": "3.11",
+      "advisories": []
+    },
+    {
+      "name": "pydantic",
+      "version": "2.14.1",
+      "advisories": []
+    },
+    {
+      "name": "pydantic-core",
+      "version": "2.50.1",
+      "advisories": []
+    },
+    {
+      "name": "pyelftools",
+      "version": "0.33",
+      "advisories": []
+    },
+    {
+      "name": "pyghidra",
+      "version": "2.2.1",
+      "advisories": []
+    },
+    {
+      "name": "pygments",
+      "version": "2.21.0",
+      "advisories": []
+    },
+    {
+      "name": "pyright",
+      "version": "1.1.414",
+      "advisories": []
+    },
+    {
+      "name": "pytest",
+      "version": "9.1.1",
+      "advisories": []
+    },
+    {
+      "name": "python-flirt",
+      "version": "0.10.0",
+      "advisories": []
+    },
+    {
+      "name": "pyyaml",
+      "version": "6.0.3",
+      "advisories": []
+    },
+    {
+      "name": "questionary",
+      "version": "2.1.1",
+      "advisories": []
+    },
+    {
+      "name": "referencing",
+      "version": "0.37.0",
+      "advisories": []
+    },
+    {
+      "name": "rich",
+      "version": "15.0.0",
+      "advisories": []
+    },
+    {
+      "name": "rich-click",
+      "version": "1.9.9",
+      "advisories": []
+    },
+    {
+      "name": "rpds-py",
+      "version": "2026.9.1",
+      "advisories": []
+    },
+    {
+      "name": "ruamel-yaml",
+      "version": "0.19.1",
+      "advisories": []
+    },
+    {
+      "name": "ruff",
+      "version": "0.17.0",
+      "advisories": []
+    },
+    {
+      "name": "semantic-version",
+      "version": "2.10.0",
+      "advisories": []
+    },
+    {
+      "name": "shellingham",
+      "version": "1.5.4",
+      "advisories": []
+    },
+    {
+      "name": "six",
+      "version": "1.17.0",
+      "advisories": []
+    },
+    {
+      "name": "sortedcontainers",
+      "version": "2.4.0",
+      "advisories": []
+    },
+    {
+      "name": "tenacity",
+      "version": "9.2.1",
+      "advisories": []
+    },
+    {
+      "name": "typer",
+      "version": "0.27.3",
+      "advisories": []
+    },
+    {
+      "name": "typing-extensions",
+      "version": "4.16.0",
+      "advisories": []
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.4",
+      "advisories": []
+    },
+    {
+      "name": "unicorn",
+      "version": "2.1.4",
+      "advisories": []
+    },
+    {
+      "name": "viv-utils",
+      "version": "0.8.1",
+      "advisories": []
+    },
+    {
+      "name": "vivisect",
+      "version": "1.3.2",
+      "advisories": []
+    },
+    {
+      "name": "wcwidth",
+      "version": "0.9.2",
+      "advisories": []
+    },
+    {
+      "name": "xmltodict",
+      "version": "1.0.4",
+      "advisories": []
+    }
+  ]
+}
