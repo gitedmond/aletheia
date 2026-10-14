@@ -78,9 +78,13 @@ def diagnose(config_path: Path) -> dict[str, Any]:
     )
     check(
         "docker",
-        lambda: json.loads(command(["docker", "version", "--format", "{{json .}}"]))["Server"][
-            "Version"
-        ],
+        lambda: exact(
+            "Docker",
+            json.loads(command(["docker", "version", "--format", "{{json .}}"]))["Server"][
+                "Version"
+            ],
+            lock["host"]["docker"],
+        ),
     )
     for kind, image in (
         ("build", cfg.sandbox.image_build),
