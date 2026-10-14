@@ -63,7 +63,18 @@ def image(tmp_path_factory):
         == cfg.sandbox.image_analysis
     )
     (directory / "Dockerfile").write_text(
-        f"FROM {base}\nCOPY test_worker.py /opt/test_worker.py\n"
+        # Copy the exact pinned Python environment and system libraries. Protocol
+        # handlers need no JVM/tools; VFS otherwise copies those large trees for
+        # every concurrent test container. Full-image tool/contract checks remain
+        # separate below and in test_toolchain.py.
+        f"FROM {base} AS pinned\nFROM scratch\n"
+        "COPY --from=pinned /opt/python /opt/python\n"
+        "COPY --from=pinned /opt/venv /opt/venv\n"
+        "COPY --from=pinned /usr/lib/x86_64-linux-gnu /lib/x86_64-linux-gnu\n"
+        "COPY --from=pinned /usr/lib64 /lib64\n"
+        "COPY test_worker.py /opt/test_worker.py\n"
+        "ENV PATH=/opt/venv/bin:/opt/python/bin HOME=/scratch TMPDIR=/scratch "
+        "PYTHONDONTWRITEBYTECODE=1\nUSER 1001:1001\nWORKDIR /scratch\n"
         'ENTRYPOINT ["python","/opt/test_worker.py"]\n'
     )
     tag = "aletheia-test-worker:" + cfg.sandbox.image_analysis.removeprefix("sha256:")
