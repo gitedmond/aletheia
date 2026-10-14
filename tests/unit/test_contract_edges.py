@@ -63,6 +63,7 @@ def test_exported_claim_schema_checks_body_discriminator():
 
 
 def test_appendix_b_examples_validate_after_placeholder_substitution():
+    """Validate the exact preserved examples against both models and exported schemas."""
     examples = copy.deepcopy(CLAIM_EXAMPLES)
     for value in examples:
         value["run_id"] = "r_" + "1" * 16
