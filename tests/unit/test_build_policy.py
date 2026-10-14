@@ -104,6 +104,7 @@ def test_compiler_jobs_reject_root_identity(tmp_path, monkeypatch):
 @pytest.mark.parametrize("cleanup_timeout", [False, True])
 def test_cleanup_exceptions_preserve_compiler_failure(tmp_path, monkeypatch, cleanup_timeout):
     import subprocess
+
     from aletheia.corpus.build import _execute
     source = tmp_path / "snapshot/tierA/example/src"
     source.mkdir(parents=True)
