@@ -41,7 +41,7 @@ native corpus functions, not new probe packs. No 64-bit FNV implementation/pack 
 
 ## Native behavior and review choices
 
-CRC checks cover empty input, the 123456789 reference vector, JAMCRC's complement,
+CRC checks cover empty input, the 123456789 and quick-brown-fox reference vectors, JAMCRC's complement,
 seed preservation, streaming updates, initialized runtime-table updates, and self-test.
 Adler checks cover Wikipedia, a, streaming, 70,000 bytes of 0xff, Fletcher-16, file I/O,
 and missing files. Hash checks cover published empty/a/foobar values, embedded NULs,
@@ -60,7 +60,7 @@ functions are annotated none; the algorithm targets themselves take explicit buf
 
 ## Validation commands
 
-Cloud build image: `sha256:ea13f398a0a0db21e60b5389f94280f1ed788c5dbac246f47509c61783f6e4d2`.
+Cloud build image: `sha256:0d62a62235770bf4f62cfb2c3ad0bf532d593287fa25a3f544c188fa49cac959`.
 Clang 23.1.3 is built from the locked archive and checksum, against the locked Ubuntu
 snapshot/base. The session CA is supplied by a transient BuildKit mount, never embedded.
 
@@ -84,8 +84,9 @@ inside that container, never on the host.
 Initial source acceptance failed for all five missing Makefiles before implementation.
 Native C tests were written before their target implementations. Cloud source lint is
 clean for all five programs. Native integration acceptance passed 5 tests in 9.38 seconds.
-Final normal validation, exact assertion counts, PR IDs, and immutable commit evidence
-are recorded in STATUS.md after the complete cloud run.
+Final cloud validation passed 109 tests in 87.40 seconds, including 172 native C
+assertions (19 CRC, 16 Adler/Fletcher, 35 hash-table, 89 base64, 13 dispatch).
+Ruff and strict Pyright passed; exact commits and PR/review state are in STATUS.md.
 
 No Ghidra binary analysis, emulator/probe result, reproducible stripped build, leakage
 check, ground truth, protected F1-F7 proposal, or X1-X10 gate is claimed here. Those are
