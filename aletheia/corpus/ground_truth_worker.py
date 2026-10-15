@@ -47,7 +47,9 @@ def annotations(program: Path) -> dict[str, tuple[GroundAlgorithm, list[str]]]:
     if errors:
         raise ValueError("invalid annotations: " + "; ".join(e.rule for e in errors))
     result: dict[str, tuple[GroundAlgorithm, list[str]]] = {}
-    for path in sorted((program / "src").rglob("*.c")):
+    for path in sorted((program / "src").rglob("*")):
+        if path.suffix not in (".c", ".h") or not path.is_file():
+            continue
         text = path.read_text()
         for fn in source_functions(text, path):
             lines = text.splitlines()
