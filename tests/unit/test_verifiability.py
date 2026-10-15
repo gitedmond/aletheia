@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import yaml
 from typer.testing import CliRunner
 
 from aletheia.cli import app
@@ -106,6 +107,16 @@ def test_cli_table_for_all_five_programs_does_not_invent_missing_packs(tmp_path,
     assert "potential" in result["population"]
     text = runner.invoke(app, ["verifiability", "--program", "crc32tool"])
     assert text.exit_code == 0 and "crc32/ieee" in text.output and "0/3" in text.output
+
+    Path("packs").mkdir()
+    Path("packs/crc32.yaml").write_text(yaml.safe_dump(pack().model_dump(mode="json")))
+    response = runner.invoke(app, ["--json", "verifiability"])
+    assert response.exit_code == 0, response.output
+    result = json.loads(response.output)
+    assert result["decidable_functions"] == 5
+    assert result["decidable_share"] == 0.333333
+    text = runner.invoke(app, ["verifiability", "--program", "crc32tool"])
+    assert text.exit_code == 0 and "1/3" in text.output
 
     path = Path("build/crc32tool") / gt.variant_id / "private/ground_truth.json"
     changed = json.loads(path.read_text())
