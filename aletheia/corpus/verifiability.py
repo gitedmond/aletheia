@@ -94,6 +94,18 @@ def markdown(report: Table) -> str:
     lines = [
         report["population"],
         "",
+        "| Program | Decidable/scorable | Share |",
+        "|---|---:|---:|",
+    ]
+    for program in report["programs"]:
+        share = program["decidable_share"]
+        percentage = f"{100 * share:.2f}%" if share is not None else "n/a"
+        lines.append(
+            f"| {program['program_id']} | {program['decidable_functions']}/"
+            f"{program['scorable_functions']} | {percentage} |"
+        )
+    lines += [
+        "",
         "| Leaf | Scorable | E2 method | Decisive for | Known blockers |",
         "|---|---:|---|---|---|",
     ]

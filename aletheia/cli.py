@@ -244,7 +244,11 @@ def verifiability(
         if not paths:
             raise ValueError("program_missing: no built ground truth found")
         truths = [GroundTruth.model_validate_json(path.read_bytes()) for path in paths]
-        if program and any(gt.program_id != "tierA/" + program for gt in truths):
+        if any(
+            gt.program_id != "tierA/" + path.parents[2].name
+            or gt.variant_id != path.parents[1].name
+            for gt, path in zip(truths, paths, strict=True)
+        ):
             raise ValueError("ground-truth program identity mismatch")
         report = table(truths, [load_pack(path) for path in sorted(Path("packs").glob("*.yaml"))])
         typer.echo(

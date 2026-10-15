@@ -6,7 +6,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from aletheia.cli import app
-from aletheia.corpus.verifiability import table
+from aletheia.corpus.verifiability import markdown, table
 from aletheia.schema.models import GroundTruth
 from aletheia.verify.probes.pack import Pack
 
@@ -79,9 +79,13 @@ def test_counts_only_scorable_supported_variants_and_records_limits():
     assert rows["fnv/fnv1a-64"]["scorable_functions"] == 2
     assert rows["fnv/fnv1a-64"]["e2_method"] is None
     assert rows["none"]["scorable_functions"] == 2
+    assert "| tierA/first | 1/3 | 33.33% |" in markdown(result)
+    assert "| tierA/second | 1/3 | 33.33% |" in markdown(result)
     assert result == table([second, first], [pack()])
     assert table([first], [])["decidable_functions"] == 0
     assert table([], [])["decidable_share"] is None
+    empty_program = table([first.model_copy(update={"functions": []})], [])
+    assert "| tierA/first | 0/0 | n/a |" in markdown(empty_program)
 
 
 def test_cli_table_for_all_five_programs_does_not_invent_missing_packs(tmp_path, monkeypatch):
@@ -102,3 +106,10 @@ def test_cli_table_for_all_five_programs_does_not_invent_missing_packs(tmp_path,
     assert "potential" in result["population"]
     text = runner.invoke(app, ["verifiability", "--program", "crc32tool"])
     assert text.exit_code == 0 and "crc32/ieee" in text.output and "0/3" in text.output
+
+    path = Path("build/crc32tool") / gt.variant_id / "private/ground_truth.json"
+    changed = json.loads(path.read_text())
+    changed["program_id"] = "tierA/elsewhere"
+    path.write_text(json.dumps(changed))
+    response = runner.invoke(app, ["--json", "verifiability"])
+    assert response.exit_code == 1 and "identity" in response.output
