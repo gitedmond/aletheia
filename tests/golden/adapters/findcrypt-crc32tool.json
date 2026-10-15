@@ -1,0 +1,55 @@
+{
+  "binary_sha256": "d03a204794b100030d3720f579c52bd84b2bac0b7ea7481901cec42c12ae09c1",
+  "claims": [
+    {
+      "algorithms_version": "1.0",
+      "binary_sha256": "d03a204794b100030d3720f579c52bd84b2bac0b7ea7481901cec42c12ae09c1",
+      "body": {
+        "family": "crc32",
+        "variant": null
+      },
+      "claim_id": "c_b346b51257baef64db642c42",
+      "client_ref": null,
+      "confidence": 1.0,
+      "confidence_source": "tool_default",
+      "depends_on": [],
+      "derived_from": "constant_xref",
+      "evidence_refs": [],
+      "rationale": null,
+      "run_id": "r_2222222222222222",
+      "schema_version": "1.0",
+      "source": {
+        "origin": "tool",
+        "shares_backend": true,
+        "source_id": "tool:findcrypt@3.1.10+ghidra@11.4.3"
+      },
+      "subject": {
+        "address": "0x00001eb0",
+        "kind": "function"
+      },
+      "supersedes": null,
+      "tool_label": "CRYPT_CRC32_m_tab",
+      "type": "algorithm_identity"
+    }
+  ],
+  "deduplicated_label": {},
+  "program_id": "tierA/crc32tool",
+  "raw": {
+    "binary_sha256": "d03a204794b100030d3720f579c52bd84b2bac0b7ea7481901cec42c12ae09c1",
+    "findcrypt_version": "3.1.10",
+    "ghidra_version": "11.4.3",
+    "image_base": "0x00000000",
+    "labels": [
+      {
+        "address": "0x00000800",
+        "name": "CRYPT_CRC32_m_tab",
+        "xrefs_to": [
+          "0x00001eb0"
+        ]
+      }
+    ],
+    "schema_version": "1.0"
+  },
+  "schema_version": "1.0",
+  "unmapped_label": {}
+}
