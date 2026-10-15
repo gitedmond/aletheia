@@ -1,0 +1,33 @@
+family: adler32
+version: 1
+call_shapes:
+- id: seed_buf_len
+  roles:
+  - seed
+  - buf
+  - len
+  return_width: 32
+- id: buf_len
+  roles:
+  - buf
+  - len
+  return_width: 32
+variants:
+  zlib:
+    oracle: adler32_zlib
+    bind:
+      seed: 1
+inputs:
+  fixed:
+  - ''
+  - Wikipedia
+  fixed_hex:
+  - ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+  random:
+    count: 64
+    max_len: 4096
+    seed: 4412
+near_miss:
+- wrong_modulus
+- initial_zero
+- fletcher32_impl

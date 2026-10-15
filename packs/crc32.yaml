@@ -1,0 +1,48 @@
+family: crc32
+version: 1
+call_shapes:
+- id: seed_buf_len
+  roles:
+  - seed
+  - buf
+  - len
+  return_width: 32
+- id: buf_len
+  roles:
+  - buf
+  - len
+  return_width: 32
+variants:
+  ieee:
+    oracle: crc32_ieee
+    bind:
+      seed: 0
+  jamcrc:
+    oracle: crc32_jamcrc
+    bind:
+      seed: 0
+  crc32c:
+    oracle: crc32c
+    bind:
+      seed: 0
+  bzip2:
+    oracle: crc32_bzip2
+    bind:
+      seed: 0
+inputs:
+  fixed:
+  - ''
+  - a
+  - '123456789'
+  - The quick brown fox jumps over the lazy dog
+  fixed_hex: []
+  random:
+    count: 64
+    max_len: 4096
+    seed: 4411
+near_miss:
+- crc32c_impl
+- jamcrc_impl
+- bzip2_impl
+- crc32_no_final_xor
+- crc32_len_off_by_one

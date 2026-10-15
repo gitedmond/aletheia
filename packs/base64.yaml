@@ -1,0 +1,30 @@
+family: base64
+version: 1
+call_shapes:
+- id: buf_len_out
+  roles:
+  - buf
+  - len
+  - out
+  return_width: 64
+  out_size: base64_encode
+variants:
+  std-padded:
+    oracle: base64_std
+  url-nopad:
+    oracle: base64_url
+inputs:
+  fixed:
+  - ''
+  - Man
+  - M
+  fixed_hex:
+  - fbff
+  random:
+    count: 64
+    max_len: 4096
+    seed: 4415
+near_miss:
+- url_in_std
+- missing_padding
+- dot_padding

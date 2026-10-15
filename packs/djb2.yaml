@@ -1,0 +1,30 @@
+family: djb2
+version: 1
+call_shapes:
+- id: buf_len
+  roles:
+  - buf
+  - len
+  return_width: 32
+- id: cstr
+  roles:
+  - cstr
+  return_width: 32
+variants:
+  add:
+    oracle: djb2_add
+  xor:
+    oracle: djb2_xor
+inputs:
+  fixed:
+  - ''
+  - a
+  fixed_hex: []
+  random:
+    count: 64
+    max_len: 4096
+    seed: 4414
+near_miss:
+- initial_zero
+- multiplier_31
+- sdbm_impl

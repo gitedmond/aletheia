@@ -1,0 +1,26 @@
+family: fnv
+version: 1
+call_shapes:
+- id: buf_len
+  roles:
+  - buf
+  - len
+  return_width: 32
+variants:
+  fnv1a-32:
+    oracle: fnv1a_32
+  fnv1-32:
+    oracle: fnv1_32
+inputs:
+  fixed:
+  - ''
+  - a
+  fixed_hex: []
+  random:
+    count: 64
+    max_len: 4096
+    seed: 4413
+near_miss:
+- fnv_swap
+- wrong_offset_basis
+- wrong_prime
