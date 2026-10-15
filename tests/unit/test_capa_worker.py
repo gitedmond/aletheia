@@ -97,3 +97,41 @@ def test_fallback_uses_the_observed_capa_filemeta_policy_without_analysis(monkey
     )
     assert capa_worker._fallback_base(Path("/public/sample.bin")) == 0x2000000
     assert calls == [("/public/sample.bin", {"analyze": False, "should_save": False})]
+
+
+@pytest.mark.parametrize(
+    "missing_or_wrong",
+    [
+        "meta_missing",
+        "meta_wrong",
+        "analysis_missing",
+        "analysis_wrong",
+        "sample_missing",
+        "sample_wrong",
+    ],
+)
+def test_malformed_metadata_has_structured_input_error(worker, monkeypatch, missing_or_wrong):
+    """Missing and mistyped capa metadata must retain an actionable bad-input detail."""
+    from functools import partial
+
+    from aletheia.schema.canonical import canonical_bytes
+    from aletheia.worker.main import execute
+
+    root, job = worker
+    raw = {"meta": {"analysis": {}, "sample": {}}, "rules": {}}
+    field, change = missing_or_wrong.split("_")
+    parent = raw if field == "meta" else raw["meta"]
+    if change == "missing":
+        del parent[field]
+    else:
+        parent[field] = []
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda command, **kwargs: subprocess.CompletedProcess(command, 0, json.dumps(raw), ""),
+    )
+    (root / "in/job.json").write_bytes(canonical_bytes(job))
+    (root / "out").mkdir()
+    result = execute(root, {"capa_scan": partial(capa_worker.scan_capa, root)})
+    assert result.status == "error" and result.error_code == "bad_input"
+    assert result.output["detail"] == "capa report lacks meta/analysis/sample objects"
