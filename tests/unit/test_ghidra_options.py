@@ -18,12 +18,18 @@ def test_proposed_f6_envelope_types_and_disabled_label_detectors():
     assert value["compiler_spec_id"] == "gcc"
     assert value["executable_format"] == "Executable and Linking Format (ELF)"
     options = value["options"]
-    assert len(options) == 127
+    assert len(options) == 130
     names = [item["name"] for item in options]
     assert names == sorted(set(names))
     by_name = {item["name"]: item for item in options}
     for name in ("Function ID", "Find Crypt"):
         assert by_name[name] == {"name": name, "type": "BOOLEAN_TYPE", "value": False}
+    for name in (
+        "External Symbol Resolver",
+        "GCC Exception Handlers",
+        "GCC Exception Handlers.Create Try Catch Comments",
+    ):
+        assert by_name[name] == {"name": name, "type": "BOOLEAN_TYPE", "value": True}
     assert by_name["Stack.Max Threads"]["value"] == 1
     assert by_name["x86 Constant Reference Analyzer.Max Threads"]["value"] == 1
     for item in options:
