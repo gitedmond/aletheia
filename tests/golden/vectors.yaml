@@ -1,0 +1,302 @@
+schema_version: '1.0'
+vectors:
+- family: adler32
+  variant: zlib
+  input_hex: ''
+  expected_return: 1
+  expected_output_hex: null
+  references:
+  - https://www.rfc-editor.org/rfc/rfc1950.html#section-8
+  independent_check: Closed-form weighted sums modulo 65521, independently cross-checked with zlib.
+- family: adler32
+  variant: zlib
+  input_hex: 57696b697065646961
+  expected_return: 300286872
+  expected_output_hex: null
+  references:
+  - https://www.rfc-editor.org/rfc/rfc1950.html#section-8
+  independent_check: Closed-form weighted sums modulo 65521, independently cross-checked with zlib.
+- family: adler32
+  variant: zlib
+  input_hex: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+  expected_return: 135200783
+  expected_output_hex: null
+  references:
+  - https://www.rfc-editor.org/rfc/rfc1950.html#section-8
+  independent_check: Closed-form weighted sums modulo 65521, independently cross-checked with zlib.
+- family: base64
+  variant: std-padded
+  input_hex: ''
+  expected_return: 0
+  expected_output_hex: ''
+  references:
+  - https://www.rfc-editor.org/rfc/rfc4648.html#section-4
+  independent_check: Manual six-bit grouping with RFC 4648 alphabets and the declared padding rule.
+- family: base64
+  variant: std-padded
+  input_hex: 4d616e
+  expected_return: 4
+  expected_output_hex: '54574675'
+  references:
+  - https://www.rfc-editor.org/rfc/rfc4648.html#section-4
+  independent_check: Manual six-bit grouping with RFC 4648 alphabets and the declared padding rule.
+- family: base64
+  variant: std-padded
+  input_hex: 4d
+  expected_return: 4
+  expected_output_hex: 54513d3d
+  references:
+  - https://www.rfc-editor.org/rfc/rfc4648.html#section-4
+  independent_check: Manual six-bit grouping with RFC 4648 alphabets and the declared padding rule.
+- family: base64
+  variant: std-padded
+  input_hex: fbff
+  expected_return: 4
+  expected_output_hex: 2b2f383d
+  references:
+  - https://www.rfc-editor.org/rfc/rfc4648.html#section-4
+  independent_check: Manual six-bit grouping with RFC 4648 alphabets and the declared padding rule.
+- family: base64
+  variant: url-nopad
+  input_hex: ''
+  expected_return: 0
+  expected_output_hex: ''
+  references:
+  - https://www.rfc-editor.org/rfc/rfc4648.html#section-4
+  independent_check: Manual six-bit grouping with RFC 4648 alphabets and the declared padding rule.
+- family: base64
+  variant: url-nopad
+  input_hex: 4d616e
+  expected_return: 4
+  expected_output_hex: '54574675'
+  references:
+  - https://www.rfc-editor.org/rfc/rfc4648.html#section-4
+  independent_check: Manual six-bit grouping with RFC 4648 alphabets and the declared padding rule.
+- family: base64
+  variant: url-nopad
+  input_hex: 4d
+  expected_return: 2
+  expected_output_hex: '5451'
+  references:
+  - https://www.rfc-editor.org/rfc/rfc4648.html#section-4
+  independent_check: Manual six-bit grouping with RFC 4648 alphabets and the declared padding rule.
+- family: base64
+  variant: url-nopad
+  input_hex: fbff
+  expected_return: 3
+  expected_output_hex: 2d5f38
+  references:
+  - https://www.rfc-editor.org/rfc/rfc4648.html#section-4
+  independent_check: Manual six-bit grouping with RFC 4648 alphabets and the declared padding rule.
+- family: crc32
+  variant: ieee
+  input_hex: ''
+  expected_return: 0
+  expected_output_hex: null
+  references:
+  - https://reveng.sourceforge.io/crc-catalogue/17plus.htm
+  independent_check: Independent MSB polynomial division with explicit byte/final bit reversal; IEEE also
+    cross-checked with zlib.
+- family: crc32
+  variant: ieee
+  input_hex: '61'
+  expected_return: 3904355907
+  expected_output_hex: null
+  references:
+  - https://reveng.sourceforge.io/crc-catalogue/17plus.htm
+  independent_check: Independent MSB polynomial division with explicit byte/final bit reversal; IEEE also
+    cross-checked with zlib.
+- family: crc32
+  variant: ieee
+  input_hex: '313233343536373839'
+  expected_return: 3421780262
+  expected_output_hex: null
+  references:
+  - https://reveng.sourceforge.io/crc-catalogue/17plus.htm
+  independent_check: Independent MSB polynomial division with explicit byte/final bit reversal; IEEE also
+    cross-checked with zlib.
+- family: crc32
+  variant: ieee
+  input_hex: 54686520717569636b2062726f776e20666f78206a756d7073206f76657220746865206c617a7920646f67
+  expected_return: 1095738169
+  expected_output_hex: null
+  references:
+  - https://reveng.sourceforge.io/crc-catalogue/17plus.htm
+  independent_check: Independent MSB polynomial division with explicit byte/final bit reversal; IEEE also
+    cross-checked with zlib.
+- family: crc32
+  variant: jamcrc
+  input_hex: ''
+  expected_return: 4294967295
+  expected_output_hex: null
+  references:
+  - https://reveng.sourceforge.io/crc-catalogue/17plus.htm
+  independent_check: Independent MSB polynomial division with explicit byte/final bit reversal; IEEE also
+    cross-checked with zlib.
+- family: crc32
+  variant: jamcrc
+  input_hex: '61'
+  expected_return: 390611388
+  expected_output_hex: null
+  references:
+  - https://reveng.sourceforge.io/crc-catalogue/17plus.htm
+  independent_check: Independent MSB polynomial division with explicit byte/final bit reversal; IEEE also
+    cross-checked with zlib.
+- family: crc32
+  variant: jamcrc
+  input_hex: '313233343536373839'
+  expected_return: 873187033
+  expected_output_hex: null
+  references:
+  - https://reveng.sourceforge.io/crc-catalogue/17plus.htm
+  independent_check: Independent MSB polynomial division with explicit byte/final bit reversal; IEEE also
+    cross-checked with zlib.
+- family: crc32
+  variant: jamcrc
+  input_hex: 54686520717569636b2062726f776e20666f78206a756d7073206f76657220746865206c617a7920646f67
+  expected_return: 3199229126
+  expected_output_hex: null
+  references:
+  - https://reveng.sourceforge.io/crc-catalogue/17plus.htm
+  independent_check: Independent MSB polynomial division with explicit byte/final bit reversal; IEEE also
+    cross-checked with zlib.
+- family: crc32
+  variant: crc32c
+  input_hex: ''
+  expected_return: 0
+  expected_output_hex: null
+  references:
+  - https://reveng.sourceforge.io/crc-catalogue/17plus.htm
+  independent_check: Independent MSB polynomial division with explicit byte/final bit reversal; IEEE also
+    cross-checked with zlib.
+- family: crc32
+  variant: crc32c
+  input_hex: '61'
+  expected_return: 3251651376
+  expected_output_hex: null
+  references:
+  - https://reveng.sourceforge.io/crc-catalogue/17plus.htm
+  independent_check: Independent MSB polynomial division with explicit byte/final bit reversal; IEEE also
+    cross-checked with zlib.
+- family: crc32
+  variant: crc32c
+  input_hex: '313233343536373839'
+  expected_return: 3808858755
+  expected_output_hex: null
+  references:
+  - https://reveng.sourceforge.io/crc-catalogue/17plus.htm
+  independent_check: Independent MSB polynomial division with explicit byte/final bit reversal; IEEE also
+    cross-checked with zlib.
+- family: crc32
+  variant: crc32c
+  input_hex: 54686520717569636b2062726f776e20666f78206a756d7073206f76657220746865206c617a7920646f67
+  expected_return: 576848900
+  expected_output_hex: null
+  references:
+  - https://reveng.sourceforge.io/crc-catalogue/17plus.htm
+  independent_check: Independent MSB polynomial division with explicit byte/final bit reversal; IEEE also
+    cross-checked with zlib.
+- family: crc32
+  variant: bzip2
+  input_hex: ''
+  expected_return: 0
+  expected_output_hex: null
+  references:
+  - https://reveng.sourceforge.io/crc-catalogue/17plus.htm
+  independent_check: Independent MSB polynomial division with explicit byte/final bit reversal; IEEE also
+    cross-checked with zlib.
+- family: crc32
+  variant: bzip2
+  input_hex: '61'
+  expected_return: 429103979
+  expected_output_hex: null
+  references:
+  - https://reveng.sourceforge.io/crc-catalogue/17plus.htm
+  independent_check: Independent MSB polynomial division with explicit byte/final bit reversal; IEEE also
+    cross-checked with zlib.
+- family: crc32
+  variant: bzip2
+  input_hex: '313233343536373839'
+  expected_return: 4236843288
+  expected_output_hex: null
+  references:
+  - https://reveng.sourceforge.io/crc-catalogue/17plus.htm
+  independent_check: Independent MSB polynomial division with explicit byte/final bit reversal; IEEE also
+    cross-checked with zlib.
+- family: crc32
+  variant: bzip2
+  input_hex: 54686520717569636b2062726f776e20666f78206a756d7073206f76657220746865206c617a7920646f67
+  expected_return: 1167978081
+  expected_output_hex: null
+  references:
+  - https://reveng.sourceforge.io/crc-catalogue/17plus.htm
+  independent_check: Independent MSB polynomial division with explicit byte/final bit reversal; IEEE also
+    cross-checked with zlib.
+- family: djb2
+  variant: add
+  input_hex: ''
+  expected_return: 5381
+  expected_output_hex: null
+  references:
+  - https://www.cse.yorku.ca/~oz/hash.html
+  independent_check: 'Direct one-byte arithmetic: 5381*33 plus or XOR ASCII 97; no oracle call.'
+- family: djb2
+  variant: add
+  input_hex: '61'
+  expected_return: 177670
+  expected_output_hex: null
+  references:
+  - https://www.cse.yorku.ca/~oz/hash.html
+  independent_check: 'Direct one-byte arithmetic: 5381*33 plus or XOR ASCII 97; no oracle call.'
+- family: djb2
+  variant: xor
+  input_hex: ''
+  expected_return: 5381
+  expected_output_hex: null
+  references:
+  - https://www.cse.yorku.ca/~oz/hash.html
+  independent_check: 'Direct one-byte arithmetic: 5381*33 plus or XOR ASCII 97; no oracle call.'
+- family: djb2
+  variant: xor
+  input_hex: '61'
+  expected_return: 177604
+  expected_output_hex: null
+  references:
+  - https://www.cse.yorku.ca/~oz/hash.html
+  independent_check: 'Direct one-byte arithmetic: 5381*33 plus or XOR ASCII 97; no oracle call.'
+- family: fnv
+  variant: fnv1a-32
+  input_hex: ''
+  expected_return: 2166136261
+  expected_output_hex: null
+  references:
+  - https://www.ietf.org/archive/id/draft-eastlake-fnv-34.html
+  independent_check: Empty basis and direct one-byte arithmetic from the published basis/prime; no oracle
+    call.
+- family: fnv
+  variant: fnv1a-32
+  input_hex: '61'
+  expected_return: 3826002220
+  expected_output_hex: null
+  references:
+  - https://www.ietf.org/archive/id/draft-eastlake-fnv-34.html
+  independent_check: Empty basis and direct one-byte arithmetic from the published basis/prime; no oracle
+    call.
+- family: fnv
+  variant: fnv1-32
+  input_hex: ''
+  expected_return: 2166136261
+  expected_output_hex: null
+  references:
+  - https://www.ietf.org/archive/id/draft-eastlake-fnv-34.html
+  independent_check: Empty basis and direct one-byte arithmetic from the published basis/prime; no oracle
+    call.
+- family: fnv
+  variant: fnv1-32
+  input_hex: '61'
+  expected_return: 84696446
+  expected_output_hex: null
+  references:
+  - https://www.ietf.org/archive/id/draft-eastlake-fnv-34.html
+  independent_check: Empty basis and direct one-byte arithmetic from the published basis/prime; no oracle
+    call.

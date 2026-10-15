@@ -1,0 +1,64 @@
+{
+  "schema_version": "1.0",
+  "family": "crc32",
+  "references": [
+    {
+      "name": "ieee_impl",
+      "variant": "ieee",
+      "call_shape": "seed_buf_len"
+    },
+    {
+      "name": "jamcrc_impl",
+      "variant": "jamcrc",
+      "call_shape": "seed_buf_len"
+    },
+    {
+      "name": "crc32c_impl",
+      "variant": "crc32c",
+      "call_shape": "seed_buf_len"
+    },
+    {
+      "name": "bzip2_impl",
+      "variant": "bzip2",
+      "call_shape": "seed_buf_len"
+    },
+    {
+      "name": "ieee_buf_impl",
+      "variant": "ieee",
+      "call_shape": "buf_len"
+    }
+  ],
+  "near_miss": [
+    {
+      "name": "crc32c_impl",
+      "variant": "ieee",
+      "call_shape": "seed_buf_len",
+      "witness_hex": "313233343536373839"
+    },
+    {
+      "name": "jamcrc_impl",
+      "variant": "ieee",
+      "call_shape": "seed_buf_len",
+      "witness_hex": "313233343536373839"
+    },
+    {
+      "name": "bzip2_impl",
+      "variant": "ieee",
+      "call_shape": "seed_buf_len",
+      "witness_hex": "313233343536373839"
+    },
+    {
+      "name": "crc32_no_final_xor",
+      "variant": "ieee",
+      "call_shape": "seed_buf_len",
+      "witness_hex": ""
+    },
+    {
+      "name": "crc32_len_off_by_one",
+      "variant": "ieee",
+      "call_shape": "seed_buf_len",
+      "witness_hex": "61"
+    }
+  ],
+  "binary_sha256": "ebe53246a6b41378ccfba658e502de996bd267b6d287542f0783938093408fd5"
+}
