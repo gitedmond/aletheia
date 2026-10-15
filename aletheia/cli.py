@@ -213,6 +213,55 @@ def claims_scripted(
     raise typer.Exit(0 if output["status"] == "ok" else 1)
 
 
+@app.command()
+def verifiability(
+    ctx: typer.Context,
+    program: Annotated[str | None, typer.Option("--program")] = None,
+) -> None:
+    """Show declared E2 coverage for built programs and currently installed packs."""
+    import re
+    from typing import cast
+
+    from pydantic import JsonValue
+
+    from aletheia.config import Config
+    from aletheia.corpus.verifiability import markdown, table
+    from aletheia.schema.canonical import canonical_bytes
+    from aletheia.schema.models import GroundTruth
+    from aletheia.verify.probes.pack import load_pack
+
+    cfg = options(ctx)
+    try:
+        if program is not None and re.fullmatch(r"[a-z][a-z0-9-]*", program) is None:
+            raise ValueError("invalid program name")
+        config = Config.read(cfg.config)
+        root = Path(config.paths.build)
+        paths = sorted(
+            (root / program).glob("*/private/ground_truth.json")
+            if program
+            else root.glob("*/*/private/ground_truth.json")
+        )
+        if not paths:
+            raise ValueError("program_missing: no built ground truth found")
+        truths = [GroundTruth.model_validate_json(path.read_bytes()) for path in paths]
+        if any(
+            gt.program_id != "tierA/" + path.parents[2].name
+            or gt.variant_id != path.parents[1].name
+            for gt, path in zip(truths, paths, strict=True)
+        ):
+            raise ValueError("ground-truth program identity mismatch")
+        report = table(truths, [load_pack(path) for path in sorted(Path("packs").glob("*.yaml"))])
+        typer.echo(
+            canonical_bytes(cast(JsonValue, report)).decode()
+            if cfg.json_output
+            else markdown(report)
+        )
+    except (OSError, ValueError) as error:
+        result = {"status": "error", "error": str(error)}
+        typer.echo(json.dumps(result, sort_keys=True) if cfg.json_output else str(result))
+        raise typer.Exit(1) from None
+
+
 def main() -> None:
     app()
 
