@@ -89,11 +89,13 @@ def main() -> None:
     try:
         from functools import partial
 
+        from aletheia.analysis.ghidra_worker import analyze_ghidra
         from aletheia.sources.capa_worker import scan_capa
 
         directory = Path(sys.argv[1])
         handlers: dict[JobType, Callable[[Job], JobResult]] = dict(HANDLERS)
         handlers["capa_scan"] = partial(scan_capa, directory)
+        handlers["ghidra_analyze"] = partial(analyze_ghidra, directory)
         execute(directory, handlers)
     except (OSError, ValueError, ValidationError):
         print("invalid sandbox job input", file=sys.stderr)

@@ -139,6 +139,8 @@ docker = "29.1.3"
 containerd = "2.2.1"
 runc = "1.3.4"
 [measurements]
+ghidra_peak_rss_bytes = 522760192
+ghidra_measurement_population = "five Tier A clang23-O2-x64-pie-hardoff stripped ELFs; one fresh process per binary"
 ```
 
-All Python dependency URLs and SHA-256 hashes are in uv.lock. Native package versions and licenses are retained in the cloud environment, outside repository checkouts. Local image IDs are immutable; rebuilding requires an explicit lock update. T09 peak-RAM measurement is pending.
+All Python dependency URLs and SHA-256 hashes are in uv.lock. Native package versions and licenses are retained in the cloud environment, outside repository checkouts. Local image IDs are immutable; rebuilding requires an explicit lock update. T09 measured a maximum fresh-worker peak RSS of 522760192 bytes across the five Tier A binaries with Ghidra 11.4.3, PyGhidra 2.2.1 and the approved F6 options. This is informational process RSS, not a deterministic result field or a container-memory upper bound. Default concurrency remains four.
