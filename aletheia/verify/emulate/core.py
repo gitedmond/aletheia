@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from aletheia.config import Budgets
-from aletheia.verify.emulate.stubs import MemoryFault, emulate_import
+from aletheia.verify.emulate.stubs import BudgetExhausted, MemoryFault, emulate_import
 from aletheia.worker.containment import require_job_sandbox
 from aletheia.worker.main import guarded_input
 
@@ -141,8 +141,12 @@ class Emulator:
         self._mark(address, size, write=access == self.native.UC_MEM_WRITE)
 
     def _instruction(self, uc: Any, address: int, size: int, user: Any) -> None:
-        self.instructions += 1
-        self.total_instructions += 1
+        try:
+            self.charge_work(1)
+        except BudgetExhausted:
+            self.fault = "budget_exhausted"
+            uc.emu_stop()
+            return
         if address in self.imports:
             name = self.imports[address]
             self.called.append(name)
@@ -152,6 +156,8 @@ class Emulator:
                     self.fault = "unsupported_import:" + name
                 else:
                     uc.reg_write(self.registers.UC_X86_REG_RAX, value & (2**64 - 1))
+            except BudgetExhausted:
+                self.fault = "budget_exhausted"
             except (MemoryFault, self.native.UcError):
                 self.fault = "emulation_fault"
             if self.fault:
@@ -160,6 +166,21 @@ class Emulator:
     def _system_call(self, uc: Any, user: Any) -> None:
         self.fault = "emulation_fault"
         uc.emu_stop()
+
+    def charge_work(self, units: int) -> None:
+        """String-scan bytes consume deterministic budget alongside guest instructions."""
+        available = max(
+            0,
+            min(
+                self.budget.instructions_per_invocation - self.instructions,
+                self.budget.instructions_per_claim - self.total_instructions,
+            ),
+        )
+        charged = min(units, available)
+        self.instructions += charged
+        self.total_instructions += charged
+        if charged < units:
+            raise BudgetExhausted
 
     def check_memory(self, address: int, size: int, *, write: bool = False) -> None:
         if size < 0 or address < 0 or address + size > 2**64:

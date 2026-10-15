@@ -117,3 +117,19 @@ def test_stub_memory_permissions_initialization_and_allocator_bounds(stub_binary
     assert results[3]["fault"] == "emulation_fault"
     assert [row["ret"] for row in results[4:]] == [42, 42, 0, 17, 17]
     assert all(row["fault"] is None for row in results[4:])
+
+
+def test_string_scans_consume_deterministic_budgets(stub_binary, tmp_path):
+    binary, symbols = stub_binary
+    text = (b"a" * 4000 + b"\0").hex()
+    calls = [
+        (symbols[name], args, 64)
+        for name, args in [
+            ("length", [text]),
+            ("strings", [text, text]),
+            ("prefix", [text, text, 4001]),
+        ]
+    ]
+    results = emulate(tmp_path, binary, calls, instructions=64)["calls"]
+    assert all(row["fault"] == "budget_exhausted" for row in results), results
+    assert all(row["instructions"] == 64 for row in results)

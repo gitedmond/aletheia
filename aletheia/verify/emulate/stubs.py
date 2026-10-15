@@ -6,6 +6,10 @@ if TYPE_CHECKING:
     from aletheia.verify.emulate.core import Emulator
 
 
+class BudgetExhausted(Exception):
+    pass
+
+
 class MemoryFault(Exception):
     pass
 
@@ -30,12 +34,15 @@ def emulate_import(emu: "Emulator", name: str) -> int | None:
         return (left > right) - (left < right)
     if name == "strlen":
         length = 0
-        while emu.read_memory(a + length, 1) != b"\0":
+        while True:
+            emu.charge_work(1)
+            if emu.read_memory(a + length, 1) == b"\0":
+                return length
             length += 1
-        return length
     if name in ("strcmp", "strncmp"):
         index = 0
         while name == "strcmp" or index < n:
+            emu.charge_work(1)
             left, right = emu.read_memory(a + index, 1)[0], emu.read_memory(b + index, 1)[0]
             if left != right or left == 0:
                 return left - right
