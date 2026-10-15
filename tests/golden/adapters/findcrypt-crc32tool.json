@@ -2,11 +2,34 @@
   "binary_sha256": "d03a204794b100030d3720f579c52bd84b2bac0b7ea7481901cec42c12ae09c1",
   "claims": [
     {
-      "address": "0x00001eb0",
-      "family": "crc32",
-      "shares_backend": true,
+      "algorithms_version": "1.0",
+      "binary_sha256": "d03a204794b100030d3720f579c52bd84b2bac0b7ea7481901cec42c12ae09c1",
+      "body": {
+        "family": "crc32",
+        "variant": null
+      },
+      "claim_id": "c_b346b51257baef64db642c42",
+      "client_ref": null,
+      "confidence": 1.0,
+      "confidence_source": "tool_default",
+      "depends_on": [],
+      "derived_from": "constant_xref",
+      "evidence_refs": [],
+      "rationale": null,
+      "run_id": "r_2222222222222222",
+      "schema_version": "1.0",
+      "source": {
+        "origin": "tool",
+        "shares_backend": true,
+        "source_id": "tool:findcrypt@3.1.10+ghidra@11.4.3"
+      },
+      "subject": {
+        "address": "0x00001eb0",
+        "kind": "function"
+      },
+      "supersedes": null,
       "tool_label": "CRYPT_CRC32_m_tab",
-      "variant": null
+      "type": "algorithm_identity"
     }
   ],
   "deduplicated_label": {},
