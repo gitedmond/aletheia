@@ -150,7 +150,7 @@ class GhidraAnalysis(Record):
         return self
 
 
-def _publish(path: Path, payload: bytes) -> None:
+def publish_immutable(path: Path, payload: bytes) -> None:
     if any(component.is_symlink() for component in (path, *path.parents)):
         raise ValueError("analysis input/cache cannot be a symlink")
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -196,12 +196,12 @@ class GhidraAnalysisCache:
             raise ValueError("binary exceeds the Phase 1A size limit")
         if hashlib.sha256(payload).hexdigest() != binary.binary_sha256:
             raise ValueError("public binary content/hash mismatch")
-        _publish(inputs / (binary.binary_sha256 + ".bin"), payload)
+        publish_immutable(inputs / (binary.binary_sha256 + ".bin"), payload)
         option_bytes = options_path.read_bytes()
         if GhidraOptions.model_validate_json(option_bytes) != options:
             raise ValueError("analysis options changed while staging")
         option_hash = hashlib.sha256(option_bytes).hexdigest()
-        _publish(inputs / (option_hash + ".json"), option_bytes)
+        publish_immutable(inputs / (option_hash + ".json"), option_bytes)
         params: dict[str, JsonValue] = {
             "ghidra_version": options.ghidra_version,
             "options_sha256": option_hash,
@@ -245,5 +245,5 @@ class GhidraAnalysisCache:
             raise ValueError("cached analysis input identity mismatch")
         if self.last_artifact is None:
             raise RuntimeError("analysis result artifact is missing")
-        _publish(pointer, self.last_artifact.encode())
+        publish_immutable(pointer, self.last_artifact.encode())
         return analysis

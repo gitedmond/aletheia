@@ -269,13 +269,60 @@ def _constant_matches(program: Any, function: Any, jpype: Any) -> list[ConstantM
     return [matches[key] for key in sorted(matches)]
 
 
+def _findcrypt_report(program: Any, binary: Path) -> dict[str, Any]:
+    labels: list[dict[str, Any]] = []
+    for symbol in program.getSymbolTable().getAllSymbols(True):
+        name = str(symbol.getName())
+        if not name.startswith("CRYPT_"):
+            continue
+        address = symbol.getAddress()
+        xrefs: set[int] = set()
+        for reference in program.getReferenceManager().getReferencesTo(address):
+            function = program.getFunctionManager().getFunctionContaining(
+                reference.getFromAddress()
+            )
+            if function is not None:
+                xrefs.add(int(function.getEntryPoint().getOffset()))
+        labels.append(
+            {
+                "name": name,
+                "address": f"0x{int(address.getOffset()):08x}",
+                "xrefs_to": [f"0x{entry:08x}" for entry in sorted(xrefs)],
+            }
+        )
+    return {
+        "schema_version": "1.0",
+        "binary_sha256": binary.stem,
+        "ghidra_version": "11.4.3",
+        "findcrypt_version": "3.1.10",
+        "image_base": "0x00000000",
+        "labels": sorted(labels, key=lambda item: (int(item["address"], 16), item["name"])),
+    }
+
+
 def analyze_ghidra(directory: Path, job: Job) -> JobResult:
     require_job_sandbox(directory)
+    findcrypt = job.type == "findcrypt_scan"
     required = {"ghidra_version", "options_sha256", "env_digest"}
+    if findcrypt:
+        required.add("findcrypt_version")
+        # Extension metadata records the compatible Ghidra version; the image pins the release ZIP.
+        properties = Path("/opt/ghidra/Ghidra/Extensions/GhidraFindcrypt/extension.properties")
+        values = dict(
+            line.split("=", 1)
+            for line in properties.read_text().splitlines()
+            if "=" in line and not line.startswith("#")
+        )
+        if (
+            job.params.get("findcrypt_version") != "3.1.10"
+            or values.get("version") != "11.4.3"
+            or values.get("name") != "GhidraFindcrypt"
+        ):
+            raise ValueError("FindCrypt extension version mismatch")
     if (
         set(job.inputs) != {"binary", "options"}
         or not required <= set(job.params)
-        or set(job.params) - required - {"subjects"}
+        or set(job.params) - required - (set() if findcrypt else {"subjects"})
     ):
         raise ValueError("ghidra_analyze requires a public binary and exact pinned options")
     subjects = TypeAdapter(list[Address]).validate_python(job.params.get("subjects", []))
@@ -317,13 +364,26 @@ def analyze_ghidra(directory: Path, job: Job) -> JobResult:
             try:
                 address = program.getAddressFactory().getDefaultAddressSpace().getAddress(0)
                 program.setImageBase(address, True)
-                _apply_options(program, manager_class.getAnalysisManager(program), config)
+                manager = manager_class.getAnalysisManager(program)
+                _apply_options(program, manager, config)
+                if findcrypt:
+                    options = program.getOptions(program.ANALYSIS_PROPERTIES)
+                    options.setBoolean("Find Crypt", True)
+                    if not options.getBoolean("Find Crypt", False):
+                        raise ValueError("FindCrypt analyzer could not be enabled")
+                    manager.initializeOptions(options)
                 commit = True
             finally:
                 program.endTransaction(transaction, commit)
             if int(program.getImageBase().getOffset()) != 0:
                 raise ValueError("Ghidra image base is not zero")
             api.analyzeAll(program)
+            if findcrypt:
+                return JobResult(
+                    job_id=job.job_id,
+                    status="ok",
+                    output={"findcrypt": _findcrypt_report(program, binary)},
+                )
             missing: list[Address] = []
             created = False
             transaction = program.startTransaction("ensure claimed functions")
