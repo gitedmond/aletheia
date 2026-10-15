@@ -87,7 +87,14 @@ def main() -> None:
         print("usage: python -m aletheia.worker /job", file=sys.stderr)
         raise SystemExit(2) from None
     try:
-        execute(Path(sys.argv[1]), HANDLERS)
+        from functools import partial
+
+        from aletheia.sources.capa_worker import scan_capa
+
+        directory = Path(sys.argv[1])
+        handlers: dict[JobType, Callable[[Job], JobResult]] = dict(HANDLERS)
+        handlers["capa_scan"] = partial(scan_capa, directory)
+        execute(directory, handlers)
     except (OSError, ValueError, ValidationError):
         print("invalid sandbox job input", file=sys.stderr)
         raise SystemExit(2) from None
