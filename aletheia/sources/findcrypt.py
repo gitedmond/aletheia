@@ -133,7 +133,10 @@ def scan_findcrypt(
     import hashlib
 
     config = GhidraOptions.read(options)
-    payload = binary.stripped.read_bytes()
+    with binary.stripped.open("rb") as stream:
+        payload = stream.read(20 * 1024**2 + 1)
+    if len(payload) > 20 * 1024**2:
+        raise ValueError("binary exceeds the Phase 1A size limit")
     if hashlib.sha256(payload).hexdigest() != binary.binary_sha256:
         raise ValueError("FindCrypt binary content/hash mismatch")
     option_bytes = options.read_bytes()

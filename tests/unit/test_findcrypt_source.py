@@ -55,3 +55,18 @@ def test_report_rejects_unordered_addresses_and_conflicting_family_variants():
     )
     with pytest.raises(ValueError, match="conflicting"):
         FindcryptAdapter(mapping, "r_" + "1" * 16).adapt(report(), "a" * 64)
+
+
+def test_oversized_binary_is_rejected_before_hashing_or_submission(tmp_path):
+    from pathlib import Path
+
+    from aletheia.sources.base import BinaryRef
+    from aletheia.sources.findcrypt import scan_findcrypt
+
+    binary = tmp_path / "stripped" / ("a" * 64 + ".bin")
+    binary.parent.mkdir()
+    with binary.open("wb") as stream:
+        stream.truncate(20 * 1024**2 + 1)
+    public = BinaryRef("a" * 64, binary, "oversized")
+    with pytest.raises(ValueError, match="size limit"):
+        scan_findcrypt(public, Path("configs/ghidra-analysis.json"), None)
