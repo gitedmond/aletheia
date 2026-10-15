@@ -14,11 +14,13 @@ from pydantic import TypeAdapter
 from aletheia.analysis.ghidra_session import (
     BodyRange,
     CallSite,
+    ConstantMatch,
     FunctionInfo,
     GhidraAnalysis,
     GhidraOptions,
 )
 from aletheia.schema.models import Address, Job, JobResult
+from aletheia.verify.static.constants import IMMEDIATES, TABLES
 from aletheia.worker.containment import require_job_sandbox
 from aletheia.worker.main import guarded_input
 
@@ -166,6 +168,55 @@ def _call_sites(program: Any, function: Any) -> tuple[list[CallSite], bool]:
     ) and not uncertain_jump
 
 
+def _constant_matches(program: Any, function: Any, jpype: Any) -> list[ConstantMatch]:
+    scalar_class = jpype.JClass("ghidra.program.model.scalar.Scalar")
+    memory = program.getMemory()
+    matches: dict[tuple[int, str, str, str], ConstantMatch] = {}
+    visited: set[int] = set()
+
+    def record(address: int, family: str, name: str, location: str) -> None:
+        key = (address, family, name, location)
+        matches[key] = ConstantMatch.model_validate(
+            {
+                "address": f"0x{address:08x}",
+                "family": family,
+                "name": name,
+                "location": location,
+            }
+        )
+
+    for instruction in program.getListing().getInstructions(function.getBody(), True):
+        at = int(instruction.getAddress().getOffset())
+        for operand in range(instruction.getNumOperands()):
+            for obj in instruction.getOpObjects(operand):
+                if isinstance(obj, scalar_class):
+                    value = int(obj.getUnsignedValue()) & ((1 << int(obj.bitLength())) - 1)
+                    for family, constants in IMMEDIATES.items():
+                        for name, expected in constants.items():
+                            if value == expected:
+                                record(at, family, name, "immediate")
+        for reference in instruction.getReferencesFrom():
+            target = reference.getToAddress()
+            if not target.isMemoryAddress():
+                continue
+            address = int(target.getOffset())
+            if address in visited:
+                continue
+            visited.add(address)
+            block = memory.getBlock(target)
+            if block is None or block.isWrite() or not block.isInitialized():
+                continue
+            for family, tables in TABLES.items():
+                for name, expected in tables.items():
+                    if address + len(expected) - 1 > int(block.getEnd().getOffset()):
+                        continue
+                    buffer = jpype.JArray(jpype.JByte)(len(expected))
+                    count = memory.getBytes(target, buffer)
+                    if count == len(expected) and bytes(int(b) & 255 for b in buffer) == expected:
+                        record(address, family, name, "readonly_table")
+    return [matches[key] for key in sorted(matches)]
+
+
 def analyze_ghidra(directory: Path, job: Job) -> JobResult:
     require_job_sandbox(directory)
     required = {"ghidra_version", "options_sha256", "env_digest"}
@@ -264,6 +315,7 @@ def analyze_ghidra(directory: Path, job: Job) -> JobResult:
                         is_thunk=bool(function.isThunk()),
                         call_sites=sites,
                         body_complete=complete,
+                        constants=_constant_matches(program, function, jpype),
                         import_name=str(thunk.getName())
                         if thunk is not None and thunk.isExternal()
                         else None,

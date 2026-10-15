@@ -96,6 +96,14 @@ class CallSite(Strict):
     target: Target | None
 
 
+class ConstantMatch(Strict):
+    kind: Literal["constant_match"] = "constant_match"
+    family: Literal["crc32", "adler32", "fnv", "djb2", "base64"]
+    name: str = Field(min_length=1)
+    address: Address
+    location: Literal["immediate", "readonly_table"]
+
+
 class FunctionInfo(Strict):
     entry: Address
     body_ranges: list[BodyRange] = Field(min_length=1)
@@ -103,6 +111,8 @@ class FunctionInfo(Strict):
     import_name: str | None = None
     body_complete: bool = False
     call_sites: list[CallSite] = Field(default_factory=lambda: list[CallSite]())
+
+    constants: list[ConstantMatch] = Field(default_factory=lambda: list[ConstantMatch]())
 
 
 class GhidraAnalysis(Record):
@@ -122,9 +132,13 @@ class GhidraAnalysis(Record):
         if self.missing_subjects != sorted(set(self.missing_subjects), key=lambda a: int(a, 16)):
             raise ValueError("missing subjects must be sorted and unique")
         for function in self.functions:
-            keys = [(int(s.address, 16), s.kind, s.target or "") for s in function.call_sites]
-            if keys != sorted(set(keys)):
+            site_keys = [(int(s.address, 16), s.kind, s.target or "") for s in function.call_sites]
+            if site_keys != sorted(set(site_keys)):
                 raise ValueError("call sites must be sorted and unique")
+
+            keys = [(int(m.address, 16), m.family, m.name, m.location) for m in function.constants]
+            if keys != sorted(set(keys)):
+                raise ValueError("constant matches must be sorted and unique")
             previous = -1
             for region in function.body_ranges:
                 if int(region.start, 16) < previous:
