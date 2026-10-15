@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from aletheia.config import Budgets
+from aletheia.verify.emulate.stubs import BudgetExhausted, MemoryFault, emulate_import
 from aletheia.worker.containment import require_job_sandbox
 from aletheia.worker.main import guarded_input
 
@@ -104,6 +105,7 @@ class Emulator:
         self.imports: dict[int, str] = {}
         self.data_imports: list[str] = []
         self.heap_next = HEAP
+        self.allocations: dict[int, int] = {}
         self.total_instructions = 0
         self.instructions = 0
         self.fault: str | None = None
@@ -139,17 +141,76 @@ class Emulator:
         self._mark(address, size, write=access == self.native.UC_MEM_WRITE)
 
     def _instruction(self, uc: Any, address: int, size: int, user: Any) -> None:
-        self.instructions += 1
-        self.total_instructions += 1
+        try:
+            self.charge_work(1)
+        except BudgetExhausted:
+            self.fault = "budget_exhausted"
+            uc.emu_stop()
+            return
         if address in self.imports:
             name = self.imports[address]
             self.called.append(name)
-            self.fault = "unsupported_import:" + name
-            uc.emu_stop()
+            try:
+                value = emulate_import(self, name)
+                if value is None:
+                    self.fault = "unsupported_import:" + name
+                else:
+                    uc.reg_write(self.registers.UC_X86_REG_RAX, value & (2**64 - 1))
+            except BudgetExhausted:
+                self.fault = "budget_exhausted"
+            except (MemoryFault, self.native.UcError):
+                self.fault = "emulation_fault"
+            if self.fault:
+                uc.emu_stop()
 
     def _system_call(self, uc: Any, user: Any) -> None:
         self.fault = "emulation_fault"
         uc.emu_stop()
+
+    def charge_work(self, units: int) -> None:
+        """String-scan bytes consume deterministic budget alongside guest instructions."""
+        available = max(
+            0,
+            min(
+                self.budget.instructions_per_invocation - self.instructions,
+                self.budget.instructions_per_claim - self.total_instructions,
+            ),
+        )
+        charged = min(units, available)
+        self.instructions += charged
+        self.total_instructions += charged
+        if charged < units:
+            raise BudgetExhausted
+
+    def check_memory(self, address: int, size: int, *, write: bool = False) -> None:
+        if size < 0 or address < 0 or address + size > 2**64:
+            raise MemoryFault("invalid memory interval")
+        if size == 0:
+            return
+        required = self.native.UC_PROT_WRITE if write else self.native.UC_PROT_READ
+        for page in range(address // PAGE * PAGE, (address + size - 1) // PAGE * PAGE + 1, PAGE):
+            if not self.permissions.get(page, 0) & required:
+                raise MemoryFault("unmapped or protected memory")
+
+    def read_memory(self, address: int, size: int) -> bytes:
+        self.check_memory(address, size)
+        self._mark(address, size, write=False)
+        return bytes(self.uc.mem_read(address, size)) if size else b""
+
+    def write_memory(self, address: int, data: bytes) -> None:
+        self.check_memory(address, len(data), write=True)
+        if data:
+            self.uc.mem_write(address, data)
+            self._mark(address, len(data), write=True)
+
+    def allocate(self, size: int) -> int:
+        size = max(1, size)
+        end = self.heap_next + (size + 15) // 16 * 16
+        if end > HEAP + self.budget.heap_mb * 1024**2:
+            return 0
+        address, self.heap_next = self.heap_next, end
+        self.allocations[address] = size
+        return address
 
     def _allocate_heap(self, size: int) -> int:
         address = self.heap_next
@@ -223,7 +284,7 @@ class Emulator:
                 )
                 self.tracked.append(Tracked(start, mask))
         self._relocate(elf)
-        self.uc.mem_write(STUBS, b"\xc3" * 65536)
+        self.uc.mem_write(STUBS, (b"\xc3" + b"\xcc" * 15) * 4096)
         self.uc.mem_write(TLS + 0x28, struct.pack("<Q", 0x2F8A5C11D3E07B46))
         regs = self.registers
         self.uc.reg_write(regs.UC_X86_REG_FS_BASE, TLS)
@@ -232,6 +293,7 @@ class Emulator:
             regs.UC_X86_REG_CR4, self.uc.reg_read(regs.UC_X86_REG_CR4) | (1 << 9) | (1 << 10)
         )
         self.uc.reg_write(regs.UC_X86_REG_MXCSR, 0x1F80)
+        self.permissions = permissions
         for page, permission in sorted(permissions.items()):
             self.uc.mem_protect(page, PAGE, permission)
         for region in self.regions:
@@ -242,6 +304,9 @@ class Emulator:
                     else self.native.UC_PROT_WRITE
                 )
                 self.uc.mem_protect(region.start, region.end - region.start, permission)
+                self.permissions.update(
+                    {page: int(permission) for page in range(region.start, region.end, PAGE)}
+                )
         self.uc.hook_add(self.native.UC_HOOK_MEM_READ | self.native.UC_HOOK_MEM_WRITE, self._memory)
         self.uc.hook_add(self.native.UC_HOOK_CODE, self._instruction)
         self.uc.hook_add(
@@ -429,4 +494,5 @@ class Emulator:
         for tracked in self.tracked:
             tracked.written[:] = tracked.initial
         self.heap_next = self.initial_heap
+        self.allocations.clear()
         return self._invoke(entry, args, ret_width)
