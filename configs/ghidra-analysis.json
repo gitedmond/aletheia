@@ -346,6 +346,11 @@
       "value": true
     },
     {
+      "name": "External Symbol Resolver",
+      "type": "BOOLEAN_TYPE",
+      "value": true
+    },
+    {
       "name": "Find Crypt",
       "type": "BOOLEAN_TYPE",
       "value": false
@@ -434,6 +439,16 @@
       "name": "Function Start Search.Search Data Blocks",
       "type": "BOOLEAN_TYPE",
       "value": false
+    },
+    {
+      "name": "GCC Exception Handlers",
+      "type": "BOOLEAN_TYPE",
+      "value": true
+    },
+    {
+      "name": "GCC Exception Handlers.Create Try Catch Comments",
+      "type": "BOOLEAN_TYPE",
+      "value": true
     },
     {
       "name": "Non-Returning Functions - Discovered",
