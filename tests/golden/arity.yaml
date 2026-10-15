@@ -1,0 +1,77 @@
+schema_version: '1.0'
+method: static.arity@1
+programs:
+- program: crc32tool
+  binary_sha256: d03a204794b100030d3720f579c52bd84b2bac0b7ea7481901cec42c12ae09c1
+  cases:
+  - name: _start
+    address: '0x00001dc0'
+    arity: null
+    decisive: false
+    reason: no_determinable_caller
+    basis: ELF entry; no direct in-image caller.
+  - name: crc32_update
+    address: '0x00001eb0'
+    arity: 3
+    decisive: true
+    reason: null
+    basis: Selftest call 0x22a3 writes RSI, EDX, EDI at 0x2295/0x229c/0x22a1.
+  - name: crc32_bitwise
+    address: '0x00001f30'
+    arity: 2
+    decisive: true
+    reason: null
+    basis: Main call 0x2480 writes RDI and RSI at 0x2477 and 0x247b.
+  - name: jamcrc
+    address: '0x00002010'
+    arity: 2
+    decisive: true
+    reason: null
+    basis: Main call 0x2495 writes RDI and RSI at 0x248c and 0x2490.
+  - name: crc32_table_init
+    address: '0x000020e0'
+    arity: null
+    decisive: false
+    reason: no_determinable_caller
+    basis: No-argument source; call 0x2450 has no argument definitions.
+  - name: crc32_update_rt
+    address: '0x00002200'
+    arity: 3
+    decisive: true
+    reason: null
+    basis: Main call 0x24ac writes RSI, RDX, EDI at 0x24a1/0x24a5/0x24aa.
+  - name: crc32_selftest
+    address: '0x00002280'
+    arity: null
+    decisive: false
+    reason: no_determinable_caller
+    basis: No-argument source; call 0x2455 follows another call with no argument definitions.
+  - name: hex_print32
+    address: '0x000022c0'
+    arity: 1
+    decisive: true
+    reason: null
+    basis: One-argument source; each main call writes EDI from EAX immediately before
+      CALL.
+  - name: read_input
+    address: '0x000022d0'
+    arity: null
+    decisive: false
+    reason: no_determinable_caller
+    basis: Call 0x2443 has RSI/RDX definitions; RDI arrives from predecessor blocks.
+  - name: main
+    address: '0x00002420'
+    arity: null
+    decisive: false
+    reason: no_determinable_caller
+    basis: Address passed to libc startup; no direct machine CALL targets main.
+- program: cmd-dispatch
+  binary_sha256: fc9631109241513ad27be7508833bb44c2b45dbe010b55f2030158ecf3f6e97c
+  cases:
+  - name: log_msg
+    address: '0x00001ee0'
+    arity: null
+    decisive: false
+    reason: variadic_like
+    basis: Source takes fmt,...; disassembly tests AL at 0x1f03 then spills XMM0-XMM7
+      at 0x1f07-0x1f36.
