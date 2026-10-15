@@ -42,6 +42,7 @@ def test_base_zero_repeatable_analysis_recall_and_cached_result(tmp_path):
     entries = {fn.entry for fn in first.functions}
     crc_entry = next(fn.address for fn in truth.functions if fn.name == "crc32_bitwise")
     assert crc_entry in entries
+    assert expected <= entries, sorted(expected - entries)
     print(
         {
             "scorable_entries": len(expected),
