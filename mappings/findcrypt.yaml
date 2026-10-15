@@ -1,0 +1,6 @@
+findcrypt_version: 3.1.10
+ghidra_version: 11.4.3
+map:
+  CRYPT_CRC32_m_tab:
+    family: crc32
+    variant: null
