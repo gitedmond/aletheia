@@ -5,12 +5,12 @@ import math
 import os
 import tempfile
 from pathlib import Path
-from typing import Literal, Self
+from typing import Literal, Self, cast
 
-from pydantic import Field, JsonValue, model_validator
+from pydantic import Field, JsonValue, TypeAdapter, model_validator
 
 from aletheia.sandbox.runner import JobRunner
-from aletheia.schema.models import Address, Job, JobResult, Record, Sha256, Strict
+from aletheia.schema.models import Address, Job, JobResult, Kind, Record, Sha256, Strict, Target
 from aletheia.sources.base import BinaryRef
 
 
@@ -90,11 +90,19 @@ class BodyRange(Strict):
         return self
 
 
+class CallSite(Strict):
+    address: Address
+    kind: Kind
+    target: Target | None
+
+
 class FunctionInfo(Strict):
     entry: Address
     body_ranges: list[BodyRange] = Field(min_length=1)
     is_thunk: bool
     import_name: str | None = None
+    body_complete: bool = False
+    call_sites: list[CallSite] = Field(default_factory=lambda: list[CallSite]())
 
 
 class GhidraAnalysis(Record):
@@ -104,13 +112,19 @@ class GhidraAnalysis(Record):
     pyghidra_version: Literal["2.2.1"] = "2.2.1"
     image_base: Literal["0x00000000"] = "0x00000000"
     functions: list[FunctionInfo] = Field(max_length=2000)
+    missing_subjects: list[Address] = Field(default_factory=lambda: list[Address]())
 
     @model_validator(mode="after")
     def ordered(self) -> Self:
         entries = [function.entry for function in self.functions]
         if entries != sorted(set(entries), key=lambda address: int(address, 16)):
             raise ValueError("function entries must be sorted and unique")
+        if self.missing_subjects != sorted(set(self.missing_subjects), key=lambda a: int(a, 16)):
+            raise ValueError("missing subjects must be sorted and unique")
         for function in self.functions:
+            keys = [(int(s.address, 16), s.kind, s.target or "") for s in function.call_sites]
+            if keys != sorted(set(keys)):
+                raise ValueError("call sites must be sorted and unique")
             previous = -1
             for region in function.body_ranges:
                 if int(region.start, 16) < previous:
@@ -146,7 +160,12 @@ class GhidraAnalysisCache:
         self.last_artifact: str | None = None
 
     def analyze(
-        self, binary: BinaryRef, options_path: Path, *, no_cache: bool = False
+        self,
+        binary: BinaryRef,
+        options_path: Path,
+        *,
+        no_cache: bool = False,
+        subjects: list[str] | None = None,
     ) -> GhidraAnalysis:
         self.last_measurement = None
         self.last_artifact = None
@@ -166,17 +185,23 @@ class GhidraAnalysisCache:
             raise ValueError("analysis options changed while staging")
         option_hash = hashlib.sha256(option_bytes).hexdigest()
         _publish(inputs / (option_hash + ".json"), option_bytes)
+        params: dict[str, JsonValue] = {
+            "ghidra_version": options.ghidra_version,
+            "options_sha256": option_hash,
+            "env_digest": self.runner.config.image_analysis,
+        }
+        if subjects:
+            entries = TypeAdapter(list[Address]).validate_python(subjects)
+            if len(entries) > 2000:
+                raise ValueError("too many requested subjects")
+            params["subjects"] = cast(JsonValue, sorted(set(entries), key=lambda a: int(a, 16)))
         job = Job.create(
             "ghidra_analyze",
             {
                 "binary": "in/" + binary.binary_sha256 + ".bin",
                 "options": "in/" + option_hash + ".json",
             },
-            {
-                "ghidra_version": options.ghidra_version,
-                "options_sha256": option_hash,
-                "env_digest": self.runner.config.image_analysis,
-            },
+            params,
         )
         pointer = self.root / (job.job_id + ".artifact")
         if any(component.is_symlink() for component in (pointer, *pointer.parents)):
