@@ -1,0 +1,71 @@
+{
+  "schema_version": "1.0",
+  "family": "fnv",
+  "references": [
+    {
+      "name": "fnv1a_impl",
+      "variant": "fnv1a-32",
+      "call_shape": "buf_len"
+    },
+    {
+      "name": "fnv1_impl",
+      "variant": "fnv1-32",
+      "call_shape": "buf_len"
+    }
+  ],
+  "near_miss": [
+    {
+      "name": "fnv_swap",
+      "variant": "fnv1a-32",
+      "call_shape": "buf_len",
+      "witness_hex": "61",
+      "matches_variant": "fnv1-32"
+    },
+    {
+      "name": "wrong_offset_basis",
+      "variant": "fnv1a-32",
+      "call_shape": "buf_len",
+      "witness_hex": ""
+    },
+    {
+      "name": "wrong_prime",
+      "variant": "fnv1a-32",
+      "call_shape": "buf_len",
+      "witness_hex": "61"
+    }
+  ],
+  "binary_sha256": "bedf59db2089d204ffbf66953a4abb344e422d3ab4e6100803beb0a2c55c7e56",
+  "conservative_cases": [
+    {
+      "name": "unbound_mismatch",
+      "variant": "fnv1a-32",
+      "expected": "INCONCLUSIVE",
+      "reason": "binding_not_verified"
+    },
+    {
+      "name": "wrong_offset_basis",
+      "variant": null,
+      "expected": "INCONCLUSIVE",
+      "reason": "no_pack"
+    },
+    {
+      "name": "fnv1a_impl",
+      "variant": "fnv1a-64",
+      "expected": "UNVERIFIABLE",
+      "reason": "no_pack"
+    },
+    {
+      "name": "fnv1a_impl",
+      "variant": "fnv1-64",
+      "expected": "UNVERIFIABLE",
+      "reason": "no_pack"
+    },
+    {
+      "name": "fnv1a_impl",
+      "variant": "fnv1a-32",
+      "expected": "INCONCLUSIVE",
+      "reason": "budget_exhausted",
+      "instructions_per_invocation": 1
+    }
+  ]
+}

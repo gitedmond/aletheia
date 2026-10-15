@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "family": "djb2",
+  "references": [
+    {
+      "name": "add_impl",
+      "variant": "add",
+      "call_shape": "buf_len"
+    },
+    {
+      "name": "xor_impl",
+      "variant": "xor",
+      "call_shape": "buf_len"
+    },
+    {
+      "name": "add_cstr",
+      "variant": "add",
+      "call_shape": "cstr"
+    }
+  ],
+  "near_miss": [
+    {
+      "name": "initial_zero",
+      "variant": "add",
+      "call_shape": "buf_len",
+      "witness_hex": ""
+    },
+    {
+      "name": "multiplier_31",
+      "variant": "add",
+      "call_shape": "buf_len",
+      "witness_hex": "61"
+    },
+    {
+      "name": "sdbm_impl",
+      "variant": "add",
+      "call_shape": "buf_len",
+      "witness_hex": ""
+    }
+  ],
+  "binary_sha256": "444d9644b14f556b060b0d30cde0559465ce6c30233f8e648645282d08e0653f"
+}
