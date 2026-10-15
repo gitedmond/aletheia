@@ -97,6 +97,7 @@ def main() -> None:
         handlers: dict[JobType, Callable[[Job], JobResult]] = dict(HANDLERS)
         handlers["capa_scan"] = partial(scan_capa, directory)
         handlers["ghidra_analyze"] = partial(analyze_ghidra, directory)
+        handlers["findcrypt_scan"] = partial(analyze_ghidra, directory)
         handlers["verify_probe"] = partial(verify_probe, directory)
         execute(directory, handlers)
     except (OSError, ValueError, ValidationError):
