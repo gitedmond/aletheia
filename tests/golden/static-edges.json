@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "binary_sha256": "d03a204794b100030d3720f579c52bd84b2bac0b7ea7481901cec42c12ae09c1",
+  "reference": "author-approved F1 crc32tool ground truth; independent symbol/Capstone edges",
+  "cases": [
+    {
+      "name": "got_libc_start",
+      "subject": "0x00001dc0",
+      "callee": "import:__libc_start_main",
+      "kind": "direct",
+      "verdict": "VERIFIED",
+      "reason": null
+    },
+    {
+      "name": "indirect_not_decisive",
+      "subject": "0x00002280",
+      "callee": "0x00001eb0",
+      "kind": "indirect",
+      "verdict": "INCONCLUSIVE",
+      "reason": "indirect_unresolved"
+    },
+    {
+      "name": "main_import_free",
+      "subject": "0x00002420",
+      "callee": "import:free",
+      "kind": "direct",
+      "verdict": "VERIFIED",
+      "reason": null
+    },
+    {
+      "name": "printf_not_direct",
+      "subject": "0x000022c0",
+      "callee": "import:printf",
+      "kind": "direct",
+      "verdict": "CONTRADICTED",
+      "reason": null
+    },
+    {
+      "name": "printf_tail",
+      "subject": "0x000022c0",
+      "callee": "import:printf",
+      "kind": "tail",
+      "verdict": "VERIFIED",
+      "reason": null
+    },
+    {
+      "name": "selftest_direct",
+      "subject": "0x00002280",
+      "callee": "0x00001eb0",
+      "kind": "direct",
+      "verdict": "VERIFIED",
+      "reason": null
+    },
+    {
+      "name": "selftest_wrong_callee",
+      "subject": "0x00002280",
+      "callee": "0x00001f30",
+      "kind": "direct",
+      "verdict": "CONTRADICTED",
+      "reason": null
+    },
+    {
+      "name": "subject_not_found",
+      "subject": "0x00000001",
+      "callee": "0x00001eb0",
+      "kind": "direct",
+      "verdict": "ERROR",
+      "reason": "subject_not_found"
+    }
+  ]
+}
