@@ -208,20 +208,19 @@ class Emulator:
             self.uc.mem_write(start, segment.data())
         for section in sections:
             if section["sh_flags"] & 3 == 3 and section["sh_size"]:
-                if section["sh_type"] == "SHT_NOBITS":
-                    mask = bytearray(section["sh_size"])
-                elif section.name == ".data" or section.name.startswith(".data."):
-                    mask = bytearray(byte != 0 for byte in section.data())
-                else:
-                    continue
-                start = BASE + int(section["sh_addr"])
-                if not any(
-                    region.name == "image"
-                    and region.start <= start
-                    and start + len(mask) <= region.end
-                    for region in self.regions
+                nobits = section["sh_type"] == "SHT_NOBITS"
+                if not nobits and not (
+                    section.name == ".data" or section.name.startswith(".data.")
                 ):
+                    continue
+                start, size = BASE + int(section["sh_addr"]), int(section["sh_size"])
+                if not self._image_contains(start, size):
                     raise ValueError("mutable section lies outside the loaded image")
+                mask = (
+                    bytearray(size)
+                    if nobits
+                    else bytearray(byte != 0 for byte in self.uc.mem_read(start, size))
+                )
                 self.tracked.append(Tracked(start, mask))
         self._relocate(elf)
         self.uc.mem_write(STUBS, b"\xc3" * 65536)
@@ -260,15 +259,24 @@ class Emulator:
                 if section.name == ".init_array":
                     if section["sh_size"] % 8 or section["sh_size"] > 256:
                         raise ValueError("invalid initialization array")
-                    data = bytes(
-                        self.uc.mem_read(BASE + int(section["sh_addr"]), section["sh_size"])
-                    )
+                    start, size = BASE + int(section["sh_addr"]), int(section["sh_size"])
+                    if size == 0:
+                        continue
+                    if not self._image_contains(start, size):
+                        raise ValueError("initialization array lies outside the loaded image")
+                    data = bytes(self.uc.mem_read(start, size))
                     for (entry,) in struct.iter_unpack("<Q", data):
                         if not self._verified_crt(entry):
                             raise ValueError("unverified initialization entry")
                         result = self._invoke(entry - BASE, [], 64)
                         if result.fault or result.uninitialized_state_reads:
                             raise ValueError("CRT initialization failed: " + str(result.fault))
+
+    def _image_contains(self, start: int, size: int) -> bool:
+        return size >= 0 and any(
+            region.name == "image" and region.start <= start and start + size <= region.end
+            for region in self.regions
+        )
 
     def _relocate(self, elf: Any) -> None:
         relocations: list[tuple[int, int, int, Any]] = []
@@ -295,10 +303,7 @@ class Emulator:
         data_objects: dict[str, int] = {}
         for offset, kind, addend, symbol in sorted(relocations, key=lambda item: item[:3]):
             address = BASE + offset
-            if not any(
-                r.name == "image" and r.start <= address and address + 8 <= r.end
-                for r in self.regions
-            ):
+            if not self._image_contains(address, 8):
                 raise ValueError("relocation destination outside image")
             symbol_type, binding = symbol["st_info"]["type"], symbol["st_info"]["bind"]
             if kind == 8:

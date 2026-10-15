@@ -208,3 +208,69 @@ Path('/job/out/symbols.json').write_text(json.dumps(symbols))
         ],
     )["calls"][0]
     assert unsupported["fault"] == "unsupported_relocation"
+
+
+def test_invalid_section_ranges_fail_before_allocation_or_native_read(tmp_path):
+    cfg = Config.read(Path("aletheia.toml"))
+    built = build_program(
+        Path("corpus/tierA/crc32tool"),
+        Variant(image=cfg.sandbox.image_build, output_root=tmp_path / "build"),
+    )
+    inputs, outputs = tmp_path / "mutate/in", tmp_path / "mutate/out"
+    inputs.mkdir(parents=True)
+    outputs.mkdir()
+    (inputs / built.stripped.name).write_bytes(built.stripped.read_bytes())
+    mutate = """
+import io,struct
+from pathlib import Path
+from elftools.elf.elffile import ELFFile
+original=next(Path('/job/in').glob('*.bin')).read_bytes()
+elf=ELFFile(io.BytesIO(original))
+for index,section in enumerate(elf.iter_sections()):
+ offset=elf['e_shoff']+index*elf['e_shentsize']
+ if section.name=='.bss':
+  forged=bytearray(original)
+  struct.pack_into('<Q',forged,offset+32,16*1024**3)
+  Path('/job/out/nobits.bin').write_bytes(forged)
+ if section.name=='.init_array':
+  forged=bytearray(original)
+  struct.pack_into('<Q',forged,offset+16,0x50000000)
+  Path('/job/out/init.bin').write_bytes(forged)
+"""
+    run_container(cfg.sandbox.image_build, inputs, outputs, ["python", "-c", mutate])
+    failures = []
+    for name in ("nobits", "init"):
+        source = outputs / (name + ".bin")
+        payload = source.read_bytes()
+        filename = hashlib.sha256(payload).hexdigest() + ".bin"
+        job_inputs, job_outputs = tmp_path / name / "in", tmp_path / name / "out"
+        job_inputs.mkdir(parents=True)
+        job_outputs.mkdir()
+        (job_inputs / filename).write_bytes(payload)
+        check = """
+import json
+from pathlib import Path
+import aletheia.verify.emulate.core as core
+from aletheia.config import Budgets
+allocate=bytearray
+def checked(value=0):
+ if isinstance(value,int) and value>256*1024**2:
+  raise AssertionError('allocation attempted before bounds check')
+ return allocate(value)
+core.bytearray=checked
+try:
+ core.Emulator(Path('/job/in/NAME'),Budgets())
+except Exception as exc:
+ print(json.dumps({'type':type(exc).__name__,'detail':str(exc)}))
+else:
+ print(json.dumps({'type':'accepted'}))
+""".replace("NAME", filename)
+        failures.append(
+            json.loads(
+                run_container(
+                    cfg.sandbox.image_analysis, job_inputs, job_outputs, ["python", "-c", check]
+                )
+            )
+        )
+    assert [failure["type"] for failure in failures] == ["ValueError", "ValueError"], failures
+    assert all("outside" in failure["detail"] for failure in failures)
