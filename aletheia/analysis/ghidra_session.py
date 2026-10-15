@@ -90,11 +90,20 @@ class BodyRange(Strict):
         return self
 
 
+class ConstantMatch(Strict):
+    kind: Literal["constant_match"] = "constant_match"
+    family: Literal["crc32", "adler32", "fnv", "djb2", "base64"]
+    name: str = Field(min_length=1)
+    address: Address
+    location: Literal["immediate", "readonly_table"]
+
+
 class FunctionInfo(Strict):
     entry: Address
     body_ranges: list[BodyRange] = Field(min_length=1)
     is_thunk: bool
     import_name: str | None = None
+    constants: list[ConstantMatch] = Field(default_factory=lambda: list[ConstantMatch]())
 
 
 class GhidraAnalysis(Record):
@@ -111,6 +120,9 @@ class GhidraAnalysis(Record):
         if entries != sorted(set(entries), key=lambda address: int(address, 16)):
             raise ValueError("function entries must be sorted and unique")
         for function in self.functions:
+            keys = [(int(m.address, 16), m.family, m.name, m.location) for m in function.constants]
+            if keys != sorted(set(keys)):
+                raise ValueError("constant matches must be sorted and unique")
             previous = -1
             for region in function.body_ranges:
                 if int(region.start, 16) < previous:
