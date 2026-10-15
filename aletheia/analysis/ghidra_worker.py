@@ -20,6 +20,7 @@ from aletheia.analysis.ghidra_session import (
     GhidraOptions,
 )
 from aletheia.schema.models import Address, Job, JobResult
+from aletheia.verify.static.arity import ARGUMENT_REGISTERS
 from aletheia.verify.static.constants import IMMEDIATES, TABLES
 from aletheia.worker.containment import require_job_sandbox
 from aletheia.worker.main import guarded_input
@@ -107,7 +108,52 @@ def _target(program: Any, address: Any) -> str | None:
     return None
 
 
-def _call_sites(program: Any, function: Any) -> tuple[list[CallSite], bool]:
+def _caller_registers(
+    program: Any, instruction: Any, blocks: Any, monitor: Any
+) -> list[str] | None:
+    block = blocks.getFirstCodeBlockContaining(instruction.getAddress(), monitor)
+    if block is None:
+        return None
+    written: set[str] = set()
+    for previous in program.getListing().getInstructions(block, True):
+        if previous.getAddress().compareTo(instruction.getAddress()) >= 0:
+            break
+        if str(previous.getMnemonicString()).upper() == "CALL":
+            # Earlier calls clobber caller-saved argument registers.
+            written.clear()
+        else:
+            for result in previous.getResultObjects():
+                if hasattr(result, "getBaseRegister"):
+                    register = str(result.getBaseRegister().getName()).lower()
+                    if register in ARGUMENT_REGISTERS:
+                        written.add(register)
+    return [register for register in ARGUMENT_REGISTERS if register in written]
+
+
+def _variadic_like(program: Any, function: Any) -> bool:
+    if function.hasVarArgs():
+        return True
+    instructions = list(program.getListing().getInstructions(function.getBody(), True))[:64]
+    tests_al = any(
+        str(ins.getMnemonicString()).upper() == "TEST"
+        and str(ins.getDefaultOperandRepresentation(0)).upper() == "AL"
+        for ins in instructions
+    )
+    # SysV variadic prologues test AL before spilling the vector argument register bank.
+    xmm_spills = {
+        str(ins.getDefaultOperandRepresentation(1)).upper()
+        for ins in instructions
+        if ins.getNumOperands() == 2
+        and str(ins.getMnemonicString()).upper().startswith("MOV")
+        and "XMM" in str(ins.getDefaultOperandRepresentation(1)).upper()
+        and "[" in str(ins.getDefaultOperandRepresentation(0))
+    }
+    return tests_al and len(xmm_spills) >= 2
+
+
+def _call_sites(
+    program: Any, function: Any, blocks: Any, monitor: Any
+) -> tuple[list[CallSite], bool]:
     listing, body = program.getListing(), function.getBody()
     sites: dict[tuple[int, str, str], CallSite] = {}
     covered = 0
@@ -143,6 +189,9 @@ def _call_sites(program: Any, function: Any) -> tuple[list[CallSite], bool]:
                     "address": f"0x{at:08x}",
                     "kind": kind,
                     "target": target_name,
+                    "argument_registers": _caller_registers(program, instruction, blocks, monitor)
+                    if is_call
+                    else None,
                 }
             )
             continue
@@ -161,6 +210,9 @@ def _call_sites(program: Any, function: Any) -> tuple[list[CallSite], bool]:
                     "address": f"0x{at:08x}",
                     "kind": kind,
                     "target": name,
+                    "argument_registers": _caller_registers(program, instruction, blocks, monitor)
+                    if is_call
+                    else None,
                 }
             )
     return [sites[key] for key in sorted(sites)], covered == int(
@@ -298,29 +350,43 @@ def analyze_ghidra(directory: Path, job: Job) -> JobResult:
             if created:
                 api.analyzeAll(program)
             functions: list[FunctionInfo] = []
-            for function in program.getFunctionManager().getFunctions(True):
-                ranges = [
-                    BodyRange(
-                        start=f"0x{int(region.getMinAddress().getOffset()):08x}",
-                        end=f"0x{int(region.getMaxAddress().getOffset()) + 1:08x}",
+            monitor = jpype.JClass("ghidra.util.task.TaskMonitor").DUMMY
+            blocks = jpype.JClass("ghidra.program.model.block.BasicBlockModel")(program)
+            decompiler = jpype.JClass("ghidra.app.decompiler.DecompInterface")()
+            if not decompiler.openProgram(program):
+                raise ValueError("Ghidra decompiler could not open program")
+            try:
+                for function in program.getFunctionManager().getFunctions(True):
+                    ranges = [
+                        BodyRange(
+                            start=f"0x{int(region.getMinAddress().getOffset()):08x}",
+                            end=f"0x{int(region.getMaxAddress().getOffset()) + 1:08x}",
+                        )
+                        for region in function.getBody().getAddressRanges()
+                    ]
+                    sites, complete = _call_sites(program, function, blocks, monitor)
+                    result = decompiler.decompileFunction(function, 0, monitor)
+                    high = result.getHighFunction() if result.decompileCompleted() else None
+                    thunk = function.getThunkedFunction(True) if function.isThunk() else None
+                    functions.append(
+                        FunctionInfo(
+                            entry=f"0x{int(function.getEntryPoint().getOffset()):08x}",
+                            body_ranges=ranges,
+                            is_thunk=bool(function.isThunk()),
+                            call_sites=sites,
+                            body_complete=complete,
+                            decompiler_param_count=int(high.getFunctionPrototype().getNumParams())
+                            if high is not None
+                            else None,
+                            is_variadic_like=_variadic_like(program, function),
+                            constants=_constant_matches(program, function, jpype),
+                            import_name=str(thunk.getName())
+                            if thunk is not None and thunk.isExternal()
+                            else None,
+                        )
                     )
-                    for region in function.getBody().getAddressRanges()
-                ]
-                sites, complete = _call_sites(program, function)
-                thunk = function.getThunkedFunction(True) if function.isThunk() else None
-                functions.append(
-                    FunctionInfo(
-                        entry=f"0x{int(function.getEntryPoint().getOffset()):08x}",
-                        body_ranges=ranges,
-                        is_thunk=bool(function.isThunk()),
-                        call_sites=sites,
-                        body_complete=complete,
-                        constants=_constant_matches(program, function, jpype),
-                        import_name=str(thunk.getName())
-                        if thunk is not None and thunk.isExternal()
-                        else None,
-                    )
-                )
+            finally:
+                decompiler.dispose()
             analysis = GhidraAnalysis(
                 binary_sha256=binary.stem,
                 options_sha256=option_hash,

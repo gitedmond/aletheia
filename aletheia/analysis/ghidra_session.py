@@ -94,6 +94,7 @@ class CallSite(Strict):
     address: Address
     kind: Kind
     target: Target | None
+    argument_registers: list[Literal["rdi", "rsi", "rdx", "rcx", "r8", "r9"]] | None = None
 
 
 class ConstantMatch(Strict):
@@ -109,6 +110,8 @@ class FunctionInfo(Strict):
     body_ranges: list[BodyRange] = Field(min_length=1)
     is_thunk: bool
     import_name: str | None = None
+    decompiler_param_count: int | None = Field(default=None, ge=0)
+    is_variadic_like: bool = False
     body_complete: bool = False
     call_sites: list[CallSite] = Field(default_factory=lambda: list[CallSite]())
 
