@@ -140,6 +140,79 @@ def corpus_build(
     raise typer.Exit(0 if result["status"] == "ok" else 1)
 
 
+claims_app = typer.Typer(help="Generate deterministic scripted claim scenarios.")
+app.add_typer(claims_app, name="claims")
+
+
+@claims_app.command("scripted")
+def claims_scripted(
+    ctx: typer.Context,
+    program: Annotated[str, typer.Option("--program")],
+    manifest: Annotated[Path, typer.Option("--manifest")],
+    seed: Annotated[int, typer.Option("--seed")] = 20261013,
+) -> None:
+    """Generate JSONL case runs using private truth and a complete manifest input."""
+    import re
+
+    from aletheia.config import Config
+    from aletheia.schema.canonical import canonical_bytes
+    from aletheia.schema.models import GroundTruth, ManifestInput
+    from aletheia.sources.scripted import generate
+
+    cfg = options(ctx)
+    try:
+        if re.fullmatch(r"[a-z][a-z0-9-]*", program) is None:
+            raise ValueError("invalid program name")
+        config = Config.read(cfg.config)
+        paths = sorted((Path(config.paths.build) / program).glob("*/private/ground_truth.json"))
+        if len(paths) != 1:
+            raise ValueError("program requires exactly one built ground-truth variant")
+        gt = GroundTruth.model_validate_json(paths[0].read_bytes())
+        if gt.program_id != "tierA/" + program:
+            raise ValueError("ground-truth program identity mismatch")
+        result = generate(gt, ManifestInput.model_validate_json(manifest.read_bytes()), seed)
+        destination = Path(config.paths.runs) / "scripted" / program
+        files: dict[Path, bytes] = {}
+        records: list[dict[str, str]] = []
+        for case in result.cases:
+            stem = destination / case.manifest.run_id
+            claim_path = stem.with_suffix(".jsonl")
+            manifest_path = stem.with_suffix(".manifest.json")
+            files[manifest_path] = canonical_bytes(case.manifest) + b"\n"
+            files[claim_path] = b"".join(
+                canonical_bytes(claim.model_dump(mode="json", exclude={"claim_id"})) + b"\n"
+                for claim in case.claims
+            )
+            records.append(
+                {
+                    "run_id": case.manifest.run_id,
+                    "claims_file": str(claim_path),
+                    "manifest_file": str(manifest_path),
+                }
+            )
+        for path, payload in files.items():
+            if path.exists() and path.read_bytes() != payload:
+                raise ValueError(f"preserving different existing output: {path}")
+        for path, payload in files.items():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                with path.open("xb") as stream:
+                    stream.write(payload)
+            except FileExistsError:
+                if path.read_bytes() != payload:
+                    raise ValueError(f"preserving different existing output: {path}") from None
+        output = {
+            "status": "ok",
+            "claims": sum(len(case.claims) for case in result.cases),
+            "cases": records,
+            "exclusions": result.exclusions,
+        }
+    except (OSError, ValueError) as error:
+        output = {"status": "error", "error": str(error)}
+    typer.echo(json.dumps(output, sort_keys=True) if cfg.json_output else str(output))
+    raise typer.Exit(0 if output["status"] == "ok" else 1)
+
+
 def main() -> None:
     app()
 
