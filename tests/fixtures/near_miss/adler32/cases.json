@@ -33,5 +33,14 @@
       "witness_hex": "57696b697065646961"
     }
   ],
-  "binary_sha256": "dad6c7f2f08a755308b01956a58d947921d6a0971a7d476ac16ed7e3c8de81b4"
+  "binary_sha256": "dad6c7f2f08a755308b01956a58d947921d6a0971a7d476ac16ed7e3c8de81b4",
+  "conservative_cases": [
+    {
+      "name": "fletcher32_impl",
+      "family": "fletcher16",
+      "variant": "std",
+      "expected": "UNVERIFIABLE",
+      "reason": "no_pack"
+    }
+  ]
 }

@@ -33,25 +33,29 @@
       "name": "crc32c_impl",
       "variant": "ieee",
       "call_shape": "seed_buf_len",
-      "witness_hex": "313233343536373839"
+      "witness_hex": "313233343536373839",
+      "matches_variant": "crc32c"
     },
     {
       "name": "jamcrc_impl",
       "variant": "ieee",
       "call_shape": "seed_buf_len",
-      "witness_hex": "313233343536373839"
+      "witness_hex": "313233343536373839",
+      "matches_variant": "jamcrc"
     },
     {
       "name": "bzip2_impl",
       "variant": "ieee",
       "call_shape": "seed_buf_len",
-      "witness_hex": "313233343536373839"
+      "witness_hex": "313233343536373839",
+      "matches_variant": "bzip2"
     },
     {
       "name": "crc32_no_final_xor",
       "variant": "ieee",
       "call_shape": "seed_buf_len",
-      "witness_hex": ""
+      "witness_hex": "",
+      "matches_variant": "jamcrc"
     },
     {
       "name": "crc32_len_off_by_one",

@@ -33,5 +33,13 @@
       "witness_hex": "4d"
     }
   ],
-  "binary_sha256": "ad261644d72b6923b8404be0876fd9be4287a264e4e6532f6a0c578ec4c22eab"
+  "binary_sha256": "ad261644d72b6923b8404be0876fd9be4287a264e4e6532f6a0c578ec4c22eab",
+  "conservative_cases": [
+    {
+      "name": "std_impl",
+      "variant": "std-padded-decode",
+      "expected": "UNVERIFIABLE",
+      "reason": "no_pack"
+    }
+  ]
 }
