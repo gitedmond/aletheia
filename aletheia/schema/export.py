@@ -92,4 +92,28 @@ def export_schemas(directory: Path) -> None:
                     },
                 }
             ]
+        if model is GroundTruth:
+            from aletheia.schema.taxonomy import Taxonomy
+
+            leaves = Taxonomy.bundled().leaves
+            function = schema["$defs"]["GroundFunctionV2"]["properties"]
+            function["category"] = {"enum": [None, *leaves]}
+            function["acceptable_categories"]["items"] = {"enum": leaves}
+            function["acceptable_categories"]["uniqueItems"] = True
+            schema.setdefault("allOf", []).extend(
+                [
+                    {
+                        "if": {"properties": {"schema_version": {"const": version}}},
+                        "then": {
+                            "properties": {
+                                "functions": {"items": {"$ref": "#/$defs/" + function_model}}
+                            }
+                        },
+                    }
+                    for version, function_model in [
+                        ("1.0", "GroundFunction"),
+                        ("2.0", "GroundFunctionV2"),
+                    ]
+                ]
+            )
         (directory / f"{name}.json").write_bytes(canonical_bytes(schema) + b"\n")

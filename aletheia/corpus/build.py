@@ -51,8 +51,11 @@ class Variant:
     output_root: Path = Path("build")
     compiler_major: int = 23
     hardening: Literal["hardoff", "hardened"] = "hardoff"
+    ground_truth_version: Literal["1.0", "2.0"] = "1.0"
 
     def __post_init__(self) -> None:
+        if self.ground_truth_version not in {"1.0", "2.0"}:
+            raise ValueError("unknown ground-truth version")
         if self.hardening not in {"hardoff", "hardened"}:
             raise ValueError("unknown hardening variant")
         if re.fullmatch(r"sha256:[0-9a-f]{64}", self.image) is None:
@@ -391,6 +394,7 @@ def build_program(program_dir: Path, variant: Variant) -> BuildOutput:
             (output / names["stripped"]).rename(output / "stripped" / (binary_hash + ".bin"))
             record: dict[str, JsonValue] = {
                 "schema_version": "1.0",
+                "ground_truth_version": variant.ground_truth_version,
                 "program_id": "tierA/" + program.name,
                 "variant_id": variant.id,
                 "image": variant.image,

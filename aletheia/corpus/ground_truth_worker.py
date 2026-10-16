@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
-from aletheia.corpus.lint import lint_program, source_functions
+from aletheia.corpus.lint import annotation_lines, lint_program, source_functions
 from aletheia.schema.canonical import canonical_bytes
 from aletheia.schema.models import (
     REGISTRY_V1,
@@ -23,7 +23,9 @@ from aletheia.schema.models import (
     ExcludedFunction,
     GroundAlgorithm,
     GroundFunction,
+    GroundFunctionV2,
     GroundTruth,
+    SourceSignature,
     Targets,
 )
 
@@ -370,6 +372,23 @@ def signatures(binary: Any) -> dict[str, str]:
     return result
 
 
+def compiler_abi(directory: Path, metadata: Any) -> dict[str, Any]:
+    from aletheia.corpus.abi import parse_abi
+
+    abi: dict[str, object] = {}
+    for name, digest in sorted(metadata["ir_hashes"].items()):
+        if re.fullmatch(r"private/abi-[0-9]{4}\.ll", name) is None:
+            raise ValueError("invalid IR input name")
+        payload = (directory / name).read_bytes()
+        if hashlib.sha256(payload).hexdigest() != digest:
+            raise ValueError("IR hash mismatch")
+        definitions = parse_abi(payload.decode())
+        if abi.keys() & definitions.keys():
+            raise ValueError("ambiguous IR function name across translation units")
+        abi.update(definitions)
+    return abi
+
+
 def extract(directory: Path, program: Path) -> GroundTruth:
     require_sandbox()
     metadata = json.loads((directory / "build.json").read_bytes())
@@ -384,6 +403,44 @@ def extract(directory: Path, program: Path) -> GroundTruth:
         if hashlib.sha256((program.parent.parent / name).read_bytes()).hexdigest() != digest:
             raise ValueError("source hash mismatch: " + name)
     annotated = annotations(program)
+    v2 = metadata.get("ground_truth_version", "1.0") == "2.0"
+    abi = compiler_abi(directory, metadata) if v2 else {}
+    categories: dict[str, dict[str, Any]] = {}
+    if v2:
+        errors = lint_program(program, phase="1b")
+        if errors:
+            raise ValueError("invalid v2 annotations: " + "; ".join(e.rule for e in errors))
+        for path in sorted((program / "src").glob("*.c")):
+            text = path.read_text()
+            for function in source_functions(text, path):
+                block = annotation_lines(text, function.line)
+                category = next(
+                    line.removeprefix("// @category ")
+                    for line in block
+                    if line.startswith("// @category ")
+                )
+                acceptable = next(
+                    (
+                        line.removeprefix("// @acceptable ").split(",")
+                        for line in block
+                        if line.startswith("// @acceptable ")
+                    ),
+                    list[str](),
+                )
+                roles = next(
+                    (
+                        line.removeprefix("// @roles ").split(",")
+                        for line in block
+                        if line.startswith("// @roles ")
+                    ),
+                    list[str](),
+                )
+                categories[function.name] = {
+                    "category": category,
+                    "acceptable_categories": sorted({category, *(x.strip() for x in acceptable)}),
+                    "roles": [x.strip() for x in roles],
+                }
+
     binary = elf(directory / "private/unstripped.bin")
     o0_binary = elf(directory / "private/o0.bin")
     try:
@@ -404,13 +461,13 @@ def extract(directory: Path, program: Path) -> GroundTruth:
                     raise ValueError("ambiguous authored symbol aliases")
                 continue
             addresses[address] = name
-        functions: list[GroundFunction] = []
+        functions: list[GroundFunction | GroundFunctionV2] = []
         excluded: list[ExcludedFunction] = []
         for name in sorted(annotated.keys() - current.keys()):
             excluded.append(ExcludedFunction(name=name, reason="fully_inlined"))
         for address, name in sorted(addresses.items()):
             _, size, data = current[name]
-            clone = re.fullmatch(r"(.+)\.(?:constprop|isra|part)\.\d+", name)
+            clone = re.fullmatch(r"(.+)\.(?:constprop|isra|part|specialized)\.\d+", name)
             cold = re.fullmatch(r"(.+)\.cold(?:\.\d+)?", name)
             base = clone[1] if clone else cold[1] if cold else name
             algorithm, indirect = annotated.get(base, (GroundAlgorithm(family="none"), []))
@@ -419,6 +476,8 @@ def extract(directory: Path, program: Path) -> GroundTruth:
             original_addr, _, original_data = original[base]
             nontrivial = len(instructions(engine, original_data, original_addr)) > 10
             reason = "cold_split" if cold else None if nontrivial else "trivial"
+            if v2 and reason is None and name not in abi:
+                reason = "abi_unavailable"
             if reason:
                 excluded.append(ExcludedFunction(name=name, reason=reason))
             edges: set[tuple[str, str]] = set()
@@ -446,8 +505,24 @@ def extract(directory: Path, program: Path) -> GroundTruth:
                         if indirect_name not in current:
                             raise ValueError("indirect target missing: " + indirect_name)
                         edges.add((f"0x{current[indirect_name][0]:08x}", "indirect"))
+            extra: dict[str, Any] = {}
+            if v2:
+                source = signature.get(base)
+                source_types = None
+                if source:
+                    returns, _, args = source.partition(" (")
+                    params = args.removesuffix(")").split(", ")
+                    source_types = SourceSignature(
+                        return_type=returns,
+                        params=[p for p in params if p not in {"void", "..."}],
+                        variadic="..." in params,
+                    )
+                extra = categories.get(
+                    base, {"category": None, "acceptable_categories": [], "roles": []}
+                ) | {"abi_signature": abi.get(name), "source_types": source_types}
+            function_model = GroundFunctionV2 if v2 else GroundFunction
             functions.append(
-                GroundFunction(
+                function_model(
                     address=f"0x{address:08x}",
                     size=size,
                     name=name,
@@ -457,16 +532,19 @@ def extract(directory: Path, program: Path) -> GroundTruth:
                     exclusion_reason=reason,
                     callees=[Edge(target=t, kind=cast(Any, k)) for t, k in sorted(edges)],
                     source_signature=signature.get(base),
+                    **extra,
                 )
             )
         return GroundTruth(
+            schema_version="2.0" if v2 else "1.0",
             binary_sha256=metadata["hashes"]["stripped"],
             program_id=metadata["program_id"],
             variant_id=metadata["variant_id"],
             build_flags=" ".join(metadata["build_flags"]),
             functions=functions,
             algorithms_version="2.0"
-            if any(
+            if v2
+            or any(
                 fn.algorithm.family != "none" and fn.algorithm.family not in REGISTRY_V1
                 for fn in functions
             )
@@ -531,19 +609,7 @@ def main() -> None:
         directory = Path("/in/build")
         metadata = json.loads((directory / "build.json").read_bytes())
         if "ir_hashes" in metadata:
-            from aletheia.corpus.abi import parse_abi
-
-            abi: dict[str, object] = {}
-            for name, digest in sorted(metadata["ir_hashes"].items()):
-                if re.fullmatch(r"private/abi-[0-9]{4}\.ll", name) is None:
-                    raise ValueError("invalid IR input name")
-                payload = (directory / name).read_bytes()
-                if hashlib.sha256(payload).hexdigest() != digest:
-                    raise ValueError("IR hash mismatch")
-                definitions = parse_abi(payload.decode())
-                if abi.keys() & definitions.keys():
-                    raise ValueError("ambiguous IR function name across translation units")
-                abi.update(definitions)
+            abi = compiler_abi(directory, metadata)
             Path("/out/abi.json").write_text(
                 json.dumps(
                     {

@@ -254,24 +254,101 @@ class GroundFunction(Strict):
     source_signature: str | None = None
 
 
+Role = Literal["seed", "buf", "len", "cstr", "out", "out_len", "ctx", "key", "other"]
+
+
+class AbiType(Strict):
+    model_config = ConfigDict(serialize_by_alias=True)
+    kind: Literal["void", "int", "ptr", "float", "other"] = Field(alias="class")
+    width: Nonnegative | None
+    declared: str | None = None
+
+    @model_validator(mode="after")
+    def valid_width(self) -> Self:
+        widths = {"void": {0}, "int": {8, 16, 32, 64}, "ptr": {64}, "float": {32, 64}}
+        if self.kind != "other" and self.width not in widths[self.kind]:
+            raise ValueError("invalid ABI class/width pair")
+        if self.kind == "other" and not self.declared:
+            raise ValueError("complex ABI types require their declared IR type")
+        return self
+
+
+class AbiSignature(Strict):
+    model_config = ConfigDict(serialize_by_alias=True)
+    return_type: AbiType = Field(alias="return")
+    params: list[AbiType]
+    abi_complex: bool
+    variadic: bool
+
+    @model_validator(mode="after")
+    def complex_types(self) -> Self:
+        if not self.abi_complex and any(
+            value.kind == "other" for value in [self.return_type, *self.params]
+        ):
+            raise ValueError("complex ABI type requires abi_complex")
+        return self
+
+
+class SourceSignature(Strict):
+    return_type: str
+    params: list[str]
+    variadic: bool
+
+
+class GroundFunctionV2(GroundFunction):
+    category: str | None
+    acceptable_categories: list[str]
+    abi_signature: AbiSignature | None
+    source_types: SourceSignature | None
+    roles: list[Role]
+
+    @model_validator(mode="after")
+    def category_contract(self) -> Self:
+        from aletheia.schema.taxonomy import Taxonomy
+
+        leaves = set(Taxonomy.bundled().leaves)
+        if self.category is not None and self.category not in leaves:
+            raise ValueError("unknown ground-truth category")
+        if (
+            self.acceptable_categories != sorted(set(self.acceptable_categories))
+            or not set(self.acceptable_categories) <= leaves
+        ):
+            raise ValueError("invalid acceptable categories")
+        if self.category is not None and self.category not in self.acceptable_categories:
+            raise ValueError("acceptable categories must include the primary category")
+        if self.scorable and (self.category is None or self.abi_signature is None):
+            raise ValueError("scorable v2 functions require category and compiler ABI")
+        return self
+
+
 class ExcludedFunction(Strict):
     name: str
-    reason: Literal["fully_inlined", "cold_split", "trivial"]
+    reason: Literal["fully_inlined", "cold_split", "trivial", "abi_unavailable"]
 
 
-class GroundTruth(Record):
+class GroundTruth(Strict):
+    schema_version: Literal["1.0", "2.0"] = "1.0"
     binary_sha256: Sha256
     program_id: str
     variant_id: str
     build_flags: str
     algorithms_version: Literal["1.0", "2.0"] = "1.0"
-    functions: list[GroundFunction]
+    functions: list[GroundFunction | GroundFunctionV2]
     excluded_functions: list[ExcludedFunction] = Field(
         default_factory=lambda: list[ExcludedFunction]()
     )
 
     @model_validator(mode="after")
     def registry_version(self) -> Self:
+        if any(
+            isinstance(fn, GroundFunctionV2) != (self.schema_version == "2.0")
+            for fn in self.functions
+        ):
+            raise ValueError("ground-truth function fields differ from schema version")
+        if self.schema_version == "1.0" and any(
+            fn.reason == "abi_unavailable" for fn in self.excluded_functions
+        ):
+            raise ValueError("ABI exclusions require ground-truth schema 2.0")
         if self.algorithms_version == "1.0" and any(
             fn.algorithm.family not in REGISTRY_V1 and fn.algorithm.family != "none"
             for fn in self.functions
