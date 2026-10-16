@@ -185,11 +185,12 @@ def export_sample(
             "schema_version": "1.0",
             "taxonomy": taxonomy.model_dump(),
             "items": [{"item_id": i, "source": items[i]["source"]} for i in chosen],
-            "instructions": "Human RE-literate annotator: assign one taxonomy leaf and optional "
+            "instructions": "Assign one taxonomy leaf and optional "
             "acceptable leaves per item. Do not consult primary labels. Submit annotator_id, "
-            "method (independent or intra-rater), completed_at (YYYY-MM-DD), "
-            "human_attestation=true, and labels [{item_id, category, acceptable}]. "
-            "Intra-rater requires at least 14 days after export. No AI-generated labels.",
+            "method (independent, intra-rater or ai-assisted), completed_at (YYYY-MM-DD), "
+            "human_attestation, and labels [{item_id, category, acceptable}]. "
+            "Intra-rater requires at least 14 days after export. AI-assisted labels require "
+            "human_attestation=false and model_provenance; they are not human validation.",
         },
     )
     return output / "second/export.json"
