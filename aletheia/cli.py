@@ -247,7 +247,9 @@ def claims_scripted(
         if manifest is None:
             from aletheia.orchestrate import Benchmark
 
-            inputs = Benchmark(config).manifest_input(program, "scripted")
+            inputs = Benchmark(config).manifest_input(program, "scripted").model_copy(
+                update={"algorithms_version": gt.algorithms_version}
+            )
         else:
             inputs = ManifestInput.model_validate_json(manifest.read_bytes())
         result = generate(gt, inputs, seed)
