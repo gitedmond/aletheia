@@ -435,6 +435,24 @@ def replay(ctx: typer.Context, run: Annotated[str, typer.Option("--run")]) -> No
     raise typer.Exit(result["exit_code"])
 
 
+@app.command()
+def report(
+    ctx: typer.Context,
+    runs: Annotated[str, typer.Option("--runs")],
+    out: Annotated[Path, typer.Option("--out")],
+) -> None:
+    """Write benchmark metrics, counterexamples, misses and population disclosures."""
+    from aletheia.report import collect, render
+
+    def action(benchmark: "Benchmark") -> dict[str, Any]:
+        payload = render(collect(benchmark, runs.split(",")))
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(payload)
+        return {"status": "ok", "out": str(out), "runs": sorted(set(runs.split(",")))}
+
+    _benchmark_action(ctx, action)
+
+
 def main() -> None:
     app()
 
