@@ -142,6 +142,9 @@ class Benchmark:
                 self.runner(), store, self.config.budgets, Path(self.config.ghidra.analysis_options)
             )
         return ManifestInput(
+            algorithms_version=GroundTruth.model_validate_json(
+                (directory / "private/ground_truth.json").read_bytes()
+            ).algorithms_version,
             source_config=cast(
                 dict[str, JsonValue],
                 {
