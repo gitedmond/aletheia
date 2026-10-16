@@ -33,7 +33,7 @@ from aletheia.verify.engine import DEFAULT_PACK_DIRECTORY
 from aletheia.verify.probes.pack import load_pack
 
 ROOT = Path(__file__).resolve().parent.parent
-PROGRAMS = ("adler32lib", "b64codec", "cmdparse", "crc32tool", "hashtable")
+PROGRAMS = ("adlerfletch", "b64", "cmd-dispatch", "crc32tool", "hashtable")
 REVIEW_SCOPES = {
     "T06": ["corpus/**/*"],
     "T08": ["tests/golden/crc32tool/ground_truth.json"],
@@ -416,7 +416,7 @@ def evaluate(benchmark: Benchmark) -> dict[str, Any]:
                 if case.variant is None and row["arity"]["decisive"] is not True:
                     raise ValueError("incomplete-family control must have a verified binding")
                 found["incomplete_fnv_family" if case.variant is None else key] = row["reason"]
-        log = cases["static.arity:cmdparse:log_msg"]["actual"]
+        log = cases["static.arity:cmd-dispatch:log_msg"]["actual"]
         if log["decisive"] is not False:
             raise ValueError("variadic log_msg unexpectedly decisive")
         found["log_msg"] = log

@@ -59,3 +59,11 @@ def test_scripted_count_retains_counted_wrong_callee_exclusions():
     )
     # A=1, N=2, E=2, X=2: neither edge has a false alternative callee.
     assert scripted_expected_count(truth) == 7
+
+
+def test_gate_programs_match_the_actual_five_program_corpus():
+    from aletheia.gate import PROGRAMS, ROOT
+
+    actual = {path.name for path in (ROOT / "corpus/tierA").iterdir() if (path / "src").is_dir()}
+    assert len(actual) == 5
+    assert set(PROGRAMS) == actual
