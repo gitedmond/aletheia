@@ -4,7 +4,8 @@
 #define TARGET __attribute__((noinline,used))
 #define INLINE static inline __attribute__((always_inline))
 static const unsigned char *volatile anchor_buf;
-static unsigned char *volatile anchor_out __attribute__((unused));
+static unsigned char anchor_storage[8196];
+static unsigned char *volatile anchor_out = anchor_storage;
 static volatile size_t anchor_len;
 static volatile uint32_t anchor_seed __attribute__((unused)) = 1;
 static volatile uint64_t sink;
