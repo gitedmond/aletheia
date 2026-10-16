@@ -24,7 +24,7 @@ def worker(tmp_path, monkeypatch):
     job = Job.create(
         "capa_scan",
         {"binary": "in/" + binary.name},
-        {"capa_version": "9.4.0", "rules_sha256": "1" * 64},
+        {"capa_version": "9.4.0", "rules_sha256": "1" * 64, "env_digest": "sha256:" + "c" * 64},
     )
     return tmp_path, job
 

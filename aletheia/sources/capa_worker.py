@@ -48,7 +48,11 @@ def _fallback_base(binary: Path) -> int:
 
 def scan_capa(directory: Path, job: Job) -> JobResult:
     require_job_sandbox(directory)
-    if set(job.inputs) != {"binary"} or set(job.params) != {"capa_version", "rules_sha256"}:
+    if set(job.inputs) != {"binary"} or set(job.params) != {
+        "capa_version",
+        "rules_sha256",
+        "env_digest",
+    }:
         raise ValueError("capa_scan requires one public binary and exact pinned tool inputs")
     expected = job.params["capa_version"]
     actual = importlib.metadata.version("flare-capa")

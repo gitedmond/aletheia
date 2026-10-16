@@ -216,6 +216,7 @@ class CapaSource:
             {"binary": "in/" + destination.name},
             {
                 "capa_version": self.mapping.capa_version,
+                "env_digest": self.runner.config.image_analysis,
                 "rules_sha256": str(lock["pins"]["capa_rules"]["sha256"]),
             },
         )

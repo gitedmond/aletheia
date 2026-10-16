@@ -237,7 +237,7 @@ class GhidraAnalysisCache:
             handle = self.runner.submit(job)
             result = self.runner.wait(handle)
             self.last_artifact = handle.result_artifact
-            if result.status == "ok":
+            if result.status == "ok" and not handle.cached:
                 import json
 
                 measurement = json.loads((handle.directory / "out/measurement.json").read_bytes())
