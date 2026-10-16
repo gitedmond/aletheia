@@ -90,3 +90,39 @@ def test_one_program_all_sources_and_idempotent_run(tmp_path):
         ],
     )
     assert result.exit_code == 0, result.output
+
+    from aletheia.report import collect, render
+
+    report_path = tmp_path / "report.md"
+    result = cli.invoke(
+        app,
+        [
+            "--config",
+            str(config_path),
+            "--json",
+            "report",
+            "--runs",
+            ",".join(runs),
+            "--out",
+            str(report_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert report_path.read_text() == render(collect(benchmark, runs))
+    assert "## Wrong claims the verifier did not catch" in report_path.read_text()
+    assert "shared backend" in report_path.read_text()
+    changed_metrics = cfg.model_copy(deep=True)
+    changed_metrics.metrics.bootstrap_seed += 1
+    with pytest.raises(ValueError, match="metric configuration drift"):
+        collect(Benchmark(changed_metrics), runs)
+
+    metadata_path = benchmark.directory(runs[0]) / "run.json"
+    original_metadata = metadata_path.read_bytes()
+    try:
+        damaged_metadata = json.loads(original_metadata)
+        damaged_metadata["source_id"] = "human:wrong-attribution"
+        metadata_path.write_text(json.dumps(damaged_metadata))
+        with pytest.raises(ValueError, match="source metadata drift"):
+            collect(benchmark, runs)
+    finally:
+        metadata_path.write_bytes(original_metadata)

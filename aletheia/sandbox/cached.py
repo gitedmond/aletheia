@@ -75,10 +75,6 @@ class CachedJobRunner(JobRunner):
             result = handle.early_result
         else:
             result = super().wait(handle)
-            if handle.job.type in SOURCE_JOBS and result.status == "ok":
-                assert handle.result_artifact is not None
-                pointer = self.cache_root / (handle.job.job_id + ".artifact")
-                publish_immutable(pointer, handle.result_artifact.encode())
         with self.lock:
             self.records.append(
                 {
@@ -88,4 +84,8 @@ class CachedJobRunner(JobRunner):
                     "measurement": handle.measurement,
                 }
             )
+        if not handle.cached and handle.job.type in SOURCE_JOBS and result.status == "ok":
+            assert handle.result_artifact is not None
+            pointer = self.cache_root / (handle.job.job_id + ".artifact")
+            publish_immutable(pointer, handle.result_artifact.encode())
         return result
