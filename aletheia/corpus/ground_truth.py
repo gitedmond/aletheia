@@ -140,6 +140,12 @@ def complete_staged_build(
             or targets.targets != [f.address for f in gt.functions if f.scorable]
         ):
             raise GroundTruthError("worker output identity or target mismatch")
+        if "ir_hashes" in metadata:
+            payload = (output / "abi.json").read_bytes()
+            abi = json.loads(payload)
+            if abi["binary_sha256"] != gt.binary_sha256 or abi["variant_id"] != gt.variant_id:
+                raise GroundTruthError("worker ABI output identity mismatch")
+            (directory / "private/abi.json").write_bytes(payload)
         (directory / "private/ground_truth.json").write_bytes(canonical_bytes(gt))
         (directory / "targets.json").write_bytes(canonical_bytes(targets))
         return gt

@@ -160,6 +160,22 @@ def _execute(
                 ]
             )
         )
+    for index, source in enumerate(sources):
+        commands.append(
+            shlex.join(
+                [
+                    "clang",
+                    *build_flags,
+                    "-I/corpus/include",
+                    "-Isrc",
+                    "-S",
+                    "-emit-llvm",
+                    source,
+                    "-o",
+                    f"/out/private/abi-{index:04}.ll",
+                ]
+            )
+        )
     commands.append(
         "llvm-strip --strip-all /out/private/unstripped.bin -o /out/stripped/output.bin"
     )
@@ -299,8 +315,10 @@ def _publish(staging: Path, destination: Path) -> None:
                         "private/unstripped.bin",
                         "private/o0.bin",
                         "private/ground_truth.json",
+                        "private/abi.json",
                     }
                     and re.fullmatch(r"stripped/[0-9a-f]{64}\.bin", relative) is None
+                    and re.fullmatch(r"private/abi-[0-9]{4}\.ll", relative) is None
                 ):
                     raise BuildError(f"refusing to delete an unknown build output: {relative}")
         os.replace(destination, backup)
@@ -386,6 +404,12 @@ def build_program(program_dir: Path, variant: Variant) -> BuildOutput:
                     for p in sorted((snapshot / "tierA" / program.name / "src").rglob("*.c"))
                 ],
                 "source_hashes": dict(hashes),
+                "ir_hashes": {
+                    path.relative_to(output).as_posix(): hashlib.sha256(
+                        path.read_bytes()
+                    ).hexdigest()
+                    for path in sorted((output / "private").glob("abi-*.ll"))
+                },
                 "hashes": dict(binary_hashes),
                 "inspection": inspection,
             }
