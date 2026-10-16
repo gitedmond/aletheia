@@ -254,13 +254,16 @@ def evaluate(benchmark: Benchmark) -> dict[str, Any]:
         data = collect(benchmark, evidence.runs)
         selftest = _receipt(directory, "selftest.json", evidence.selftest_sha256)
     except (OSError, ValueError, KeyError, TypeError, RuntimeError, sqlite3.Error) as exc:
-        return {
+        failure = {
             "schema_version": "1.0",
             "status": "failed",
             "criteria": {
                 f"X{index}": {"passed": False, "error": str(exc)} for index in range(1, 11)
             },
         }
+        if directory.is_dir():
+            write_json(directory / "gate.json", failure)
+        return failure
 
     def check(name: str, action: Any) -> None:
         try:
