@@ -391,6 +391,9 @@ def methods_for(claim: Claim, pack: Pack | None) -> list[MethodSpec]:
     ]
 
 
+DEFAULT_PACK_DIRECTORY = Path(__file__).resolve().parents[2] / "packs"
+
+
 class Engine:
     def __init__(
         self,
@@ -398,7 +401,7 @@ class Engine:
         store: Store,
         budgets: Budgets,
         options: Path,
-        pack_directory: Path = Path("packs"),
+        pack_directory: Path = DEFAULT_PACK_DIRECTORY,
     ):
         self.runner, self.store = runner, store
         self.budgets = budgets.model_copy(deep=True)

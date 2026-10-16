@@ -151,10 +151,10 @@ class Benchmark:
                 },
             ),
             binaries=[binary.binary_sha256],
-            versions=cast(dict[str, JsonValue], read_lock(Path("versions.lock.md")))
+            versions=cast(dict[str, JsonValue], read_lock(package.parent / "versions.lock.md"))
             | {
                 "package_source_hash": code_hash,
-                "algorithms_hash": file_hash(Path("algorithms.yaml")),
+                "algorithms_hash": file_hash(package.parent / "algorithms.yaml"),
             },
             image_digests={
                 "analysis": self.config.sandbox.image_analysis,
