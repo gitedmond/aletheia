@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from aletheia.schema.canonical import canonical_bytes
 from aletheia.schema.models import (
     REGISTRY,
+    REGISTRY_V1,
     Claim,
     ClaimSubmission,
     Grade,
@@ -60,6 +61,35 @@ def export_schemas(directory: Path) -> None:
                     },
                     "then": {"properties": {"body": {"$ref": "#/$defs/Algorithm"}}},
                     "else": {"properties": {"body": {"$ref": "#/$defs/Call"}}},
+                },
+                {
+                    "if": {"properties": {"algorithms_version": {"const": "1.0"}}},
+                    "then": {
+                        "properties": {
+                            "body": {"properties": {"family": {"enum": sorted(REGISTRY_V1)}}}
+                        }
+                    },
+                },
+            ]
+        elif model is GroundTruth:
+            schema["allOf"] = [
+                {
+                    "if": {"properties": {"algorithms_version": {"const": "1.0"}}},
+                    "then": {
+                        "properties": {
+                            "functions": {
+                                "items": {
+                                    "properties": {
+                                        "algorithm": {
+                                            "properties": {
+                                                "family": {"enum": sorted([*REGISTRY_V1, "none"])}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
                 }
             ]
         (directory / f"{name}.json").write_bytes(canonical_bytes(schema) + b"\n")

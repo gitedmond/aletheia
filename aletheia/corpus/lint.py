@@ -3,8 +3,10 @@
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from aletheia.schema.models import REGISTRY
+from aletheia.schema.taxonomy import Taxonomy
 
 STANDARD_HEADERS = {
     "assert.h",
@@ -95,6 +97,7 @@ class Function:
     line: int
     head: str
     body: str
+    parameters: str = ""
 
 
 def _decode_literal(value: str) -> str:
@@ -147,18 +150,21 @@ def _functions(code: str, path: Path) -> list[Function]:
             raise ValueError("unbalanced function body")
         line = code.count("\n", 0, match.start()) + 1
         result.append(
-            Function(match["name"], path, line, match["head"], code[match.end() : end - 1])
+            Function(
+                match["name"], path, line, match["head"], code[match.end() : end - 1], match["args"]
+            )
         )
         last_end = end
     return result
 
 
-def lint_program(program_dir: Path) -> list[LintError]:
+def lint_program(program_dir: Path, *, phase: Literal["1a", "1b"] = "1a") -> list[LintError]:
     errors: list[LintError] = []
     functions: dict[str, Function] = {}
     indirect: list[tuple[Function, list[str]]] = []
     texts: dict[Path, str] = {}
     sources = sorted((program_dir / "src").rglob("*"))
+    taxonomy = Taxonomy.bundled() if phase == "1b" else None
 
     def error(path: Path, line: int, rule: str, message: str) -> None:
         errors.append(LintError(path.as_posix(), line, rule, message))
@@ -274,7 +280,50 @@ def lint_program(program_dir: Path) -> list[LintError]:
                 family, slash, variant = algorithm.partition("/")
                 if algorithm != "none" and (not slash or variant not in REGISTRY.get(family, ())):
                     error(path, fn.line, "annotation_invalid", f"unknown algorithm: {algorithm}")
-            known = ("// @algorithm ", "// @indirect-targets ")
+            if phase == "1b":
+                assert taxonomy is not None
+                categories = [
+                    a.removeprefix("// @category ")
+                    for a in annotation
+                    if a.startswith("// @category ")
+                ]
+                if not categories:
+                    error(path, fn.line, "category_required", "one adjacent @category is required")
+                elif len(categories) != 1 or categories[0] not in taxonomy.leaves:
+                    error(path, fn.line, "category_invalid", "category must name one taxonomy leaf")
+                alternatives = [
+                    a.removeprefix("// @acceptable ")
+                    for a in annotation
+                    if a.startswith("// @acceptable ")
+                ]
+                if len(alternatives) > 1 or any(
+                    not item.strip() or item.strip() not in taxonomy.leaves
+                    for row in alternatives
+                    for item in row.split(",")
+                ):
+                    error(
+                        path,
+                        fn.line,
+                        "acceptable_invalid",
+                        "alternatives must name taxonomy leaves",
+                    )
+                roles = [
+                    a.removeprefix("// @roles ") for a in annotation if a.startswith("// @roles ")
+                ]
+                allowed = {"seed", "buf", "len", "cstr", "out", "out_len", "ctx", "key", "other"}
+                if len(roles) > 1 or any(
+                    item.strip() not in allowed for row in roles for item in row.split(",")
+                ):
+                    error(path, fn.line, "roles_invalid", "unknown or duplicate role annotation")
+                elif roles and len(roles[0].split(",")) != parameter_count(fn.parameters):
+                    error(path, fn.line, "roles_arity", "one role is required for each parameter")
+            known = (
+                "// @algorithm ",
+                "// @indirect-targets ",
+                "// @category ",
+                "// @acceptable ",
+                "// @roles ",
+            )
             if any(not a.startswith(known) for a in annotation):
                 error(path, fn.line, "annotation_invalid", "unknown annotation")
             targets = [
@@ -358,3 +407,18 @@ def lint_program(program_dir: Path) -> list[LintError]:
 def source_functions(text: str, path: Path) -> list[Function]:
     """Locate controlled definitions with the same lexical rules as source lint."""
     return _functions(_mask(text)[0], path)
+
+
+def parameter_count(parameters: str) -> int:
+    """Count the controlled C parameter list, keeping nested declarators together."""
+    if parameters.strip() in ("", "void", "..."):
+        return 0
+    depth, count = 0, 1
+    for char in parameters:
+        depth += char in "(["
+        depth -= char in ")]"
+        if char == "," and depth == 0:
+            count += 1
+    if re.search(r",\s*\.\.\.\s*$", parameters):
+        count -= 1
+    return count

@@ -18,6 +18,7 @@ from typing import Any, cast
 from aletheia.corpus.lint import lint_program, source_functions
 from aletheia.schema.canonical import canonical_bytes
 from aletheia.schema.models import (
+    REGISTRY_V1,
     Edge,
     ExcludedFunction,
     GroundAlgorithm,
@@ -205,6 +206,120 @@ def imports(binary: Any, engine: Any) -> tuple[dict[int, str], dict[int, str]]:
     return slots, stubs
 
 
+# Corpus eligibility follows the specified S1/Phase 1B stub contract, never verifier output.
+PROBE_IMPORTS = {
+    "memcpy",
+    "memmove",
+    "memset",
+    "memcmp",
+    "strlen",
+    "strcmp",
+    "strncmp",
+    "malloc",
+    "calloc",
+    "realloc",
+    "free",
+    "__stack_chk_fail",
+    "__memcpy_chk",
+    "__memmove_chk",
+    "__memset_chk",
+    "__strcpy_chk",
+    "__ctype_b_loc",
+    "__ctype_tolower_loc",
+    "__ctype_toupper_loc",
+    "__errno_location",
+}
+PURPOSE_PROBES = {
+    "checksum.crc32",
+    "checksum.crc32c",
+    "checksum.adler32",
+    "checksum.fletcher16",
+    "hash.noncrypto.fnv1a",
+    "hash.noncrypto.fnv1",
+    "hash.noncrypto.djb2",
+    "encoding.base64.encode",
+    "encoding.base64.decode",
+    "encoding.hex.encode",
+    "string.length",
+    "string.compare",
+    "memory.copy",
+    "parse.int",
+} | {
+    f"crypto.hash.{family}.{role}"
+    for family in ("md5", "sha1", "sha256")
+    for role in ("init", "update", "final", "oneshot")
+}
+
+
+def validate_probe_imports(
+    program: Path,
+    binary: Any,
+    original: dict[str, tuple[int, int, bytes]],
+    engine: Any,
+    annotated: dict[str, tuple[GroundAlgorithm, list[str]]],
+) -> None:
+    """Reject unsupported imports reachable from behavioral targets using O0 ELF facts."""
+    targets: set[str] = set()
+    for path in sorted((program / "src").rglob("*")):
+        if path.suffix not in (".c", ".h") or not path.is_file():
+            continue
+        text = path.read_text()
+        lines = text.splitlines()
+        for function in source_functions(text, path):
+            i = function.line - 2
+            block: list[str] = []
+            while i >= 0 and lines[i].strip().startswith("// @"):
+                block.append(lines[i].strip())
+                i -= 1
+            categories = [
+                line.removeprefix("// @category ")
+                for line in block
+                if line.startswith("// @category ")
+            ]
+            if annotated[function.name][0].family != "none" or (
+                categories and categories[0] in PURPOSE_PROBES
+            ):
+                targets.add(function.name)
+    if not targets:
+        return
+    slots, stubs = imports(binary, engine)
+    names = {address: name for name, (address, _, _) in original.items()}
+    calls: dict[str, set[str]] = {}
+    for name, (address, size, data) in original.items():
+        outgoing: set[str] = set()
+        for insn in instructions(engine, data, address):
+            if insn.mnemonic not in ("call", "jmp") or len(insn.operands) != 1:
+                continue
+            operand = insn.operands[0]
+            destination: str | None = None
+            if operand.type == 2:
+                target = int(operand.imm)
+                if address <= target < address + size:
+                    continue
+                destination = stubs.get(target) or names.get(target)
+            elif operand.type == 3 and operand.mem.base == 41 and operand.mem.index == 0:
+                destination = slots.get(insn.address + insn.size + operand.mem.disp)
+            if destination:
+                outgoing.add(destination)
+            else:
+                outgoing.add("import:<unresolved>")
+        calls[name] = outgoing
+    for target in sorted(targets):
+        visited: set[str] = set()
+        pending = [target]
+        while pending:
+            name = pending.pop()
+            if name in visited:
+                continue
+            visited.add(name)
+            for callee in sorted(calls.get(name, set())):
+                if callee.startswith("import:"):
+                    if callee.removeprefix("import:") not in PROBE_IMPORTS:
+                        raise ValueError("unsupported_target_import: " + target + " -> " + callee)
+                elif callee not in visited:
+                    pending.append(callee)
+
+
 def signatures(binary: Any) -> dict[str, str]:
     if not binary.has_dwarf_info():
         raise ValueError("private DWARF missing")
@@ -276,6 +391,7 @@ def extract(directory: Path, program: Path) -> GroundTruth:
         verify_crt(o0_binary, annotated)
         current, original = symbols(binary), symbols(o0_binary)
         engine = disassembler()
+        validate_probe_imports(program, o0_binary, original, engine, annotated)
         slots, stubs = imports(binary, engine)
         signature = signatures(binary)
         # Stable collapse of linker aliases; two authored aliases are ambiguous.
@@ -349,6 +465,12 @@ def extract(directory: Path, program: Path) -> GroundTruth:
             variant_id=metadata["variant_id"],
             build_flags=" ".join(metadata["build_flags"]),
             functions=functions,
+            algorithms_version="2.0"
+            if any(
+                fn.algorithm.family != "none" and fn.algorithm.family not in REGISTRY_V1
+                for fn in functions
+            )
+            else "1.0",
             excluded_functions=sorted(excluded, key=lambda f: (f.name, f.reason)),
         )
     finally:

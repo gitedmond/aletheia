@@ -134,6 +134,7 @@ def corpus_lint(
     ctx: typer.Context,
     directory: Annotated[Path, typer.Argument()] = Path("corpus/tierA"),
     program: Annotated[str | None, typer.Option("--program")] = None,
+    phase: Annotated[Literal["1a", "1b"], typer.Option("--phase")] = "1a",
 ) -> None:
     """Check a program directory or all programs below a corpus root."""
     from aletheia.corpus.lint import LintError, lint_program
@@ -149,7 +150,7 @@ def corpus_lint(
         programs = [directory] if (directory / "src").is_dir() else []
     else:
         programs = sorted(p for p in directory.glob("*") if p.is_dir() and (p / "src").is_dir())
-    errors = [error for program in programs for error in lint_program(program)]
+    errors = [error for program in programs for error in lint_program(program, phase=phase)]
     if not programs:
         errors = [LintError(str(directory), 0, "program_missing", "no corpus programs found")]
     if options(ctx).json_output:
@@ -246,7 +247,9 @@ def claims_scripted(
         if manifest is None:
             from aletheia.orchestrate import Benchmark
 
-            inputs = Benchmark(config).manifest_input(program, "scripted")
+            inputs = Benchmark(config).manifest_input(program, "scripted").model_copy(
+                update={"algorithms_version": gt.algorithms_version}
+            )
         else:
             inputs = ManifestInput.model_validate_json(manifest.read_bytes())
         result = generate(gt, inputs, seed)
