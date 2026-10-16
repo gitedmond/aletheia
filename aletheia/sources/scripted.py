@@ -57,6 +57,8 @@ def generate(gt: GroundTruth, manifest: ManifestInput, seed: int = 20261013) -> 
     """Generate first-fit scenario cases; supplied manifest pins come from the caller."""
     if manifest.binaries != [gt.binary_sha256]:
         raise ValueError("scripted manifest binary identity differs from ground truth")
+    if manifest.algorithms_version != gt.algorithms_version:
+        raise ValueError("scripted manifest algorithm version differs from ground truth")
     functions = sorted(gt.functions, key=lambda f: int(f.address, 16))
     addresses = [function.address for function in functions]
     if len(addresses) != len(set(addresses)):

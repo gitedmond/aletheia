@@ -173,11 +173,7 @@ def lint_program(program_dir: Path, *, phase: Literal["1a", "1b"] = "1a") -> lis
     indirect: list[tuple[Function, list[str]]] = []
     texts: dict[Path, str] = {}
     sources = sorted((program_dir / "src").rglob("*"))
-    taxonomy = (
-        Taxonomy.read(Path(__file__).resolve().parents[2] / "taxonomy.yaml")
-        if phase == "1b"
-        else None
-    )
+    taxonomy = Taxonomy.bundled() if phase == "1b" else None
 
     def error(path: Path, line: int, rule: str, message: str) -> None:
         errors.append(LintError(path.as_posix(), line, rule, message))
@@ -424,7 +420,7 @@ def source_functions(text: str, path: Path) -> list[Function]:
 
 def parameter_count(parameters: str) -> int:
     """Count the controlled C parameter list, keeping nested declarators together."""
-    if parameters.strip() in ("", "void"):
+    if parameters.strip() in ("", "void", "..."):
         return 0
     depth, count = 0, 1
     for char in parameters:
@@ -432,4 +428,6 @@ def parameter_count(parameters: str) -> int:
         depth -= char in ")]"
         if char == "," and depth == 0:
             count += 1
+    if re.search(r",\s*\.\.\.\s*$", parameters):
+        count -= 1
     return count
