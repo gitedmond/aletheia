@@ -1,10 +1,12 @@
 """Strict Phase 1A replay: source-job cache required, verdict cache forbidden."""
 
-import json
+import sqlite3
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
+
+from pydantic import TypeAdapter
 
 from aletheia.analysis.ghidra_session import GhidraAnalysisCache
 from aletheia.grade import grade
@@ -48,8 +50,13 @@ def replay(benchmark: Benchmark, run: str) -> dict[str, Any]:
         return receipt | {"exit_code": 4, "differences": ["manifest/pins: " + str(exc)]}
     if differences:
         return receipt | {"exit_code": 4, "differences": differences}
-    metadata = json.loads((directory / "run.json").read_bytes())
-    binary, targets, bundle = benchmark.bundle(str(manifest.source_config["program"]))
+    try:
+        metadata = TypeAdapter(dict[str, Any]).validate_json((directory / "run.json").read_bytes())
+        if not isinstance(metadata.get("jobs"), list):
+            raise ValueError("invalid job records in run metadata")
+        binary, targets, bundle = benchmark.bundle(str(manifest.source_config["program"]))
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return receipt | {"exit_code": 5, "differences": ["run metadata: " + str(exc)[:300]]}
     runner = benchmark.runner(require_cache=True)
     try:
         seen: set[str] = set()
@@ -60,20 +67,32 @@ def replay(benchmark: Benchmark, run: str) -> dict[str, Any]:
                 if artifact != record["artifact"]:
                     raise SourceCacheMiss(job.job_id + ": source artifact changed")
                 seen.add(job.job_id)
-    except (SourceCacheMiss, OSError, ValueError) as exc:
+    except SourceCacheMiss as exc:
         return receipt | {"exit_code": 6, "cache_misses": [str(exc)]}
-    with benchmark.store() as store:
-        claims = benchmark.claims(store, run)
-        original_verdicts = [store.get_verdict(claim.claim_id) for claim in claims]
-        original_grades = [store.get_grade(claim.claim_id) for claim in claims]
-    expected = json.loads((directory / "hashes.json").read_bytes())
-    originals = {
-        "verdicts": content_hash([item.model_dump(mode="json") for item in original_verdicts]),
-        "grades": content_hash([item.model_dump(mode="json") for item in original_grades]),
-        "metrics": content_hash(
-            MetricsReport.model_validate_json((directory / "metrics.json").read_bytes())
-        ),
-    }
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return receipt | {"exit_code": 5, "differences": ["run metadata: " + str(exc)[:300]]}
+    try:
+        with benchmark.store() as store:
+            claims = benchmark.claims(store, run)
+            original_verdicts = [store.get_verdict(claim.claim_id) for claim in claims]
+            original_grades = [store.get_grade(claim.claim_id) for claim in claims]
+        try:
+            expected = TypeAdapter(dict[str, str]).validate_json(
+                (directory / "hashes.json").read_bytes()
+            )
+        except ValueError as exc:
+            raise ValueError("invalid baseline hash schema: " + str(exc)) from exc
+        if set(expected) != {"verdicts", "grades", "metrics"}:
+            raise ValueError("invalid baseline hash schema")
+        originals = {
+            "verdicts": content_hash([item.model_dump(mode="json") for item in original_verdicts]),
+            "grades": content_hash([item.model_dump(mode="json") for item in original_grades]),
+            "metrics": content_hash(
+                MetricsReport.model_validate_json((directory / "metrics.json").read_bytes())
+            ),
+        }
+    except (OSError, ValueError, KeyError, TypeError, sqlite3.Error) as exc:
+        return receipt | {"exit_code": 5, "differences": ["persisted originals: " + str(exc)[:300]]}
     if originals != expected:
         return receipt | {
             "exit_code": 5,

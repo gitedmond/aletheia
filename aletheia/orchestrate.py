@@ -366,7 +366,8 @@ class Benchmark:
                 ).fetchone()
                 is None
             ]
-            store.set_run_state(run, "running")
+            if pending:
+                store.set_run_state(run, "running")
         try:
             if pending:
                 analysis = GhidraAnalysisCache(runner, self.root / "analysis-cache").analyze(

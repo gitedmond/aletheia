@@ -43,6 +43,8 @@ def collect(benchmark: Benchmark, runs: list[str]) -> ReportData:
         directory = benchmark.directory(run)
         manifest = RunManifest.model_validate_json((directory / "manifest.json").read_bytes())
         metadata = json.loads((directory / "run.json").read_bytes())
+        if metadata["source_id"] != manifest.source_config.get("source_id"):
+            raise ValueError("report source metadata drift: " + run)
         _, targets, bundle = benchmark.bundle(str(manifest.source_config["program"]))
         if file_hash(bundle / "private/ground_truth.json") != manifest.source_config.get(
             "ground_truth_hash"
