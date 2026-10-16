@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0",
+  "family": "base64",
+  "references": [
+    {
+      "name": "std_impl",
+      "variant": "std-padded",
+      "call_shape": "buf_len_out"
+    },
+    {
+      "name": "url_impl",
+      "variant": "url-nopad",
+      "call_shape": "buf_len_out"
+    },
+    {
+      "name": "decode_impl",
+      "variant": "std-padded-decode",
+      "call_shape": "buf_len_decode_out"
+    }
+  ],
+  "near_miss": [
+    {
+      "name": "url_in_std",
+      "variant": "std-padded",
+      "call_shape": "buf_len_out",
+      "witness_hex": "fbff"
+    },
+    {
+      "name": "missing_padding",
+      "variant": "std-padded",
+      "call_shape": "buf_len_out",
+      "witness_hex": "4d"
+    },
+    {
+      "name": "dot_padding",
+      "variant": "std-padded",
+      "call_shape": "buf_len_out",
+      "witness_hex": "4d"
+    },
+    {
+      "name": "decode_url_alphabet",
+      "variant": "std-padded-decode",
+      "call_shape": "buf_len_decode_out",
+      "witness_hex": "2b2f383d"
+    },
+    {
+      "name": "decode_padding_length",
+      "variant": "std-padded-decode",
+      "call_shape": "buf_len_decode_out",
+      "witness_hex": "54513d3d"
+    },
+    {
+      "name": "decode_short_output",
+      "variant": "std-padded-decode",
+      "call_shape": "buf_len_decode_out",
+      "witness_hex": "54574675"
+    }
+  ],
+  "binary_sha256": "8d0bd747580dc2941688f989ff18a348e3e56ac1b14d565714234c87d806690d"
+}
