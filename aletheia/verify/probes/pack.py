@@ -100,7 +100,12 @@ class Inputs(Strict):
 
     @model_validator(mode="after")
     def nonempty(self) -> Self:
-        if not self.fixed and not self.fixed_hex and not self.random.count:
+        if (
+            not self.fixed
+            and not self.fixed_hex
+            and not self.random.count
+            and not self.boundary_lengths
+        ):
             raise ValueError("pack must declare at least one input")
         return self
 
