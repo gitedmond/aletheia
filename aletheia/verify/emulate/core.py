@@ -21,6 +21,7 @@ HEAP = 0x73000000
 INPUTS = 0x78000000
 STACK = 0x7F000000
 PAGE = 4096
+CANARY = 0x2F8A5C11D3E07B46
 
 
 @dataclass(frozen=True)
@@ -291,7 +292,7 @@ class Emulator:
                 self.tracked.append(Tracked(start, mask))
         self._relocate(elf)
         self.uc.mem_write(STUBS, (b"\xc3" + b"\xcc" * 15) * 4096)
-        self.uc.mem_write(TLS + 0x28, struct.pack("<Q", 0x2F8A5C11D3E07B46))
+        self.uc.mem_write(TLS + 0x28, struct.pack("<Q", CANARY))
         regs = self.registers
         self.uc.reg_write(regs.UC_X86_REG_FS_BASE, TLS)
         self.uc.reg_write(regs.UC_X86_REG_CR0, (self.uc.reg_read(regs.UC_X86_REG_CR0) & ~4) | 2)

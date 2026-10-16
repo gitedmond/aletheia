@@ -150,6 +150,20 @@ class GhidraAnalysis(Record):
         return self
 
 
+def read_public_binary(binary: BinaryRef) -> bytes:
+    if any(part.is_symlink() for part in (binary.stripped, *binary.stripped.parents)):
+        raise ValueError("public binary cannot be a symlink")
+    if not binary.stripped.is_file():
+        raise ValueError("public binary must be a regular file")
+    with binary.stripped.open("rb") as stream:
+        payload = stream.read(20 * 1024**2 + 1)
+    if len(payload) > 20 * 1024**2:
+        raise ValueError("binary exceeds the Phase 1A size limit")
+    if hashlib.sha256(payload).hexdigest() != binary.binary_sha256:
+        raise ValueError("public binary content/hash mismatch")
+    return payload
+
+
 def publish_immutable(path: Path, payload: bytes) -> None:
     if any(component.is_symlink() for component in (path, *path.parents)):
         raise ValueError("analysis input/cache cannot be a symlink")
@@ -188,14 +202,7 @@ class GhidraAnalysisCache:
         self.last_artifact = None
         options = GhidraOptions.read(options_path)
         inputs = self.runner.input_root / "in"
-        if any(component.is_symlink() for component in (binary.stripped, *binary.stripped.parents)):
-            raise ValueError("public binary cannot be a symlink")
-        with binary.stripped.open("rb") as stream:
-            payload = stream.read(20 * 1024 * 1024 + 1)
-        if len(payload) > 20 * 1024 * 1024:
-            raise ValueError("binary exceeds the Phase 1A size limit")
-        if hashlib.sha256(payload).hexdigest() != binary.binary_sha256:
-            raise ValueError("public binary content/hash mismatch")
+        payload = read_public_binary(binary)
         publish_immutable(inputs / (binary.binary_sha256 + ".bin"), payload)
         option_bytes = options_path.read_bytes()
         if GhidraOptions.model_validate_json(option_bytes) != options:
