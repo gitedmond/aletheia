@@ -98,6 +98,8 @@ class Function:
     head: str
     body: str
     parameters: str = ""
+    start: int = 0
+    end: int = 0
 
 
 def _decode_literal(value: str) -> str:
@@ -151,7 +153,14 @@ def _functions(code: str, path: Path) -> list[Function]:
         line = code.count("\n", 0, match.start()) + 1
         result.append(
             Function(
-                match["name"], path, line, match["head"], code[match.end() : end - 1], match["args"]
+                match["name"],
+                path,
+                line,
+                match["head"],
+                code[match.end() : end - 1],
+                match["args"],
+                match.start(),
+                end,
             )
         )
         last_end = end
