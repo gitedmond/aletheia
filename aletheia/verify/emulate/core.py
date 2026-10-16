@@ -87,6 +87,12 @@ class Tracked:
     initial: bytes = field(default=b"")
 
 
+class InitializationBudgetExhausted(ValueError):
+    def __init__(self, instructions: int):
+        super().__init__("CRT initialization budget exhausted")
+        self.instructions = instructions
+
+
 class Emulator:
     def __init__(self, stripped: Path, budget: Budgets):
         require_job_sandbox(Path("/job"))
@@ -334,6 +340,8 @@ class Emulator:
                         if not self._verified_crt(entry):
                             raise ValueError("unverified initialization entry")
                         result = self._invoke(entry - BASE, [], 64)
+                        if result.fault == "budget_exhausted":
+                            raise InitializationBudgetExhausted(self.total_instructions)
                         if result.fault or result.uninitialized_state_reads:
                             raise ValueError("CRT initialization failed: " + str(result.fault))
 

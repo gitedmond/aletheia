@@ -49,6 +49,30 @@ def doctor(ctx: typer.Context) -> None:
     raise typer.Exit(0 if result["status"] == "ok" else 2)
 
 
+@app.command()
+def selftest(
+    ctx: typer.Context, family: Annotated[str | None, typer.Option("--family")] = None
+) -> None:
+    """Calibrate references and near misses using production Ghidra arity and sandbox probes."""
+    from pydantic import JsonValue
+
+    from aletheia.config import Config
+    from aletheia.selftest import run_selftest
+
+    result: dict[str, JsonValue]
+    try:
+        result = run_selftest(Config.read(options(ctx).config), family)
+    except (ValueError, OSError, RuntimeError, subprocess.SubprocessError) as exc:
+        result = {"status": "error", "detail": str(exc)}
+    if options(ctx).json_output:
+        from aletheia.schema.canonical import canonical_bytes
+
+        typer.echo(canonical_bytes(result).decode())
+    else:
+        typer.echo(json.dumps(result, sort_keys=True))
+    raise typer.Exit(0 if result["status"] == "ok" else 1)
+
+
 schema_app = typer.Typer(help="Export Phase 1A JSON Schemas.")
 app.add_typer(schema_app, name="schema")
 
