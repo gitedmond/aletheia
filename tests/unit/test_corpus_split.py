@@ -29,13 +29,23 @@ def test_split_is_reproducible_private_and_rejects_replacement(tmp_path):
         populate(repo)
         private = tmp_path / (name + "-private")
         guard = PrivateGuard(private, "heldout")
+        import random
+
+        draw = [f"example-{i:02}" for i in range(15)]
+        random.Random(20261013).shuffle(draw)
+        public_word = "target_" + str(int(draw[0].split("-")[1]))
+        (repo / "README").write_text("Already public vocabulary: " + public_word)
+        git(repo, "add", "README")
+        git(repo, "commit", "-qm", "public vocabulary")
         record = split_corpus(repo, guard, 20261013)
         records.append(record)
         assert len(record["heldout"]) == 8 and len(record["dev"]) == 7
         assert len(list((repo / "corpus/tierA").iterdir())) == 7
         assert len(list((private / "corpus/tierA").iterdir())) == 8
         assert json.loads((private / "split.json").read_bytes()) == record
-        assert "target_" in (private / "leakage-index.json").read_text()
+        index = json.loads((private / "leakage-index.json").read_bytes())
+        assert public_word not in index["function_names"]
+        assert index["function_names"]
         with pytest.raises(PrivateAccessError, match="already exists"):
             split_corpus(repo, guard, 20261013)
     assert records[0] == records[1]

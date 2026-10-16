@@ -2,6 +2,7 @@
 
 import platform
 import random
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -65,6 +66,14 @@ def split_corpus(repo: Path, guard: PrivateGuard, seed: int) -> dict[str, object
     public_names = set[str]().union(
         *(_functions(p) for p in public.glob("*") if p.name not in heldout)
     )
+    if objects:
+        try:
+            published = _git(repo, "grep", "-I", "-h", "-e", ".", "HEAD")
+        except subprocess.CalledProcessError as exc:
+            if exc.returncode != 1:
+                raise
+            published = b""
+        public_names.update(token.decode() for token in re.findall(rb"[A-Za-z_]\w*", published))
     for name in heldout:
         path = candidates[name]
         if _git(repo, "log", "--all", "--format=%H", "--", "corpus/tierA/" + name).strip():
