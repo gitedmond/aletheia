@@ -15,6 +15,8 @@ HexInput = Annotated[str, Field(pattern=r"^(?:[0-9a-f]{2})*$")]
 SHAPES: dict[str, list[Role]] = {
     "seed_buf_len": ["seed", "buf", "len"],
     "buf_len": ["buf", "len"],
+    "buf_len_digest_out": ["buf", "len", "out"],
+    "out_buf_len_digest": ["out", "buf", "len"],
     "buf_len16": ["buf", "len"],
     "buf_len_decode_out": ["buf", "len", "out"],
     "cstr": ["cstr"],
@@ -27,6 +29,7 @@ FAMILY_SHAPES: dict[str, set[str]] = {
     "djb2": {"buf_len", "cstr"},
     "base64": {"buf_len_out", "buf_len_decode_out"},
     "fletcher16": {"buf_len16"},
+    **{name: {"buf_len_digest_out", "out_buf_len_digest"} for name in ("md5", "sha1", "sha256")},
 }
 
 
@@ -34,10 +37,16 @@ class CallShape(Strict):
     id: Identifier
     roles: list[Role]
     return_width: Literal[16, 32, 64]
-    out_size: Literal["base64_encode", "base64_decode"] | None = None
+    comparison: Literal["return_output", "output"] = "return_output"
+    out_size: Literal["base64_encode", "base64_decode", "md5", "sha1", "sha256"] | None = None
 
     @model_validator(mode="after")
     def semantics(self) -> Self:
+        digest_shape = self.id in {"buf_len_digest_out", "out_buf_len_digest"}
+        if digest_shape != (self.comparison == "output"):
+            raise ValueError("digest shapes compare only their fixed output")
+        if digest_shape != (self.out_size in {"md5", "sha1", "sha256"}):
+            raise ValueError("digest shapes require a fixed digest allocation")
         if self.roles != SHAPES.get(self.id):
             raise ValueError("unknown call shape or role order")
         if ("out" in self.roles) != (self.out_size is not None):
@@ -52,6 +61,8 @@ class CallShape(Strict):
             raise ValueError("negative input length")
         if self.out_size is None:
             return 0
+        if self.out_size in {"md5", "sha1", "sha256"}:
+            return {"md5": 16, "sha1": 20, "sha256": 32}[self.out_size]
         if self.out_size == "base64_decode":
             return max(1, input_len)
         return 4 * ((input_len + 2) // 3) + 4
@@ -78,6 +89,7 @@ class RandomInputs(Strict):
 
 class Inputs(Strict):
     fixed: list[str]
+    boundary_lengths: bool = False
     fixed_hex: list[HexInput] = Field(default_factory=list)
     random: RandomInputs
 
@@ -105,6 +117,10 @@ class Pack(Strict):
             raise ValueError("duplicate call shape")
         if not set(ids) <= FAMILY_SHAPES[self.family]:
             raise ValueError("call shape is not supported for this family")
+        if self.family in {"md5", "sha1", "sha256"} and any(
+            shape.out_size != self.family for shape in self.call_shapes
+        ):
+            raise ValueError("digest allocation must match the pack family")
         needs_seed = "seed_buf_len" in ids
         for variant, probe in self.variants.items():
             if probe.call_shapes is not None and (

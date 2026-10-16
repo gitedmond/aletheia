@@ -1,6 +1,7 @@
 """Pack-owned reference algorithms; never read corpus sources or native tests."""
 
 import base64
+import hashlib
 import zlib
 from dataclasses import dataclass
 
@@ -17,6 +18,7 @@ ORACLE_VARIANTS: dict[str, tuple[str, str]] = {
     "fnv1_32": ("fnv", "fnv1-32"),
     "djb2_add": ("djb2", "add"),
     "djb2_xor": ("djb2", "xor"),
+    **{name + "_std": (name, "std") for name in ("md5", "sha1", "sha256")},
     "fletcher16_std": ("fletcher16", "std"),
     "base64_decode": ("base64", "std-padded-decode"),
     "base64_std": ("base64", "std-padded"),
@@ -80,6 +82,8 @@ def evaluate(name: str, data: bytes, *, seed: int | None = None) -> OracleResult
             value = (value * 33) + byte if name == "djb2_add" else (value * 33) ^ byte
             value &= MASK32
         return OracleResult(value)
+    if family in {"md5", "sha1", "sha256"}:
+        return OracleResult(0, hashlib.new(family, data).digest())
     if name == "fletcher16_std":
         first = second = 0
         for byte in data:

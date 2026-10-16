@@ -61,6 +61,8 @@ class Trial:
 
 
 def expected_hex(expected: OracleResult, shape: CallShape) -> str:
+    if shape.comparison == "output":
+        return (expected.output or b"").hex()
     return (
         expected.return_value.to_bytes(shape.return_width // 8, "little") + (expected.output or b"")
     ).hex()
@@ -84,8 +86,14 @@ def run_input(
     expected = expected_hex(evaluate(probe.oracle, data, **probe.bind), shape)
     result = emu.call(entry, args, shape.return_width)
     actual = b"" if result.ret is None else result.ret.to_bytes(shape.return_width // 8, "little")
+    if shape.comparison == "output":
+        actual = b""
     if result.ret is not None and "out" in shape.roles:
-        actual += result.out_buffers[-1][: result.ret]
+        index = sum(
+            role in {"buf", "cstr", "out"} for role in shape.roles[: shape.roles.index("out")]
+        )
+        length = shape.output_size(len(data)) if shape.comparison == "output" else result.ret
+        actual += result.out_buffers[index][:length]
     if result.uninitialized_state_reads:
         status = "state_dependent"
     elif result.fault is not None:
@@ -133,6 +141,7 @@ def verify_algorithm(
     scope = [algorithm.variant] if algorithm.variant is not None else variants
     observations: list[Trial] = []
     minimization: list[Trial] = []
+    skipped: list[dict[str, JsonValue]] = []
     instructions = 0
     arity = None
     initial_state = "none"
@@ -157,6 +166,7 @@ def verify_algorithm(
                 "initial_state": initial_state,
                 "observations": [trial.record() for trial in observations],
                 "minimization": [trial.record() for trial in minimization],
+                **({"skipped_inputs": skipped} if family in {"md5", "sha1", "sha256"} else {}),
             },
         )
         digest = "sha256:" + content_hash(payload)
@@ -206,10 +216,21 @@ def verify_algorithm(
             probe = pack.variants[variant]
             if probe.call_shapes is not None and shape.id not in probe.call_shapes:
                 continue
-            for data in inputs_for_shape(inputs_for_variant(values, probe), shape.roles):
-                observations.append(
-                    run_input(emu, entry, shape, variant, pack.variants[variant], data)
-                )
+            inputs = inputs_for_shape(inputs_for_variant(values, probe), shape.roles)
+            for index, data in enumerate(inputs):
+                trial = run_input(emu, entry, shape, variant, probe, data)
+                observations.append(trial)
+                if shape.comparison == "output" and trial.status not in {"match", "mismatch"}:
+                    # A dirty harness can no longer verify or support contradiction.
+                    skipped.append(
+                        {
+                            "shape": shape.id,
+                            "variant": variant,
+                            "count": len(inputs) - index - 1,
+                            "reason": trial.status,
+                        }
+                    )
+                    break
     instructions = emu.total_instructions
 
     def harness(shape: CallShape, variant: str, ending: str) -> str:
@@ -221,7 +242,7 @@ def verify_algorithm(
         return (
             f"Function-level emulation of {claim.subject.address}; shape {shape.id} "
             f"({', '.join(shape.roles)}); stubs S1; initial state: {initial_state}; "
-            f"{len(inputs)} inputs ({fixed} fixed, {len(inputs) - fixed} random, "
+            f"{len(inputs)} inputs ({fixed} fixed, {len(inputs) - fixed} generated, "
             f"seed {pack.inputs.random.seed}); oracle {pack.variants[variant].oracle} "
             f"({family}/{variant}) at {shape.return_width}-bit width: {ending}."
         )

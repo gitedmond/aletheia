@@ -40,7 +40,14 @@ class Reference(Strict):
     name: Identifier
     variant: str
     call_shape: Literal[
-        "seed_buf_len", "buf_len", "cstr", "buf_len_out", "buf_len16", "buf_len_decode_out"
+        "seed_buf_len",
+        "buf_len",
+        "cstr",
+        "buf_len_out",
+        "buf_len16",
+        "buf_len_decode_out",
+        "buf_len_digest_out",
+        "out_buf_len_digest",
     ]
 
 
@@ -133,6 +140,7 @@ def _claim(binary: BinaryRef, address: Address, family: str, variant: str | None
                 "subject": {"address": address},
                 "type": "algorithm_identity",
                 "body": {"family": family, "variant": variant},
+                "algorithms_version": "2.0" if family in {"md5", "sha1", "sha256"} else "1.0",
                 "confidence": 1.0,
                 "confidence_source": "stated",
             }
