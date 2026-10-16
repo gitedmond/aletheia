@@ -25,3 +25,16 @@ def test_fletcher_vectors_and_decode_input_domain():
     assert shape.output_size(4) == 4
     fletcher = load_pack(Path("packs/fletcher16.yaml"))
     assert fletcher.call_shapes[0].return_width == 16
+
+
+def test_base64_shape_and_allocation_cannot_cross_encode_decode():
+    from aletheia.verify.probes.pack import Pack
+
+    pack = load_pack(Path("packs/base64.yaml")).model_dump(mode="json")
+    pack["variants"]["std-padded"]["call_shapes"] = ["buf_len_decode_out"]
+    with pytest.raises(ValueError, match="oracle.*shape"):
+        Pack.model_validate(pack)
+    pack = load_pack(Path("packs/base64.yaml")).model_dump(mode="json")
+    pack["call_shapes"][0]["out_size"] = "base64_decode"
+    with pytest.raises(ValueError, match="allocation"):
+        Pack.model_validate(pack)

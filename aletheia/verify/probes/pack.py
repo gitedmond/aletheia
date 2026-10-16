@@ -47,6 +47,11 @@ class CallShape(Strict):
             raise ValueError("digest shapes compare only their fixed output")
         if digest_shape != (self.out_size in {"md5", "sha1", "sha256"}):
             raise ValueError("digest shapes require a fixed digest allocation")
+        allocation = {"buf_len_out": "base64_encode", "buf_len_decode_out": "base64_decode"}.get(
+            self.id
+        )
+        if not digest_shape and self.out_size != allocation:
+            raise ValueError("call shape output allocation mismatch")
         if self.roles != SHAPES.get(self.id):
             raise ValueError("unknown call shape or role order")
         if ("out" in self.roles) != (self.out_size is not None):
@@ -129,6 +134,12 @@ class Pack(Strict):
                 raise ValueError("variant call shapes must select declared shapes")
             if (probe.input_encoding == "base64") != (probe.oracle == "base64_decode"):
                 raise ValueError("base64 decode requires canonical encoded inputs")
+            if self.family == "base64":
+                expected = (
+                    "buf_len_decode_out" if probe.oracle == "base64_decode" else "buf_len_out"
+                )
+                if set(probe.call_shapes or ids) != {expected}:
+                    raise ValueError("base64 oracle requires its matching call shape")
             if variant not in REGISTRY[self.family]:
                 raise ValueError("unknown variant for family")
             if ORACLE_VARIANTS.get(probe.oracle) != (self.family, variant):
