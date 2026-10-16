@@ -1,4 +1,4 @@
-"""Reproducible Phase 1A compilation and LLVM inspection in the build image."""
+"""Reproducible corpus compilation and LLVM inspection in the build image."""
 
 import fcntl
 import hashlib
@@ -13,7 +13,7 @@ import uuid
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 from pydantic import JsonValue
 
@@ -50,17 +50,31 @@ class Variant:
     image: str
     output_root: Path = Path("build")
     compiler_major: int = 23
+    hardening: Literal["hardoff", "hardened"] = "hardoff"
 
     def __post_init__(self) -> None:
+        if self.hardening not in {"hardoff", "hardened"}:
+            raise ValueError("unknown hardening variant")
         if re.fullmatch(r"sha256:[0-9a-f]{64}", self.image) is None:
             raise ValueError("build image must be a full immutable local image ID")
         expected = str(read_lock(ROOT / "versions.lock.md")["pins"]["clang"]["version"])
         if self.compiler_major != int(expected.split(".")[0]):
-            raise ValueError("only the pinned Phase 1A compiler variant is supported")
+            raise ValueError("only the pinned compiler major is supported")
 
     @property
     def id(self) -> str:
-        return f"clang{self.compiler_major}-O2-x64-pie-hardoff"
+        return f"clang{self.compiler_major}-O2-x64-pie-{self.hardening}"
+
+    @property
+    def flags(self) -> tuple[str, ...]:
+        if self.hardening == "hardoff":
+            return FLAGS
+        replacements = {
+            "-fno-stack-protector": "-fstack-protector-strong",
+            "-D_FORTIFY_SOURCE=0": "-D_FORTIFY_SOURCE=2",
+            "-fcf-protection=none": "-fcf-protection=full",
+        }
+        return tuple(replacements.get(flag, flag) for flag in FLAGS)
 
 
 @dataclass(frozen=True)
@@ -121,7 +135,9 @@ def _snapshot(program: Path, destination: Path) -> dict[str, str]:
     return hashes
 
 
-def _execute(image: str, snapshot: Path, output: Path, program: str) -> None:
+def _execute(
+    image: str, snapshot: Path, output: Path, program: str, build_flags: tuple[str, ...] = FLAGS
+) -> None:
     if os.getuid() == 0:
         raise BuildError("compiler jobs require a non-root task identity")
     sources = [
@@ -130,7 +146,7 @@ def _execute(image: str, snapshot: Path, output: Path, program: str) -> None:
     ]
     commands = ["mkdir -p /out/private /out/stripped", "clang --version > /out/compiler.txt"]
     for optimization, name in (("-O2", "unstripped"), ("-O0", "o0")):
-        flags = [optimization if flag == "-O2" else flag for flag in FLAGS]
+        flags = [optimization if flag == "-O2" else flag for flag in build_flags]
         commands.append(
             shlex.join(
                 [
@@ -337,7 +353,7 @@ def build_program(program_dir: Path, variant: Variant) -> BuildOutput:
             snapshot.mkdir()
             output.mkdir()
             hashes = _snapshot(program, snapshot)
-            _execute(variant.image, snapshot, output, program.name)
+            _execute(variant.image, snapshot, output, program.name, variant.flags)
             compiler = re.search(r"clang version ([0-9.]+)", (output / "compiler.txt").read_text())
             expected = str(read_lock(ROOT / "versions.lock.md")["pins"]["clang"]["version"])
             if compiler is None or compiler.group(1) != expected:
@@ -362,8 +378,8 @@ def build_program(program_dir: Path, variant: Variant) -> BuildOutput:
                 "image": variant.image,
                 "compiler_version": expected,
                 "source_date_epoch": 0,
-                "build_flags": list(FLAGS),
-                "o0_flags": ["-O0" if x == "-O2" else x for x in FLAGS],
+                "build_flags": list(variant.flags),
+                "o0_flags": ["-O0" if x == "-O2" else x for x in variant.flags],
                 "include_flags": ["-I/corpus/include", "-Isrc"],
                 "source_files": [
                     p.relative_to(snapshot / "tierA" / program.name).as_posix()

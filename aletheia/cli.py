@@ -171,6 +171,7 @@ def corpus_lint(
 @corpus_app.command("build")
 def corpus_build(
     ctx: typer.Context,
+    variant: Annotated[Literal["hardoff", "hardened"], typer.Option("--variant")] = "hardoff",
     directory: Annotated[Path, typer.Argument()] = Path("corpus/tierA"),
     program: Annotated[str | None, typer.Option("--program")] = None,
 ) -> None:
@@ -195,8 +196,12 @@ def corpus_build(
         if not programs:
             raise BuildError("program_missing: no selected corpus programs")
         config = read_config(ctx)
-        variant = Variant(image=config.sandbox.image_build, output_root=Path(config.paths.build))
-        built = [build_program(path, variant) for path in programs]
+        build_variant = Variant(
+            image=config.sandbox.image_build,
+            output_root=Path(config.paths.build),
+            hardening=variant,
+        )
+        built = [build_program(path, build_variant) for path in programs]
         result = {
             "status": "ok",
             "programs": [

@@ -64,3 +64,25 @@ def test_compile_failure_preserves_previous_build(tmp_path):
         build_program(source, variant)
     assert first.metadata.read_bytes() == previous
     assert first.stripped.is_file()
+
+
+def test_hardened_build_preserves_real_import_edges_and_reproduces(tmp_path):
+    image = Config.read(Path("aletheia.toml")).sandbox.image_build
+    variant = Variant(image=image, output_root=tmp_path / "build", hardening="hardened")
+    first = build_program(Path("corpus/tierA/cmd-dispatch"), variant)
+    original = [p.read_bytes() for p in (first.stripped, first.unstripped, first.o0)]
+    second = build_program(Path("corpus/tierA/cmd-dispatch"), variant)
+    assert [p.read_bytes() for p in (second.stripped, second.unstripped, second.o0)] == original
+    record = json.loads(second.metadata.read_bytes())
+    assert record["variant_id"] == "clang23-O2-x64-pie-hardened"
+    assert "-fstack-protector-strong" in record["build_flags"]
+    assert "-D_FORTIFY_SOURCE=2" in record["build_flags"]
+    assert "-fcf-protection=full" in record["build_flags"]
+    truth = json.loads((second.o0.parent / "ground_truth.json").read_bytes())
+    imports = {
+        f["name"]: {e["target"] for e in f["callees"] if e["target"].startswith("import:")}
+        for f in truth["functions"]
+    }
+    assert "import:__printf_chk" in imports["cmd_hash"]
+    assert "import:puts" in imports["cmd_help"]
+    assert "import:__vfprintf_chk" in imports["log_msg"]
