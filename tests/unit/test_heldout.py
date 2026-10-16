@@ -309,3 +309,20 @@ def test_hook_scans_deleted_and_rename_source_metadata(tmp_path, operation):
     command = ["rm", old] if operation == "delete" else ["mv", old, "safe.txt"]
     subprocess.run(["git", "-C", str(repo), *command], check=True, capture_output=True)
     assert scan_staged(repo, private) == [{"path": old, "reason": "heldout_content"}]
+
+
+def test_private_function_names_match_whole_identifiers(tmp_path):
+    repo, private = tmp_path / "repo", tmp_path / "private"
+    repo.mkdir()
+    private.mkdir()
+    subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
+    (private / "leakage-index.json").write_text(
+        json.dumps({"program_ids": [], "function_names": ["hidden_helper"], "binary_sha256": []})
+    )
+    source = repo / "public.c"
+    source.write_text("int fixture_hidden_helper(void) { return 0; }")
+    subprocess.run(["git", "-C", str(repo), "add", "public.c"], check=True)
+    assert scan_staged(repo, private) == []
+    source.write_text("int hidden_helper(void) { return 0; }")
+    subprocess.run(["git", "-C", str(repo), "add", "public.c"], check=True)
+    assert scan_staged(repo, private) == [{"path": "public.c", "reason": "heldout_content"}]
