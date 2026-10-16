@@ -43,6 +43,17 @@ def test_base_zero_repeatable_analysis_recall_and_cached_result(tmp_path):
     crc_entry = next(fn.address for fn in truth.functions if fn.name == "crc32_bitwise")
     assert crc_entry in entries
     assert expected <= entries, sorted(expected - entries)
+    expected_imports = {
+        (fn.address, edge.target, edge.kind)
+        for fn in truth.functions
+        if fn.scorable
+        for edge in fn.callees
+        if edge.target.startswith("import:") and edge.kind != "indirect"
+    }
+    actual_imports = {
+        (fn.entry, site.target, site.kind) for fn in first.functions for site in fn.call_sites
+    }
+    assert expected_imports <= actual_imports, sorted(expected_imports - actual_imports)
     print(
         {
             "scorable_entries": len(expected),

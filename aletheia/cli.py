@@ -453,6 +453,32 @@ def report(
     _benchmark_action(ctx, action)
 
 
+@app.command()
+def gate(
+    ctx: typer.Context,
+    phase: Annotated[str, typer.Argument()],
+    execute: Annotated[bool, typer.Option("--execute")] = False,
+) -> None:
+    """Check all Phase 1A criteria; --execute prepares the complete five-program experiment."""
+    from aletheia.config import Config
+    from aletheia.gate import evaluate, prepare
+    from aletheia.orchestrate import Benchmark
+    from aletheia.schema.canonical import canonical_bytes
+
+    try:
+        if phase != "1a":
+            raise ValueError("only Phase 1a is implemented")
+        benchmark = Benchmark(Config.read(options(ctx).config))
+        if execute:
+            prepare(benchmark)
+        result = evaluate(benchmark)
+    except (OSError, ValueError, RuntimeError, KeyError) as exc:
+        typer.echo(json.dumps({"status": "failed", "error": str(exc)}, sort_keys=True))
+        raise typer.Exit(1) from None
+    typer.echo(canonical_bytes(result).decode())
+    raise typer.Exit(0 if result["status"] == "passed" else 1)
+
+
 def main() -> None:
     app()
 

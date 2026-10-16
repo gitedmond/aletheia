@@ -1,9 +1,9 @@
 # Aletheia
 
 Aletheia verifies structured reverse engineering claims with deterministic evidence.
-The repository contains the CLI, contracts, storage, bounded sandbox runner, source
-linter, and five C17 corpus programs. The analysis and verification pipeline is
-under development. Development uses Linux amd64 and the pinned tools below.
+Phase 1A includes five C17 dev programs, scripted/capa/FindCrypt claim sources,
+Ghidra analysis, bounded function emulation, independent grading, deterministic replay
+and reports. Development uses Linux amd64 and the pinned tools below.
 
 ```sh
 export PATH="$HOME/.local/bin:$PATH"
@@ -34,3 +34,23 @@ docker build -f docker/analysis.Dockerfile -t aletheia-analysis .
 Record the new full image IDs in the config and lock after reviewing a rebuild. Doctor fails
 on stale or missing identities; it does not pull or repair anything. CI records its own rebuilt
 image IDs only in its temporary checkout.
+
+
+From the Linux checkout, prepare the full Phase 1A experiment and inspect its gate:
+
+```sh
+uv run alth --json gate 1a --execute
+uv run alth --json gate 1a
+```
+
+Preparation builds each program twice, checks leakage, runs calibration and all three
+sources, replays every run with fresh verifier methods, and writes reports and receipts
+under `runs/phase1a/`. The gate checks existing receipts without repeating the experiment.
+A passing gate also requires `reviews.json` dispositions bound to the current review
+scopes and final evidence; record author reviews and explicit delegation honestly.
+
+Individual runs use `alth run --source scripted|capa|findcrypt --program PROGRAM`.
+`alth verify --run ID`, `alth score --run ID`, `alth replay --run ID`, and
+`alth report --runs ID1,ID2 --out report.md` support the same persisted run lifecycle.
+FindCrypt is labeled as a shared backend and excluded from independent scripted reliability.
+Results cover five dev programs; their cluster intervals are not held-out generalization evidence.
