@@ -11,6 +11,10 @@ def generate_inputs(spec: Inputs) -> list[bytes]:
     rng = random.Random(spec.random.seed)
     values = [value.encode("utf-8") for value in spec.fixed]
     values.extend(bytes.fromhex(value) for value in spec.fixed_hex)
+    if spec.boundary_lengths:
+        values.extend(
+            rng.randbytes(n) for n in (0, 1, 55, 56, 57, 63, 64, 65, 119, 120, 127, 128, 129, 1000)
+        )
     for _ in range(spec.random.count):
         values.append(rng.randbytes(rng.randrange(spec.random.max_len + 1)))
     return values

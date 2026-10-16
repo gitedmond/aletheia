@@ -1,0 +1,36 @@
+family: sha1
+version: 1
+call_shapes:
+- id: buf_len_digest_out
+  roles:
+  - buf
+  - len
+  - out
+  return_width: 64
+  comparison: output
+  out_size: sha1
+- id: out_buf_len_digest
+  roles:
+  - out
+  - buf
+  - len
+  return_width: 64
+  comparison: output
+  out_size: sha1
+variants:
+  std:
+    oracle: sha1_std
+inputs:
+  fixed:
+  - ''
+  - abc
+  - aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  boundary_lengths: true
+  random:
+    count: 64
+    max_len: 4096
+    seed: 4518
+near_miss:
+- sha0_schedule
+- wrong_constant
+- little_endian_length

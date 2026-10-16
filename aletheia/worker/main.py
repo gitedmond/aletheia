@@ -102,7 +102,7 @@ def main() -> None:
 
         from aletheia.analysis.ghidra_worker import analyze_ghidra
         from aletheia.sources.capa_worker import scan_capa
-        from aletheia.verify.probes.worker import verify_probe
+        from aletheia.verify.probes.worker import verify_composite_job, verify_probe
         from aletheia.verify.static.worker import verify_static
 
         directory = Path(sys.argv[1])
@@ -111,6 +111,7 @@ def main() -> None:
         handlers["ghidra_analyze"] = partial(analyze_ghidra, directory)
         handlers["findcrypt_scan"] = partial(analyze_ghidra, directory)
         handlers["verify_probe"] = partial(verify_probe, directory)
+        handlers["verify_composite"] = partial(verify_composite_job, directory)
         handlers["verify_static"] = partial(verify_static, directory)
         execute(directory, handlers)
     except (OSError, ValueError, ValidationError):

@@ -15,6 +15,9 @@ def test_pack_fixed_inputs_equal_published_vector_table():
     table["vectors"] += json.loads(Path("tests/golden/vectors-phase1b.json").read_bytes())[
         "vectors"
     ]
+    table["vectors"] += json.loads(Path("tests/golden/hash-vectors-phase1b.json").read_bytes())[
+        "vectors"
+    ]
     protected = {(row["family"], row["variant"], row["input_hex"]) for row in table["vectors"]}
     declared = set()
     for path in sorted(Path("packs").glob("*.yaml")):

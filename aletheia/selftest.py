@@ -40,7 +40,14 @@ class Reference(Strict):
     name: Identifier
     variant: str
     call_shape: Literal[
-        "seed_buf_len", "buf_len", "cstr", "buf_len_out", "buf_len16", "buf_len_decode_out"
+        "seed_buf_len",
+        "buf_len",
+        "cstr",
+        "buf_len_out",
+        "buf_len16",
+        "buf_len_decode_out",
+        "buf_len_digest_out",
+        "out_buf_len_digest",
     ]
 
 
@@ -58,9 +65,18 @@ class ConservativeCase(Strict):
     instructions_per_invocation: int | None = Field(default=None, gt=0)
 
 
+class CompositeCase(Strict):
+    name: Identifier
+    init: Identifier
+    update: Identifier
+    final: Identifier
+    expected: Literal["VERIFIED", "CONTRADICTED"]
+
+
 class Fixture(Record):
     family: str
     binary_sha256: Sha256
+    composite_cases: list[CompositeCase] = Field(default_factory=lambda: list[CompositeCase]())
     references: list[Reference] = Field(min_length=1)
     near_miss: list[NearMiss] = Field(min_length=1)
     conservative_cases: list[ConservativeCase] = Field(
@@ -69,9 +85,14 @@ class Fixture(Record):
 
 
 def build_fixture(
-    family: str, cfg: Config, root: Path, *, version: int = 1
+    family: str,
+    cfg: Config,
+    root: Path,
+    *,
+    version: int = 1,
+    fixture_set: Literal["near_miss", "composite"] = "near_miss",
 ) -> tuple[BinaryRef, dict[str, Address], Fixture]:
-    directory = "near_miss" if version == 1 else f"near_miss-v{version}"
+    directory = fixture_set if version == 1 else f"{fixture_set}-v{version}"
     source = Path("tests/fixtures") / directory / family
     check_no_symlinks(source)
     fixture = Fixture.model_validate_json((source / "cases.json").read_bytes())
@@ -133,6 +154,7 @@ def _claim(binary: BinaryRef, address: Address, family: str, variant: str | None
                 "subject": {"address": address},
                 "type": "algorithm_identity",
                 "body": {"family": family, "variant": variant},
+                "algorithms_version": "2.0" if family in {"md5", "sha1", "sha256"} else "1.0",
                 "confidence": 1.0,
                 "confidence_source": "stated",
             }

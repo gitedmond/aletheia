@@ -269,6 +269,7 @@ class InputObservation(Strict):
         "unsupported_import",
         "unsupported_relocation",
         "emulation_fault",
+        "fortify_fail",
         "budget_exhausted",
     ]
     expected_hex: HexInput
@@ -277,6 +278,13 @@ class InputObservation(Strict):
     fault: str | None
     uninitialized_state_reads: bool
     imports_called: list[str]
+
+
+class SkippedInputs(Strict):
+    shape: str
+    variant: str
+    count: int = Field(ge=0)
+    reason: str
 
 
 class ProbeEvidence(Record):
@@ -290,6 +298,7 @@ class ProbeEvidence(Record):
     initial_state: str
     observations: list[InputObservation]
     minimization: list[InputObservation]
+    skipped_inputs: list[SkippedInputs] = Field(default_factory=lambda: list[SkippedInputs]())
 
 
 def probe_proof(
@@ -312,6 +321,7 @@ def probe_proof(
         "unsupported_relocation",
         "unsupported_import",
         "emulation_fault",
+        "fortify_fail",
         "budget_exhausted",
     ):
         row = next((row for row in eligible if row.status == status), None)
@@ -320,7 +330,11 @@ def probe_proof(
             break
     widths = bool(eligible) and all(
         (
-            len(row.expected_hex) // 2 >= shapes[row.shape].return_width // 8
+            len(row.expected_hex) // 2
+            == len(row.actual_hex) // 2
+            == shapes[row.shape].output_size(len(bytes.fromhex(row.input_hex)))
+            if shapes[row.shape].comparison == "output"
+            else len(row.expected_hex) // 2 >= shapes[row.shape].return_width // 8
             and len(row.actual_hex) // 2 >= shapes[row.shape].return_width // 8
             and len(row.actual_hex) // 2
             <= shapes[row.shape].return_width // 8
