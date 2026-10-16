@@ -418,6 +418,23 @@ def claims_submit(
     _benchmark_action(ctx, action)
 
 
+@app.command()
+def replay(ctx: typer.Context, run: Annotated[str, typer.Option("--run")]) -> None:
+    """Rerun every verifier method, refuse pin drift or missing source-job cache."""
+    from aletheia.config import Config
+    from aletheia.orchestrate import Benchmark
+    from aletheia.replay import replay as replay_run
+    from aletheia.schema.canonical import canonical_bytes
+
+    try:
+        result = replay_run(Benchmark(Config.read(options(ctx).config)), run)
+    except (OSError, ValueError, KeyError) as exc:
+        typer.echo(json.dumps({"status": "error", "error": str(exc)}, sort_keys=True))
+        raise typer.Exit(1) from None
+    typer.echo(canonical_bytes(result).decode())
+    raise typer.Exit(result["exit_code"])
+
+
 def main() -> None:
     app()
 
