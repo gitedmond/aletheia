@@ -103,7 +103,6 @@ def _target(program: Any, address: Any, import_slots: dict[int, str]) -> str | N
         instruction = program.getListing().getInstructionAt(function.getEntryPoint())
         if (
             instruction is not None
-            and int(function.getBody().getNumAddresses()) == int(instruction.getLength())
             and str(instruction.getMnemonicString()).upper() == "JMP"
             and instruction.getFlowType().isComputed()
         ):
