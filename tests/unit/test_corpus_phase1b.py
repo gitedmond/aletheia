@@ -92,3 +92,11 @@ def test_new_families_require_v2_in_both_runtime_and_exported_contract(tmp_path)
     value["algorithms_version"] = "2.0"
     validator.validate(value)
     assert ClaimSubmission.model_validate(value).algorithms_version == "2.0"
+
+
+def test_variadic_roles_count_only_named_parameters_and_taxonomy_is_bundled():
+    from aletheia.corpus.lint import parameter_count
+
+    assert parameter_count("const char *fmt, ...") == 1
+    assert parameter_count("void (*callback)(int, int), const char *fmt, ...") == 2
+    assert Taxonomy.bundled() == Taxonomy.read(Path("taxonomy.yaml"))

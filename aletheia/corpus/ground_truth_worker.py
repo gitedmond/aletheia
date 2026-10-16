@@ -276,9 +276,8 @@ def validate_probe_imports(
                 for line in block
                 if line.startswith("// @category ")
             ]
-            # Phase 1A sources have no category; their historical negative controls remain valid.
-            if categories and (
-                categories[0] in PURPOSE_PROBES or annotated[function.name][0].family != "none"
+            if annotated[function.name][0].family != "none" or (
+                categories and categories[0] in PURPOSE_PROBES
             ):
                 targets.add(function.name)
     if not targets:
@@ -302,9 +301,6 @@ def validate_probe_imports(
                 destination = slots.get(insn.address + insn.size + operand.mem.disp)
             if destination:
                 outgoing.add(destination)
-            elif operand.type != 2:
-                declared = annotated.get(name, (GroundAlgorithm(family="none"), []))[1]
-                outgoing.update(declared or ["import:<unresolved>"])
             else:
                 outgoing.add("import:<unresolved>")
         calls[name] = outgoing

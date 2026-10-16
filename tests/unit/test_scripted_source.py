@@ -194,3 +194,13 @@ def test_cli_generates_repeatable_jsonl_cases_without_overwriting_changes(tmp_pa
     claim_path.write_text("preserve local edit\n")
     assert runner.invoke(app, args).exit_code == 1
     assert claim_path.read_text() == "preserve local edit\n"
+
+
+def test_algorithm_version_is_consistent_between_truth_manifest_and_claims():
+    gt = truth().model_copy(update={"algorithms_version": "2.0"})
+    with pytest.raises(ValueError, match="algorithm version"):
+        generate(gt, manifest())
+    result = generate(gt, manifest().model_copy(update={"algorithms_version": "2.0"}))
+    assert result.cases
+    assert all(case.manifest.algorithms_version == "2.0" for case in result.cases)
+    assert all(claim.algorithms_version == "2.0" for case in result.cases for claim in case.claims)
