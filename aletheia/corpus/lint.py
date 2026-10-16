@@ -431,3 +431,14 @@ def parameter_count(parameters: str) -> int:
     if re.search(r",\s*\.\.\.\s*$", parameters):
         count -= 1
     return count
+
+
+def annotation_lines(text: str, function_line: int) -> list[str]:
+    """Read the validated contiguous annotation block immediately before a definition."""
+    lines = text.splitlines()
+    i = function_line - 2
+    result: list[str] = []
+    while i >= 0 and lines[i].strip().startswith("// @"):
+        result.append(lines[i].strip())
+        i -= 1
+    return result

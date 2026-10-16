@@ -257,6 +257,7 @@ def corpus_split(
 @corpus_app.command("build")
 def corpus_build(
     ctx: typer.Context,
+    phase: Annotated[Literal["1a", "1b"], typer.Option("--phase")] = "1a",
     variant: Annotated[Literal["hardoff", "hardened"], typer.Option("--variant")] = "hardoff",
     directory: Annotated[Path, typer.Argument()] = Path("corpus/tierA"),
     program: Annotated[str | None, typer.Option("--program")] = None,
@@ -286,6 +287,7 @@ def corpus_build(
             image=config.sandbox.image_build,
             output_root=Path(config.paths.build),
             hardening=variant,
+            ground_truth_version="2.0" if phase == "1b" else "1.0",
         )
         built = [build_program(path, build_variant) for path in programs]
         result = {
@@ -338,8 +340,10 @@ def claims_scripted(
         if manifest is None:
             from aletheia.orchestrate import Benchmark
 
-            inputs = Benchmark(config).manifest_input(program, "scripted").model_copy(
-                update={"algorithms_version": gt.algorithms_version}
+            inputs = (
+                Benchmark(config)
+                .manifest_input(program, "scripted")
+                .model_copy(update={"algorithms_version": gt.algorithms_version})
             )
         else:
             inputs = ManifestInput.model_validate_json(manifest.read_bytes())
