@@ -177,7 +177,11 @@ def mini_report():
 def test_fixed_mini_report_snapshot_and_claimed_granularity():
     data = mini_report()
     text = render(data)
-    assert text == Path("tests/golden/report-mini.md").read_text()
+    notice = (
+        "> Synthetic mini-run presentation fixture. All resource table values are test constants, "
+        "not observed benchmark measurements.\n\n"
+    )
+    assert notice + text == Path("tests/golden/report-mini.md").read_text()
     assert data.metrics.independent.summary.metrics["catch_rate"] == 0.5
     assert data.metrics.independent.summary.metrics["false_alarm_rate"] is None
     assert "shared backend" in text
