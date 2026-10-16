@@ -40,6 +40,10 @@ REGISTRY: dict[str, tuple[str, ...]] = {
     "fnv": ("fnv1a-32", "fnv1-32", "fnv1a-64", "fnv1-64"),
     "djb2": ("add", "xor"),
     "base64": ("std-padded", "url-nopad", "std-padded-decode"),
+    "md5": ("std",),
+    "sha1": ("std",),
+    "sha256": ("std",),
+    "hex": ("lower", "upper"),
 }
 REASONS = {
     "state_dependent",
