@@ -65,6 +65,11 @@ def file_hash(path: Path) -> str:
 
 class Benchmark:
     def __init__(self, config: Config):
+        for path in (config.paths.build, config.paths.runs, config.paths.artifacts):
+            if config.guard.split == "heldout":
+                config.guard.private_output(Path(path))
+            else:
+                config.guard.public_path(Path(path))
         self.config = config.model_copy(deep=True)
         self.root = Path(config.paths.runs)
         self.root.mkdir(parents=True, exist_ok=True)

@@ -51,7 +51,9 @@ class JobRunner:
         try:
             for name in job.inputs.values():
                 source = guarded_input(self.input_root, name)
-                if "private" in source.resolve().parts:
+                # A held-out storage ancestor may be named private; the job input
+                # boundary still excludes truth paths within its designated input root.
+                if "private" in source.resolve().relative_to(self.input_root).parts:
                     raise ValueError("private files cannot be submitted")
                 destination = directory / name
                 destination.parent.mkdir(parents=True, exist_ok=True)
