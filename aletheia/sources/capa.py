@@ -173,10 +173,10 @@ class CapaSource:
     def produce(self, binary: "BinaryRef", targets: "Targets") -> list[Claim]:
         import hashlib
         import os
-        import shutil
         import tempfile
         from pathlib import Path
 
+        from aletheia.analysis.ghidra_session import read_public_binary
         from aletheia.doctor import read_lock
         from aletheia.schema.models import Job
 
@@ -195,10 +195,11 @@ class CapaSource:
         destination = inputs / (binary.binary_sha256 + ".bin")
         if any(p.is_symlink() for p in (destination, *destination.parents)):
             raise ValueError("capa public input cannot be a symlink")
+        payload = read_public_binary(binary)
         fd, name = tempfile.mkstemp(prefix=".capa-", dir=inputs)
         try:
-            with os.fdopen(fd, "wb") as stream, binary.stripped.open("rb") as source:
-                shutil.copyfileobj(source, stream)
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(payload)
             staged = Path(name)
             if hashlib.sha256(staged.read_bytes()).hexdigest() != binary.binary_sha256:
                 raise ValueError("capa binary content/hash mismatch")

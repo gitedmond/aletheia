@@ -6,7 +6,7 @@ from typing import cast
 
 from pydantic import JsonValue
 
-from aletheia.analysis.ghidra_session import GhidraAnalysis, publish_immutable
+from aletheia.analysis.ghidra_session import GhidraAnalysis, publish_immutable, read_public_binary
 from aletheia.config import Budgets
 from aletheia.sandbox.runner import JobRunner
 from aletheia.schema.canonical import canonical_bytes
@@ -47,12 +47,7 @@ class ProbeClient:
             publish_immutable(root / (digest + suffix), payload)
             return "in/" + digest + suffix
 
-        with binary.stripped.open("rb") as stream:
-            payload = stream.read(20 * 1024**2 + 1)
-        if len(payload) > 20 * 1024**2:
-            raise ValueError("binary exceeds the Phase 1A size limit")
-        if hashlib.sha256(payload).hexdigest() != binary.binary_sha256:
-            raise ValueError("probe binary content/hash mismatch")
+        payload = read_public_binary(binary)
         request = ProbeRequest(claim=claim, budgets=budgets, env_digest=env_digest)
         inputs = {
             "binary": stage(payload, ".bin"),

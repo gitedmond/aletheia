@@ -6,7 +6,7 @@ from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
-from aletheia.analysis.ghidra_session import GhidraOptions, publish_immutable
+from aletheia.analysis.ghidra_session import GhidraOptions, publish_immutable, read_public_binary
 from aletheia.sandbox.runner import JobRunner
 from aletheia.schema.models import (
     Address,
@@ -133,12 +133,7 @@ def scan_findcrypt(
     import hashlib
 
     config = GhidraOptions.read(options)
-    with binary.stripped.open("rb") as stream:
-        payload = stream.read(20 * 1024**2 + 1)
-    if len(payload) > 20 * 1024**2:
-        raise ValueError("binary exceeds the Phase 1A size limit")
-    if hashlib.sha256(payload).hexdigest() != binary.binary_sha256:
-        raise ValueError("FindCrypt binary content/hash mismatch")
+    payload = read_public_binary(binary)
     option_bytes = options.read_bytes()
     option_hash = hashlib.sha256(option_bytes).hexdigest()
     root = runner.input_root / "in"
