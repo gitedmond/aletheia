@@ -27,6 +27,8 @@ jobs:
     needs: checks
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    env:
+      DOCKER_BUILD_RECORD_UPLOAD: "false"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -38,12 +40,43 @@ jobs:
           echo '1468ebd5a5541121837c5a2817b9972ba6090fa6caa3d142620850a47fb75154  /tmp/uv.tar.gz' | sha256sum -c -
           tar -xzf /tmp/uv.tar.gz -C /tmp
           echo /tmp/uv-x86_64-unknown-linux-gnu >> "$GITHUB_PATH"
-      - name: Build pinned image inputs
+      - name: Download pinned certificate input
         run: |
           curl -fsSL --retry 2 -o docker/ca-certificates.deb https://archive.ubuntu.com/ubuntu/pool/main/c/ca-certificates/ca-certificates_20260601~24.04.1_all.deb
           echo '6bac2a01979e210d9eac1d4d56747ec709ea60654744d66705dc3c36e7629e50  docker/ca-certificates.deb' | sha256sum -c -
-          docker build -f docker/build.Dockerfile -t aletheia-build .
-          docker build -f docker/analysis.Dockerfile -t aletheia-analysis .
+      - name: Set up pinned Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          version: v0.38.0
+          driver: docker-container
+          driver-opts: image=moby/buildkit@sha256:b059f8d7226d0b326bc871af489a5dddf65e36af4d20d14251b072974d9ee87c
+          # Sandbox tests derive images from local tags using the default builder.
+          use: false
+      - name: Build cached compiler image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: .
+          file: docker/build.Dockerfile
+          tags: aletheia-build
+          platforms: linux/amd64
+          load: true
+          push: false
+          cache-from: type=gha,version=2,scope=aletheia-build
+          cache-to: type=gha,version=2,scope=aletheia-build,mode=max
+      - name: Build cached analysis image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: .
+          file: docker/analysis.Dockerfile
+          tags: aletheia-analysis
+          platforms: linux/amd64
+          load: true
+          push: false
+          cache-from: type=gha,version=2,scope=aletheia-analysis
+          cache-to: type=gha,version=2,scope=aletheia-analysis,mode=max
       - name: Record these CI-local image identities
         run: |
           python3 - <<'PY'
