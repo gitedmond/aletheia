@@ -11,8 +11,9 @@ from aletheia.corpus.ground_truth import extract_ground_truth
 pytestmark = pytest.mark.integration
 
 
-@pytest.mark.parametrize("forbidden", [False, True])
-def test_probe_target_imports_use_emitted_o0_edges(tmp_path, forbidden):
+@pytest.mark.parametrize("mode", ["allowed", "forbidden", "categoryless", "indirect"])
+def test_probe_target_imports_use_emitted_o0_edges(tmp_path, mode):
+    forbidden = mode != "allowed"
     root = tmp_path / "corpus"
     program = root / "tierA/policy-sample"
     (program / "src").mkdir(parents=True)
@@ -20,7 +21,7 @@ def test_probe_target_imports_use_emitted_o0_edges(tmp_path, forbidden):
     (root / "include").mkdir()
     (root / "include/aletheia.h").write_text("#define ALETHEIA_TARGET __attribute__((noinline))\n")
     operation = 'puts("hello");' if forbidden else "memcpy(out, buf, len);"
-    (program / "src/main.c").write_text(
+    source = (
         """#include "aletheia.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -44,6 +45,21 @@ int main(void) {
 }
 """
     )
+    if mode == "categoryless":
+        source = source.replace(
+            "// @algorithm none\n// @category memory.copy", "// @algorithm crc32/ieee"
+        )
+    if mode == "indirect":
+        source = source.replace(
+            "// @algorithm none\n// @category memory.copy",
+            "// @algorithm none\n// @category util.other\n"
+            "static int allowed(const char *s) { return *s; }\n"
+            "// @algorithm none\n// @category memory.copy\n// @indirect-targets allowed",
+        )
+        source = source.replace(
+            'puts("hello");', 'int (*volatile fn)(const char *) = puts; fn("hello");'
+        )
+    (program / "src/main.c").write_text(source)
     (program / "Makefile").write_text("test:\n\ttrue\n")
     (program / "tests/test.c").write_text("int main(void) {return 0;}\n")
     image = Config.read(Path("aletheia.toml")).sandbox.image_build
