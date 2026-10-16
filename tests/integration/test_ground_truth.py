@@ -10,6 +10,7 @@ from aletheia.config import Config
 from aletheia.corpus.build import Variant, build_program
 from aletheia.corpus.ground_truth import check_leakage, extract_ground_truth
 from aletheia.schema.canonical import canonical_bytes
+from aletheia.schema.models import GroundTruth
 
 pytestmark = pytest.mark.integration
 
@@ -35,6 +36,11 @@ def test_extraction_is_canonical_and_targets_are_public(tmp_path, program):
     assert targets["targets"] == [f.address for f in first.functions if f.scorable]
     assert check_leakage(build.stripped, first, source) == []
     assert (build.unstripped.parent / "ground_truth.json").read_bytes() == canonical_bytes(first)
+    if program == "crc32tool":
+        golden = GroundTruth.model_validate_json(
+            Path("tests/golden/crc32tool/ground_truth.json").read_bytes()
+        )
+        assert canonical_bytes(first) == canonical_bytes(golden)
     authored = {f.name: f for f in first.functions}
     assert authored["main"].algorithm.family == "none"
     if program == "crc32tool":
