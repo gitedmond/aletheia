@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "family": "sha1",
+  "binary_sha256": "5e8e07715340d07826b11ff89599209767e3f809c58686f29d730cf0dbbcaa7e",
+  "references": [
+    {
+      "name": "reference",
+      "variant": "std",
+      "call_shape": "buf_len_digest_out"
+    }
+  ],
+  "near_miss": [
+    {
+      "name": "sha0_schedule",
+      "variant": "std",
+      "call_shape": "buf_len_digest_out",
+      "witness_hex": "616263"
+    }
+  ],
+  "composite_cases": [
+    {
+      "name": "reference",
+      "init": "composite_init",
+      "update": "composite_update",
+      "final": "composite_final",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "wrong_final",
+      "init": "composite_init",
+      "update": "composite_update",
+      "final": "composite_wrong_final",
+      "expected": "CONTRADICTED"
+    }
+  ]
+}
