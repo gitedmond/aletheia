@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0",
+  "vectors": [
+    {
+      "family": "md5",
+      "variant": "std",
+      "input_hex": "",
+      "expected_return": 0,
+      "expected_output_hex": "d41d8cd98f00b204e9800998ecf8427e",
+      "references": [
+        "https://www.rfc-editor.org/rfc/rfc1321.html"
+      ],
+      "independent_check": "Pinned Python hashlib/OpenSSL result, independently cross-checked against native calibration C; empty and abc equal the published specification vectors. Return ignored."
+    },
+    {
+      "family": "md5",
+      "variant": "std",
+      "input_hex": "616263",
+      "expected_return": 0,
+      "expected_output_hex": "900150983cd24fb0d6963f7d28e17f72",
+      "references": [
+        "https://www.rfc-editor.org/rfc/rfc1321.html"
+      ],
+      "independent_check": "Pinned Python hashlib/OpenSSL result, independently cross-checked against native calibration C; empty and abc equal the published specification vectors. Return ignored."
+    },
+    {
+      "family": "md5",
+      "variant": "std",
+      "input_hex": "6161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161",
+      "expected_return": 0,
+      "expected_output_hex": "3b0c8ac703f828b04c6c197006d17218",
+      "references": [
+        "https://www.rfc-editor.org/rfc/rfc1321.html"
+      ],
+      "independent_check": "Pinned Python hashlib/OpenSSL result, independently cross-checked against native calibration C; empty and abc equal the published specification vectors. Return ignored."
+    },
+    {
+      "family": "sha1",
+      "variant": "std",
+      "input_hex": "",
+      "expected_return": 0,
+      "expected_output_hex": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+      "references": [
+        "https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf"
+      ],
+      "independent_check": "Pinned Python hashlib/OpenSSL result, independently cross-checked against native calibration C; empty and abc equal the published specification vectors. Return ignored."
+    },
+    {
+      "family": "sha1",
+      "variant": "std",
+      "input_hex": "616263",
+      "expected_return": 0,
+      "expected_output_hex": "a9993e364706816aba3e25717850c26c9cd0d89d",
+      "references": [
+        "https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf"
+      ],
+      "independent_check": "Pinned Python hashlib/OpenSSL result, independently cross-checked against native calibration C; empty and abc equal the published specification vectors. Return ignored."
+    },
+    {
+      "family": "sha1",
+      "variant": "std",
+      "input_hex": "6161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161",
+      "expected_return": 0,
+      "expected_output_hex": "c2db330f6083854c99d4b5bfb6e8f29f201be699",
+      "references": [
+        "https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf"
+      ],
+      "independent_check": "Pinned Python hashlib/OpenSSL result, independently cross-checked against native calibration C; empty and abc equal the published specification vectors. Return ignored."
+    },
+    {
+      "family": "sha256",
+      "variant": "std",
+      "input_hex": "",
+      "expected_return": 0,
+      "expected_output_hex": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "references": [
+        "https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf"
+      ],
+      "independent_check": "Pinned Python hashlib/OpenSSL result, independently cross-checked against native calibration C; empty and abc equal the published specification vectors. Return ignored."
+    },
+    {
+      "family": "sha256",
+      "variant": "std",
+      "input_hex": "616263",
+      "expected_return": 0,
+      "expected_output_hex": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+      "references": [
+        "https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf"
+      ],
+      "independent_check": "Pinned Python hashlib/OpenSSL result, independently cross-checked against native calibration C; empty and abc equal the published specification vectors. Return ignored."
+    },
+    {
+      "family": "sha256",
+      "variant": "std",
+      "input_hex": "6161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161",
+      "expected_return": 0,
+      "expected_output_hex": "b35439a4ac6f0948b6d6f9e3c6af0f5f590ce20f1bde7090ef7970686ec6738a",
+      "references": [
+        "https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf"
+      ],
+      "independent_check": "Pinned Python hashlib/OpenSSL result, independently cross-checked against native calibration C; empty and abc equal the published specification vectors. Return ignored."
+    }
+  ]
+}
