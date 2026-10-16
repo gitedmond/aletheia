@@ -5,7 +5,8 @@
 #define TARGET __attribute__((noinline,used))
 #define INLINE static inline __attribute__((always_inline))
 static const unsigned char *volatile input;
-static unsigned char *volatile output;
+static unsigned char output_storage[32];
+static unsigned char *volatile output = output_storage;
 static volatile size_t length;
 static volatile uintptr_t sink;
 INLINE uint32_t rol(uint32_t x,unsigned n){return (x<<n)|(x>>(32-n));}
@@ -43,11 +44,11 @@ INLINE void digest(const unsigned char *p,size_t n,unsigned char *out,int mode){
  }
  for(unsigned i=0;i<8;i++)emit(h[i],out+4*i,0);
 }
-TARGET void reference(const unsigned char *p,size_t n,unsigned char *out){digest(p,n,out,0);}
-TARGET void reference_out_first(unsigned char *out,const unsigned char *p,size_t n){digest(p,n,out,0);}
-TARGET void sha224_iv(const unsigned char *p,size_t n,unsigned char *out){digest(p,n,out,1);}
-TARGET void wrong_constant(const unsigned char *p,size_t n,unsigned char *out){digest(p,n,out,2);}
-TARGET void padding_at_56(const unsigned char *p,size_t n,unsigned char *out){digest(p,n,out,3);}
+TARGET void reference(const unsigned char *p,size_t n,unsigned char *out){if(n>4096)return;digest(p,n,out,0);}
+TARGET void reference_out_first(unsigned char *out,const unsigned char *p,size_t n){if(n>4096)return;digest(p,n,out,0);}
+TARGET void sha224_iv(const unsigned char *p,size_t n,unsigned char *out){if(n>4096)return;digest(p,n,out,1);}
+TARGET void wrong_constant(const unsigned char *p,size_t n,unsigned char *out){if(n>4096)return;digest(p,n,out,2);}
+TARGET void padding_at_56(const unsigned char *p,size_t n,unsigned char *out){if(n>4096)return;digest(p,n,out,3);}
 TARGET uintptr_t anchor_reference(void){reference(input,length,output);return (uintptr_t)output+length;}
 TARGET uintptr_t anchor_sha224_iv(void){sha224_iv(input,length,output);return (uintptr_t)output+length;}
 TARGET uintptr_t anchor_wrong_constant(void){wrong_constant(input,length,output);return (uintptr_t)output+length;}

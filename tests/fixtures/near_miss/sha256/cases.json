@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "family": "sha256",
-  "binary_sha256": "a54bca065d76a386217395b76ad39febe3eb79f8192200c2aa80d762372fe799",
+  "binary_sha256": "b162badf6a76b63970c96a10c86a8b0ea5713475fc149ee54d49ccb075905fe1",
   "references": [
     {
       "name": "reference",
