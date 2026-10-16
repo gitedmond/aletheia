@@ -1,0 +1,17 @@
+family: fletcher16
+version: 1
+call_shapes:
+- id: buf_len16
+  roles: [buf, len]
+  return_width: 16
+variants:
+  std:
+    oracle: fletcher16_std
+inputs:
+  fixed: ['', abcde, abcdef]
+  fixed_hex: [ff]
+  random:
+    count: 64
+    max_len: 4096
+    seed: 4516
+near_miss: [mod256, swapped_halves, initial_one]

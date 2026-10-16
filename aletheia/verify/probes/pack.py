@@ -15,6 +15,8 @@ HexInput = Annotated[str, Field(pattern=r"^(?:[0-9a-f]{2})*$")]
 SHAPES: dict[str, list[Role]] = {
     "seed_buf_len": ["seed", "buf", "len"],
     "buf_len": ["buf", "len"],
+    "buf_len16": ["buf", "len"],
+    "buf_len_decode_out": ["buf", "len", "out"],
     "cstr": ["cstr"],
     "buf_len_out": ["buf", "len", "out"],
 }
@@ -23,23 +25,30 @@ FAMILY_SHAPES: dict[str, set[str]] = {
     "adler32": {"seed_buf_len", "buf_len"},
     "fnv": {"buf_len"},
     "djb2": {"buf_len", "cstr"},
-    "base64": {"buf_len_out"},
+    "base64": {"buf_len_out", "buf_len_decode_out"},
+    "fletcher16": {"buf_len16"},
 }
 
 
 class CallShape(Strict):
     id: Identifier
     roles: list[Role]
-    return_width: Literal[32, 64]
-    out_size: Literal["base64_encode"] | None = None
+    return_width: Literal[16, 32, 64]
+    out_size: Literal["base64_encode", "base64_decode"] | None = None
 
     @model_validator(mode="after")
     def semantics(self) -> Self:
+        allocation = {"buf_len_out": "base64_encode", "buf_len_decode_out": "base64_decode"}.get(
+            self.id
+        )
+        if self.out_size != allocation:
+            raise ValueError("call shape output allocation mismatch")
         if self.roles != SHAPES.get(self.id):
             raise ValueError("unknown call shape or role order")
         if ("out" in self.roles) != (self.out_size is not None):
             raise ValueError("output shape must declare its output allocation")
-        if self.return_width != (64 if "out" in self.roles else 32):
+        width = 16 if self.id == "buf_len16" else (64 if "out" in self.roles else 32)
+        if self.return_width != width:
             raise ValueError("return width does not match the Phase 1A call shape")
         return self
 
@@ -48,6 +57,8 @@ class CallShape(Strict):
             raise ValueError("negative input length")
         if self.out_size is None:
             return 0
+        if self.out_size == "base64_decode":
+            return max(1, input_len)
         return 4 * ((input_len + 2) // 3) + 4
 
 
@@ -57,6 +68,8 @@ def _empty_bindings() -> dict[Literal["seed"], int]:
 
 class VariantProbe(Strict):
     oracle: Identifier
+    input_encoding: Literal["raw", "base64"] = "raw"
+    call_shapes: list[Identifier] | None = None
     bind: dict[Literal["seed"], Annotated[int, Field(ge=0, le=0xFFFFFFFF)]] = Field(
         default_factory=_empty_bindings
     )
@@ -99,6 +112,18 @@ class Pack(Strict):
             raise ValueError("call shape is not supported for this family")
         needs_seed = "seed_buf_len" in ids
         for variant, probe in self.variants.items():
+            if probe.call_shapes is not None and (
+                not probe.call_shapes or not set(probe.call_shapes) <= set(ids)
+            ):
+                raise ValueError("variant call shapes must select declared shapes")
+            if (probe.input_encoding == "base64") != (probe.oracle == "base64_decode"):
+                raise ValueError("base64 decode requires canonical encoded inputs")
+            if self.family == "base64":
+                expected = (
+                    "buf_len_decode_out" if probe.oracle == "base64_decode" else "buf_len_out"
+                )
+                if set(probe.call_shapes or ids) != {expected}:
+                    raise ValueError("base64 oracle requires its matching call shape")
             if variant not in REGISTRY[self.family]:
                 raise ValueError("unknown variant for family")
             if ORACLE_VARIANTS.get(probe.oracle) != (self.family, variant):

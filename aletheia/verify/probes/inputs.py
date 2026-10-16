@@ -1,9 +1,10 @@
 """Local seeded generation; fixed inputs retain pack order."""
 
+import base64
 import random
 from collections.abc import Sequence
 
-from aletheia.verify.probes.pack import Inputs, Role
+from aletheia.verify.probes.pack import Inputs, Role, VariantProbe
 
 
 def generate_inputs(spec: Inputs) -> list[bytes]:
@@ -22,3 +23,11 @@ def inputs_for_shape(values: Sequence[bytes], roles: Sequence[Role]) -> list[byt
     NUL in its own mapped buffer; these inputs remain the oracle's original bytes.
     """
     return [value for value in values if "cstr" not in roles or b"\0" not in value]
+
+
+def inputs_for_variant(values: Sequence[bytes], probe: VariantProbe) -> list[bytes]:
+    return (
+        [base64.b64encode(value) for value in values]
+        if probe.input_encoding == "base64"
+        else list(values)
+    )

@@ -31,7 +31,7 @@ def test_manifest_pins_and_pack_coverage_do_not_depend_on_working_directory(tmp_
         canonical_bytes(Targets(binary_sha256=digest, variant_id="test", targets=[]))
     )
     original = Benchmark(cfg).manifest_input("example", "scripted")
-    assert set(original.pack_hashes) == {"crc32", "adler32", "fnv", "djb2", "base64"}
+    assert set(original.pack_hashes) == {"crc32", "adler32", "fnv", "djb2", "base64", "fletcher16"}
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
     monkeypatch.chdir(elsewhere)

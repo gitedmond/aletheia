@@ -6,8 +6,7 @@ from dataclasses import dataclass
 
 MASK32 = 0xFFFFFFFF
 
-# Only these variants have Phase 1A reference oracles. Registry membership alone
-# does not imply probe support (notably 64-bit FNV and base64 decode).
+# Registry membership alone does not imply probe support.
 ORACLE_VARIANTS: dict[str, tuple[str, str]] = {
     "crc32_ieee": ("crc32", "ieee"),
     "crc32_jamcrc": ("crc32", "jamcrc"),
@@ -18,6 +17,8 @@ ORACLE_VARIANTS: dict[str, tuple[str, str]] = {
     "fnv1_32": ("fnv", "fnv1-32"),
     "djb2_add": ("djb2", "add"),
     "djb2_xor": ("djb2", "xor"),
+    "fletcher16_std": ("fletcher16", "std"),
+    "base64_decode": ("base64", "std-padded-decode"),
     "base64_std": ("base64", "std-padded"),
     "base64_url": ("base64", "url-nopad"),
 }
@@ -79,7 +80,17 @@ def evaluate(name: str, data: bytes, *, seed: int | None = None) -> OracleResult
             value = (value * 33) + byte if name == "djb2_add" else (value * 33) ^ byte
             value &= MASK32
         return OracleResult(value)
-    if name == "base64_std":
+    if name == "fletcher16_std":
+        first = second = 0
+        for byte in data:
+            first = (first + byte) % 255
+            second = (second + first) % 255
+        return OracleResult((second << 8) | first)
+    if name == "base64_decode":
+        output = base64.b64decode(data, validate=True)
+        if base64.b64encode(output) != data:
+            raise ValueError("decode input must be canonical padded base64")
+    elif name == "base64_std":
         output = base64.b64encode(data)
     else:
         output = base64.urlsafe_b64encode(data).rstrip(b"=")
