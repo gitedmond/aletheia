@@ -211,6 +211,13 @@ def test_opaque_binary_transport_under_private_root_retains_input_boundary(tmp_p
     assert (handle.directory / "in" / name).read_bytes() == payload
     with pytest.raises(ValueError):
         Job.create("ghidra_analyze", {"binary": "in/private/" + name}, {})
+    private_input = public / "in" / "private"
+    private_input.mkdir()
+    (private_input / name).write_bytes(payload)
+    (public / "in" / "alias").symlink_to(private_input, target_is_directory=True)
+    rejected = runner.submit(Job.create("ghidra_analyze", {"binary": "in/alias/" + name}, {}))
+    assert rejected.early_result is not None and rejected.early_result.error_code == "bad_input"
+    assert len([args for args in calls if args[:2] == ["docker", "create"]]) == 1
 
 
 def test_installed_hook_blocks_a_real_commit_and_preserves_existing_hooks(tmp_path):
@@ -256,3 +263,35 @@ def test_installed_hook_blocks_a_real_commit_and_preserves_existing_hooks(tmp_pa
     with pytest.raises(ValueError, match="preserving existing"):
         install(repo, private)
     assert hook.read_text() == "#!/bin/sh\necho existing-user-hook\n"
+
+
+@pytest.mark.parametrize("operation", ["delete", "rename"])
+def test_hook_scans_deleted_and_rename_source_metadata(tmp_path, operation):
+    repo, private = tmp_path / "repo", tmp_path / "private"
+    repo.mkdir()
+    private.mkdir()
+    subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
+    old = "secret-program.txt"
+    (repo / old).write_text("safe body without identifiers")
+    subprocess.run(["git", "-C", str(repo), "add", old], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "-c",
+            "user.name=test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-qm",
+            "synthetic starting point",
+        ],
+        check=True,
+    )
+    (private / "leakage-index.json").write_text(
+        json.dumps({"program_ids": ["secret-program"], "function_names": [], "binary_sha256": []})
+    )
+    command = ["rm", old] if operation == "delete" else ["mv", old, "safe.txt"]
+    subprocess.run(["git", "-C", str(repo), *command], check=True, capture_output=True)
+    assert scan_staged(repo, private) == [{"path": old, "reason": "heldout_content"}]

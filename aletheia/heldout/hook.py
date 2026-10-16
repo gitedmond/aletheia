@@ -33,19 +33,30 @@ def scan_staged(repo: Path, private_root: Path) -> list[dict[str, str]]:
     pattern = (
         re.compile(b"|".join(re.escape(token) for token in sorted(set(tokens)))) if tokens else None
     )
+    # Disabling rename folding exposes both old/deleted and new paths in one pass.
     staged = subprocess.check_output(
-        ["git", "-C", str(repo), "diff", "--cached", "--name-only", "--diff-filter=ACMRT", "-z"]
+        ["git", "-C", str(repo), "diff", "--cached", "--name-status", "--no-renames", "-z"]
     )
+    if not staged:
+        return []
+    fields = staged[:-1].split(b"\0")
     findings: list[dict[str, str]] = []
-    for raw in staged.split(b"\0"):
-        if not raw:
-            continue
+    for status, raw in zip(fields[::2], fields[1::2], strict=True):
         name = raw.decode("utf-8", errors="surrogateescape")
-        blob = subprocess.check_output(["git", "-C", str(repo), "show", ":" + name])
-        if hashlib.sha256(blob).hexdigest() in index.binary_sha256 or (
-            pattern is not None and (pattern.search(blob) or pattern.search(raw))
+        blob = (
+            subprocess.check_output(["git", "-C", str(repo), "show", ":" + name])
+            if status != b"D"
+            else None
+        )
+        if (pattern is not None and pattern.search(raw)) or (
+            blob is not None
+            and (
+                hashlib.sha256(blob).hexdigest() in index.binary_sha256
+                or (pattern is not None and pattern.search(blob))
+            )
         ):
             findings.append({"path": name, "reason": "heldout_content"})
+
     return findings
 
 
