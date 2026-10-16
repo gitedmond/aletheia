@@ -83,3 +83,38 @@ def test_invalid_evidence_replaces_stale_passing_receipt(tmp_path):
     result = evaluate(benchmark)
     assert result["status"] == "failed"
     assert json.loads((directory / "gate.json").read_bytes()) == result
+
+
+def test_preparation_invalidates_receipts_before_a_failed_build(tmp_path, monkeypatch):
+    import json
+
+    import pytest
+
+    from aletheia.gate import prepare
+
+    cfg = Config()
+    cfg.sandbox.image_build = "sha256:" + "a" * 64
+    cfg.paths.runs = str(tmp_path / "runs")
+    cfg.paths.artifacts = str(tmp_path / "artifacts")
+    benchmark = Benchmark(cfg)
+    directory = benchmark.root / "phase1a"
+    directory.mkdir()
+    for name in ("gate.json", "evidence.json", "preparation-error.json"):
+        (directory / name).write_text('{"status":"old"}')
+
+    def interrupted_build(*args):
+        assert not any(
+            (directory / name).exists()
+            for name in ("gate.json", "evidence.json", "preparation-error.json")
+        )
+        raise RuntimeError("interrupted build")
+
+    monkeypatch.setattr("aletheia.gate.build_program", interrupted_build)
+    with pytest.raises(RuntimeError, match="interrupted build"):
+        prepare(benchmark)
+    assert json.loads((directory / "preparation-error.json").read_bytes()) == {
+        "stage": "builds",
+        "error": "RuntimeError: interrupted build",
+    }
+    assert not (directory / "gate.json").exists()
+    assert not (directory / "evidence.json").exists()

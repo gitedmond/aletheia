@@ -94,17 +94,34 @@ def _apply_options(program: Any, manager: Any, config: GhidraOptions) -> None:
     manager.initializeOptions(options)
 
 
-def _target(program: Any, address: Any) -> str | None:
+def _target(program: Any, address: Any, import_slots: dict[int, str]) -> str | None:
     function = program.getFunctionManager().getFunctionAt(address)
     if function is not None:
         resolved = function.getThunkedFunction(True) if function.isThunk() else function
         if resolved is not None and resolved.isExternal():
             return "import:" + str(resolved.getName())
+        instruction = program.getListing().getInstructionAt(function.getEntryPoint())
+        if (
+            instruction is not None
+            and int(function.getBody().getNumAddresses()) == int(instruction.getLength())
+            and str(instruction.getMnemonicString()).upper() == "JMP"
+            and instruction.getFlowType().isComputed()
+        ):
+            names = {
+                import_slots[int(reference.getToAddress().getOffset())]
+                for reference in instruction.getReferencesFrom()
+                if reference.getToAddress().isMemoryAddress()
+                and int(reference.getToAddress().getOffset()) in import_slots
+            }
+            if len(names) == 1:
+                return next(iter(names))
         return f"0x{int(function.getEntryPoint().getOffset()):08x}"
     if address.isExternalAddress():
         symbol = program.getSymbolTable().getPrimarySymbol(address)
         if symbol is not None:
             return "import:" + str(symbol.getName())
+    if address.isMemoryAddress():
+        return import_slots.get(int(address.getOffset()))
     return None
 
 
@@ -152,7 +169,7 @@ def _variadic_like(program: Any, function: Any) -> bool:
 
 
 def _call_sites(
-    program: Any, function: Any, blocks: Any, monitor: Any
+    program: Any, function: Any, blocks: Any, monitor: Any, import_slots: dict[int, str]
 ) -> tuple[list[CallSite], bool]:
     listing, body = program.getListing(), function.getBody()
     sites: dict[tuple[int, str, str], CallSite] = {}
@@ -172,12 +189,12 @@ def _call_sites(
             imports: set[str] = set()
             for reference in instruction.getReferencesFrom():
                 target = reference.getToAddress()
-                name = _target(program, target)
+                name = _target(program, target, import_slots)
                 if name is not None and name.startswith("import:"):
                     imports.add(name)
                 if target.isMemoryAddress():
                     for pointer in program.getReferenceManager().getReferencesFrom(target):
-                        name = _target(program, pointer.getToAddress())
+                        name = _target(program, pointer.getToAddress(), import_slots)
                         if name is not None and name.startswith("import:"):
                             imports.add(name)
             if len(imports) == 1:
@@ -198,7 +215,7 @@ def _call_sites(
         for target in flows:
             if not is_call and body.contains(target):
                 continue
-            name = _target(program, target)
+            name = _target(program, target, import_slots)
             if name is None and is_call and target.isMemoryAddress():
                 name = f"0x{int(target.getOffset()):08x}"
             if name is None:
@@ -409,6 +426,19 @@ def analyze_ghidra(directory: Path, job: Job) -> JobResult:
                 program.endTransaction(transaction, True)
             if created:
                 api.analyzeAll(program)
+            external_names = {
+                str(function.getName())
+                for function in program.getFunctionManager().getExternalFunctions()
+            }
+            # Ghidra can omit the last GOT pointer reference and leave its PLT thunk unresolved.
+            import_slots = {
+                int(relocation.getAddress().getOffset()): "import:"
+                + str(relocation.getSymbolName())
+                for relocation in program.getRelocationTable().getRelocations()
+                if int(relocation.getType()) == 7  # x86-64 JUMP_SLOT
+                and str(relocation.getStatus()) == "APPLIED"
+                and str(relocation.getSymbolName()) in external_names
+            }
             functions: list[FunctionInfo] = []
             monitor = jpype.JClass("ghidra.util.task.TaskMonitor").DUMMY
             blocks = jpype.JClass("ghidra.program.model.block.BasicBlockModel")(program)
@@ -424,7 +454,7 @@ def analyze_ghidra(directory: Path, job: Job) -> JobResult:
                         )
                         for region in function.getBody().getAddressRanges()
                     ]
-                    sites, complete = _call_sites(program, function, blocks, monitor)
+                    sites, complete = _call_sites(program, function, blocks, monitor, import_slots)
                     result = decompiler.decompileFunction(function, 0, monitor)
                     high = result.getHighFunction() if result.decompileCompleted() else None
                     thunk = function.getThunkedFunction(True) if function.isThunk() else None

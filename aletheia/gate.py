@@ -121,6 +121,8 @@ def prepare(benchmark: Benchmark) -> PhaseEvidence:
     """Prepare the actual five-program experiment and retain its reviewable receipts."""
     directory = benchmark.root / "phase1a"
     directory.mkdir(parents=True, exist_ok=True)
+    for name in ("gate.json", "evidence.json", "preparation-error.json"):
+        (directory / name).unlink(missing_ok=True)
     stage = "builds"
     try:
         builds: dict[str, BuildProof] = {}
