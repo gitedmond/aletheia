@@ -1,6 +1,7 @@
 #include "program.h"
 #include <stdio.h>
 // @algorithm adler32/zlib
+// @category checksum.adler32
 ALETHEIA_TARGET uint32_t adler32_update(uint32_t adler, const uint8_t *buf, size_t len) {
     uint32_t a = adler & 65535u, b = adler >> 16;
     for (size_t i = 0; i < len; ++i) {
@@ -10,10 +11,12 @@ ALETHEIA_TARGET uint32_t adler32_update(uint32_t adler, const uint8_t *buf, size
     return (b << 16) | a;
 }
 // @algorithm adler32/zlib
+// @category checksum.adler32
 ALETHEIA_TARGET uint32_t adler32(const uint8_t *buf, size_t len) {
     return adler32_update(1, buf, len);
 }
 // @algorithm fletcher16/std
+// @category checksum.fletcher16
 ALETHEIA_TARGET uint16_t fletcher16(const uint8_t *buf, size_t len) {
     uint32_t a = 0, b = 0;
     for (size_t i = 0; i < len; ++i) {
@@ -23,6 +26,7 @@ ALETHEIA_TARGET uint16_t fletcher16(const uint8_t *buf, size_t len) {
     return (uint16_t)((b << 8) | a);
 }
 // @algorithm none
+// @category io.file.read
 ALETHEIA_TARGET int sum_file(const char *path, uint32_t *out) {
     FILE *file = fopen(path, "rb");
     if (file == NULL) return -1;

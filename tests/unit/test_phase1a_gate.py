@@ -61,12 +61,12 @@ def test_scripted_count_retains_counted_wrong_callee_exclusions():
     assert scripted_expected_count(truth) == 7
 
 
-def test_gate_programs_match_the_actual_five_program_corpus():
+def test_gate_programs_remain_the_original_five_with_an_expanded_dev_corpus():
     from aletheia.gate import PROGRAMS, ROOT
 
     actual = {path.name for path in (ROOT / "corpus/tierA").iterdir() if (path / "src").is_dir()}
-    assert len(actual) == 5
-    assert set(PROGRAMS) == actual
+    assert set(PROGRAMS) == {"adlerfletch", "b64", "cmd-dispatch", "crc32tool", "hashtable"}
+    assert set(PROGRAMS) <= actual
 
 
 def test_invalid_evidence_replaces_stale_passing_receipt(tmp_path):

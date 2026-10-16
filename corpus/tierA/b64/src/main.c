@@ -2,11 +2,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 // @algorithm none
+// @category io.file.write
 ALETHEIA_TARGET void print_bytes(const uint8_t *buf, size_t len) {
     for (size_t i = 0; i < len; ++i) printf("%02x", (unsigned)buf[i]);
     putchar('\n');
 }
 // @algorithm none
+// @category control.main
 int main(int argc, char **argv) {
     if (argc > 2) { fputs("usage: <in>\n", stderr); return 1; }
     uint8_t *input;

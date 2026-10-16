@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 // @algorithm none
+// @category control.main
 int main(int argc, char **argv) {
     if (argc > 2) { fputs("usage: <in>\n", stderr); return 1; }
     uint8_t *input;
