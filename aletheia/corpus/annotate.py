@@ -4,6 +4,7 @@ import fcntl
 import hashlib
 import json
 import math
+import os
 import random
 import re
 import shutil
@@ -89,10 +90,32 @@ def agreement(first: list[str], second: list[str]) -> dict[str, object]:
 
 def _write_new(path: Path, value: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("x") as stream:
-        json.dump(value, stream, sort_keys=True, indent=2)
-        stream.write("\n")
-    path.chmod(0o600)
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descriptor, "w") as stream:
+            json.dump(value, stream, sort_keys=True, indent=2)
+            stream.write("\n")
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
+
+
+def _write_export(output: Path, primary: object, secondary: object) -> None:
+    output.mkdir(parents=True, exist_ok=True)
+    with (output / ".export.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        paths = [output / "primary.json", output / "second/export.json"]
+        if any(path.exists() for path in paths):
+            raise ValueError("annotation export already exists; refusing replacement")
+        created: list[Path] = []
+        try:
+            for path, value in zip(paths, [primary, secondary], strict=True):
+                _write_new(path, value)
+                created.append(path)
+        except BaseException:
+            for path in created:
+                path.unlink()
+            raise
 
 
 def export_sample(
@@ -130,7 +153,9 @@ def export_sample(
             )
             run_private_worker(metadata["image"], inputs, corpus, results)
             counts = json.loads((results / "review.json").read_bytes())["o0_instruction_counts"]
-        for path in sorted((source / "src").glob("*.c")):
+        for path in sorted((source / "src").rglob("*")):
+            if path.suffix not in (".c", ".h") or not path.is_file():
+                continue
             text = path.read_text()
             for fn in source_functions(text, path):
                 if counts.get(fn.name, 0) <= 10:
@@ -148,8 +173,16 @@ def export_sample(
                 ]
                 if len(categories) != 1 or categories[0] not in taxonomy.leaves:
                     raise ValueError("missing or invalid primary annotation")
-                identity = source.name + "/" + path.name + "/" + fn.name
+                identity = (
+                    source.resolve().as_posix()
+                    + "/"
+                    + path.relative_to(source).as_posix()
+                    + "/"
+                    + fn.name
+                )
                 item_id = hashlib.sha256(identity.encode()).hexdigest()[:24]
+                if item_id in items:
+                    raise ValueError("duplicate annotation item identity: " + identity)
                 items[item_id] = {
                     "category": categories[0],
                     "identity": identity,
@@ -169,8 +202,8 @@ def export_sample(
     chosen = sorted(
         i for node, ids in sorted(groups.items()) for i in rng.sample(ids, counts[node])
     )
-    _write_new(
-        output / "primary.json",
+    _write_export(
+        output,
         {
             "seed": seed,
             "sample": sample,
@@ -178,9 +211,6 @@ def export_sample(
             "population": len(items),
             "items": {i: items[i] for i in chosen},
         },
-    )
-    _write_new(
-        output / "second/export.json",
         {
             "schema_version": "1.0",
             "taxonomy": taxonomy.model_dump(),
