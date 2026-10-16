@@ -32,7 +32,14 @@ Outcome = Literal[
     "INVALID_CLAIM",
 ]
 Strength = Literal["E1", "E2"]
-JobType = Literal["ghidra_analyze", "findcrypt_scan", "capa_scan", "verify_static", "verify_probe"]
+JobType = Literal[
+    "ghidra_analyze",
+    "findcrypt_scan",
+    "capa_scan",
+    "verify_static",
+    "verify_probe",
+    "verify_composite",
+]
 REGISTRY_V1: dict[str, tuple[str, ...]] = {
     "crc32": ("ieee", "jamcrc", "crc32c", "bzip2"),
     "adler32": ("zlib",),
@@ -50,6 +57,7 @@ REGISTRY = {
 }
 REASONS = {
     "fortify_fail",
+    "composite_incomplete",
     "state_dependent",
     "unsupported_import",
     "no_matching_call_shape",

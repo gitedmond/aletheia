@@ -48,3 +48,34 @@ def verify_probe(directory: Path, job: Job) -> JobResult:
             "artifacts": cast(JsonValue, result.artifacts),
         },
     )
+
+
+def verify_composite_job(directory: Path, job: Job) -> JobResult:
+    from aletheia.verify.composite import CompositeRequest, verify_composite
+
+    require_job_sandbox(directory)
+    if set(job.inputs) != {"binary", "analysis", "request", "pack"} or job.params:
+        raise ValueError(
+            "verify_composite requires exact public binary, analysis, request and pack"
+        )
+    request = CompositeRequest.model_validate_json(
+        guarded_input(directory, job.inputs["request"]).read_bytes()
+    )
+    analysis = GhidraAnalysis.model_validate_json(
+        guarded_input(directory, job.inputs["analysis"]).read_bytes()
+    )
+    pack = load_pack(guarded_input(directory, job.inputs["pack"]))
+    result = verify_composite(
+        request, analysis, guarded_input(directory, job.inputs["binary"]), pack
+    )
+    return JobResult(
+        job_id=job.job_id,
+        status="ok",
+        budget_used=result.verdicts[0].budget_used,
+        output={
+            "verdicts": cast(
+                JsonValue, [value.model_dump(mode="json") for value in result.verdicts]
+            ),
+            "artifacts": cast(JsonValue, result.artifacts),
+        },
+    )
