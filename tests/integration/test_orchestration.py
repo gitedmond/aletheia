@@ -115,3 +115,14 @@ def test_one_program_all_sources_and_idempotent_run(tmp_path):
     changed_metrics.metrics.bootstrap_seed += 1
     with pytest.raises(ValueError, match="metric configuration drift"):
         collect(Benchmark(changed_metrics), runs)
+
+    metadata_path = benchmark.directory(runs[0]) / "run.json"
+    original_metadata = metadata_path.read_bytes()
+    try:
+        damaged_metadata = json.loads(original_metadata)
+        damaged_metadata["source_id"] = "human:wrong-attribution"
+        metadata_path.write_text(json.dumps(damaged_metadata))
+        with pytest.raises(ValueError, match="source metadata drift"):
+            collect(benchmark, runs)
+    finally:
+        metadata_path.write_bytes(original_metadata)
