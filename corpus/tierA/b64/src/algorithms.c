@@ -2,6 +2,7 @@
 static const char standard_alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 static const char url_alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 // @algorithm base64/std-padded
+// @category encoding.base64.encode
 ALETHEIA_TARGET size_t b64_encode(const uint8_t *in, size_t len, char *out) {
     size_t pos = 0;
     for (size_t i = 0; i < len; i += 3) {
@@ -17,6 +18,7 @@ ALETHEIA_TARGET size_t b64_encode(const uint8_t *in, size_t len, char *out) {
     return pos;
 }
 // @algorithm base64/url-nopad
+// @category encoding.base64.encode
 ALETHEIA_TARGET size_t b64_encode_url(const uint8_t *in, size_t len, char *out) {
     size_t pos = 0;
     for (size_t i = 0; i < len; i += 3) {
@@ -32,6 +34,7 @@ ALETHEIA_TARGET size_t b64_encode_url(const uint8_t *in, size_t len, char *out) 
     return pos;
 }
 // @algorithm none
+// @category encoding.base64.decode
 static int decode_digit(unsigned char byte) {
     if (byte >= 'A' && byte <= 'Z') return byte - 'A';
     if (byte >= 'a' && byte <= 'z') return byte - 'a' + 26;
@@ -41,6 +44,7 @@ static int decode_digit(unsigned char byte) {
     return -1;
 }
 // @algorithm base64/std-padded-decode
+// @category encoding.base64.decode
 ALETHEIA_TARGET ptrdiff_t b64_decode(const char *in, size_t len, uint8_t *out) {
     if (len % 4 != 0 || len / 4 > (size_t)PTRDIFF_MAX / 3) return -1;
     size_t pos = 0;
@@ -61,6 +65,7 @@ ALETHEIA_TARGET ptrdiff_t b64_decode(const char *in, size_t len, uint8_t *out) {
     return (ptrdiff_t)pos;
 }
 // @algorithm none
+// @category util.other
 ALETHEIA_TARGET size_t b64_encoded_len(size_t len) {
     if (len > SIZE_MAX - 2 || (len + 2) / 3 > SIZE_MAX / 4) return SIZE_MAX;
     return 4 * ((len + 2) / 3);

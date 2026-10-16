@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 // @algorithm none
+// @category io.file.read
 ALETHEIA_TARGET int read_input(const char *path, uint8_t **out, size_t *length) {
     const size_t limit = 16u * 1024u * 1024u;
     FILE *stream = path == NULL || strcmp(path, "-") == 0 ? stdin : fopen(path, "rb");
