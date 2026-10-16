@@ -1,3 +1,5 @@
+> Synthetic mini-run presentation fixture. All resource table values are test constants, not observed benchmark measurements.
+
 # Aletheia Phase 1A report
 
 Benchmark 0.1.0; schema 1.0; split dev.
