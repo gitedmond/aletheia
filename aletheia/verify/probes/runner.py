@@ -258,9 +258,14 @@ def verify_algorithm(
             if remaining <= initial_cost:
                 exhausted = True
                 return None
-            pristine = Emulator(
-                binary, budgets.model_copy(update={"instructions_per_claim": remaining})
-            )
+            try:
+                pristine = Emulator(
+                    binary, budgets.model_copy(update={"instructions_per_claim": remaining})
+                )
+            except InitializationBudgetExhausted as exc:
+                instructions += exc.instructions
+                exhausted = True
+                return None
             trial = run_input(
                 pristine,
                 entry,
