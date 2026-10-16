@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 
 import typer
 
+from aletheia.heldout.guard import PrivateAccessError
+
 app = typer.Typer(no_args_is_help=True, help="Evidence-backed reverse engineering verification.")
 
 
@@ -130,7 +132,7 @@ def annotate_export(
         base = Config.read(options(ctx).config)
         config = read_config(ctx)
         if config.guard.root is None:
-            raise ValueError("private_root is required")
+            raise PrivateAccessError("private_root is required")
         variant = Variant(image=base.sandbox.image_build).id
         public = Path("corpus/tierA")
         private = config.guard.root / "corpus/tierA"
@@ -150,7 +152,7 @@ def annotate_export(
         )
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         typer.echo(json.dumps({"status": "error", "error": str(exc)}))
-        raise typer.Exit(1) from None
+        raise typer.Exit(7 if isinstance(exc, PrivateAccessError) else 1) from None
     typer.echo(json.dumps({"status": "ok", "path": str(path)}))
 
 
@@ -163,7 +165,7 @@ def annotate_import(ctx: typer.Context, labels: Path) -> None:
         path = import_labels(labels, read_config(ctx).guard, Path("taxonomy.yaml"))
     except (OSError, ValueError) as exc:
         typer.echo(json.dumps({"status": "error", "error": str(exc)}))
-        raise typer.Exit(1) from None
+        raise typer.Exit(7 if isinstance(exc, PrivateAccessError) else 1) from None
     typer.echo(json.dumps({"status": "ok", "path": str(path)}))
 
 
@@ -175,7 +177,7 @@ def annotate_kappa(ctx: typer.Context) -> None:
         path = compute_agreement(read_config(ctx).guard)
     except (OSError, ValueError, KeyError) as exc:
         typer.echo(json.dumps({"status": "error", "error": str(exc)}))
-        raise typer.Exit(1) from None
+        raise typer.Exit(7 if isinstance(exc, PrivateAccessError) else 1) from None
     typer.echo(json.dumps({"status": "ok", "path": str(path)}))
 
 
