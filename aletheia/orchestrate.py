@@ -291,6 +291,7 @@ class Benchmark:
             truth = GroundTruth.model_validate_json(
                 (directory / "private/ground_truth.json").read_bytes()
             )
+            manifest = manifest.model_copy(update={"algorithms_version": truth.algorithms_version})
             generated = generate(truth, manifest, manifest.seeds["scripted"])
             return [
                 self.ingest(program, case.manifest, case.claims, exclusions=generated.exclusions)

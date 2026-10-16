@@ -29,3 +29,7 @@ class Taxonomy(Strict):
     @classmethod
     def read(cls, path: Path) -> "Taxonomy":
         return cls.model_validate(yaml.safe_load(path.read_text()))
+
+    @classmethod
+    def bundled(cls) -> "Taxonomy":
+        return cls.read(Path(__file__).with_name("taxonomy.yaml"))
