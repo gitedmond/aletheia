@@ -30,6 +30,7 @@ from aletheia.schema.models import (
 from aletheia.sources.base import BinaryRef
 from aletheia.store.artifacts import ArtifactStore
 from aletheia.verify.probes.client import ProbeClient
+from aletheia.verify.probes.inputs import inputs_for_variant
 from aletheia.verify.probes.pack import SHAPES, HexInput, Identifier, Pack, load_pack
 from aletheia.verify.static.arity import infer_arity
 from aletheia.verify.static.edges import verify_edges
@@ -38,7 +39,9 @@ from aletheia.verify.static.edges import verify_edges
 class Reference(Strict):
     name: Identifier
     variant: str
-    call_shape: Literal["seed_buf_len", "buf_len", "cstr", "buf_len_out"]
+    call_shape: Literal[
+        "seed_buf_len", "buf_len", "cstr", "buf_len_out", "buf_len16", "buf_len_decode_out"
+    ]
 
 
 class NearMiss(Reference):
@@ -66,9 +69,10 @@ class Fixture(Record):
 
 
 def build_fixture(
-    family: str, cfg: Config, root: Path
+    family: str, cfg: Config, root: Path, *, version: int = 1
 ) -> tuple[BinaryRef, dict[str, Address], Fixture]:
-    source = Path("tests/fixtures/near_miss") / family
+    directory = "near_miss" if version == 1 else f"near_miss-v{version}"
+    source = Path("tests/fixtures") / directory / family
     check_no_symlinks(source)
     fixture = Fixture.model_validate_json((source / "cases.json").read_bytes())
     if fixture.family != family:
@@ -216,12 +220,18 @@ def run_selftest(cfg: Config, family: str | None = None) -> dict[str, JsonValue]
     rows: list[dict[str, JsonValue]] = []
     for current in selected:
         pack: Pack = packs[current]
-        binary, symbols, fixture = build_fixture(current, cfg, root)
+        binary, symbols, fixture = build_fixture(current, cfg, root, version=pack.version)
         if {ref.variant for ref in fixture.references} != set(pack.variants):
             raise ValueError("reference fixtures must cover every supported variant")
         if [case.name for case in fixture.near_miss] != pack.near_miss:
             raise ValueError("near-miss fixture/pack coverage mismatch")
-        fixed = {value.encode().hex() for value in pack.inputs.fixed} | set(pack.inputs.fixed_hex)
+        fixed_values = [value.encode() for value in pack.inputs.fixed]
+        fixed_values += [bytes.fromhex(value) for value in pack.inputs.fixed_hex]
+        fixed = {
+            value.hex()
+            for probe in pack.variants.values()
+            for value in inputs_for_variant(fixed_values, probe)
+        }
         if any(case.witness_hex not in fixed for case in fixture.near_miss):
             raise ValueError("near-miss witnesses must be declared fixed vectors")
         subjects = [

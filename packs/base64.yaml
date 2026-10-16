@@ -1,5 +1,5 @@
 family: base64
-version: 1
+version: 2
 call_shapes:
 - id: buf_len_out
   roles:
@@ -8,11 +8,21 @@ call_shapes:
   - out
   return_width: 64
   out_size: base64_encode
+- id: buf_len_decode_out
+  roles: [buf, len, out]
+  return_width: 64
+  out_size: base64_decode
 variants:
   std-padded:
     oracle: base64_std
+    call_shapes: [buf_len_out]
   url-nopad:
     oracle: base64_url
+    call_shapes: [buf_len_out]
+  std-padded-decode:
+    oracle: base64_decode
+    input_encoding: base64
+    call_shapes: [buf_len_decode_out]
 inputs:
   fixed:
   - ''
@@ -28,3 +38,6 @@ near_miss:
 - url_in_std
 - missing_padding
 - dot_padding
+- decode_url_alphabet
+- decode_padding_length
+- decode_short_output

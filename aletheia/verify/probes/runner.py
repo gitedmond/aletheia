@@ -28,7 +28,7 @@ from aletheia.verify.emulate.core import (
     Emulator,
     InitializationBudgetExhausted,
 )
-from aletheia.verify.probes.inputs import generate_inputs, inputs_for_shape
+from aletheia.verify.probes.inputs import generate_inputs, inputs_for_shape, inputs_for_variant
 from aletheia.verify.probes.minimize import minimize_counterexample
 from aletheia.verify.probes.oracles import OracleResult, evaluate
 from aletheia.verify.probes.pack import CallShape, Pack, VariantProbe
@@ -203,17 +203,21 @@ def verify_algorithm(
     # Evidence order: declared shape, variant name, then generator ordinal.
     for shape in pack.call_shapes:
         for variant in scope:
-            for data in inputs_for_shape(values, shape.roles):
+            probe = pack.variants[variant]
+            if probe.call_shapes is not None and shape.id not in probe.call_shapes:
+                continue
+            for data in inputs_for_shape(inputs_for_variant(values, probe), shape.roles):
                 observations.append(
                     run_input(emu, entry, shape, variant, pack.variants[variant], data)
                 )
     instructions = emu.total_instructions
 
     def harness(shape: CallShape, variant: str, ending: str) -> str:
-        inputs = inputs_for_shape(values, shape.roles)
+        probe = pack.variants[variant]
+        inputs = inputs_for_shape(inputs_for_variant(values, probe), shape.roles)
         fixed_values = [value.encode() for value in pack.inputs.fixed]
         fixed_values += [bytes.fromhex(value) for value in pack.inputs.fixed_hex]
-        fixed = len(inputs_for_shape(fixed_values, shape.roles))
+        fixed = len(inputs_for_shape(inputs_for_variant(fixed_values, probe), shape.roles))
         return (
             f"Function-level emulation of {claim.subject.address}; shape {shape.id} "
             f"({', '.join(shape.roles)}); stubs S1; initial state: {initial_state}; "
@@ -243,6 +247,8 @@ def verify_algorithm(
         )
         for shape in shapes
         for variant in scope
+        if pack.variants[variant].call_shapes is None
+        or shape.id in (pack.variants[variant].call_shapes or [])
     )
     complete_scope = algorithm.variant is not None or not unsupported
     if arity.decisive and shapes and clean and every_pair and complete_scope:
@@ -259,6 +265,14 @@ def verify_algorithm(
 
         def fresh(data: bytes) -> Trial | None:
             nonlocal instructions, exhausted
+            try:
+                evaluate(
+                    pack.variants[selected.variant].oracle,
+                    data,
+                    **pack.variants[selected.variant].bind,
+                )
+            except ValueError:
+                return None
             remaining = budgets.instructions_per_claim - instructions
             if remaining <= initial_cost:
                 exhausted = True
@@ -315,7 +329,12 @@ def verify_algorithm(
             if trial.shape == selected.shape and trial.variant == selected.variant
         ]
         for other, probe in sorted(pack.variants.items()):
-            if other == selected.variant or probe.bind != pack.variants[selected.variant].bind:
+            if (
+                other == selected.variant
+                or probe.bind != pack.variants[selected.variant].bind
+                or probe.input_encoding != pack.variants[selected.variant].input_encoding
+                or (probe.call_shapes is not None and selected.shape.id not in probe.call_shapes)
+            ):
                 continue
             if same_shape and all(
                 trial.actual
