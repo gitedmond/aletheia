@@ -62,3 +62,23 @@ def test_history_leak_fails_before_moving_anything(tmp_path):
         split_corpus(repo, PrivateGuard(private, "heldout"), 20261013)
     assert len(list((repo / "corpus/tierA").iterdir())) == 15
     assert not private.exists()
+
+
+def test_shallow_history_is_refused_before_moving_sources(tmp_path):
+    origin = tmp_path / "origin"
+    origin.mkdir()
+    populate(origin)
+    (origin / "README").write_text("public baseline")
+    git(origin, "add", "README")
+    git(origin, "commit", "-qm", "baseline")
+    repo = tmp_path / "shallow"
+    subprocess.run(["git", "clone", "-q", "--depth=1", origin.as_uri(), str(repo)], check=True)
+    for source in (origin / "corpus/tierA").iterdir():
+        import shutil
+
+        shutil.copytree(source, repo / "corpus/tierA" / source.name)
+    private = tmp_path / "private"
+    with pytest.raises(PrivateAccessError, match="non-shallow"):
+        split_corpus(repo, PrivateGuard(private, "heldout"), 20261013)
+    assert len(list((repo / "corpus/tierA").iterdir())) == 15
+    assert not private.exists()

@@ -58,6 +58,8 @@ def split_corpus(repo: Path, guard: PrivateGuard, seed: int) -> dict[str, object
     if any(candidates[name].parent != public for name in dev):
         raise PrivateAccessError("development programs must be in the public working tree")
 
+    if _git(repo, "rev-parse", "--is-shallow-repository").strip() != b"false":
+        raise PrivateAccessError("public source history requires a non-shallow repository")
     # Check every reachable blob, so a source committed under another name also fails.
     objects = {
         line.split()[0] for line in _git(repo, "rev-list", "--objects", "--all").splitlines()
