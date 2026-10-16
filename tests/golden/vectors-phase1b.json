@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0",
+  "vectors": [
+    {
+      "family": "fletcher16",
+      "variant": "std",
+      "input_hex": "",
+      "expected_return": 0,
+      "expected_output_hex": null,
+      "references": [
+        "https://www.rfc-editor.org/rfc/rfc1146.html#appendix-A"
+      ],
+      "independent_check": "Closed-form sums: sum(bytes) and sum((length-index)*byte), modulo 255; abcde=C8F0, abcdef=2057."
+    },
+    {
+      "family": "fletcher16",
+      "variant": "std",
+      "input_hex": "6162636465",
+      "expected_return": 51440,
+      "expected_output_hex": null,
+      "references": [
+        "https://www.rfc-editor.org/rfc/rfc1146.html#appendix-A"
+      ],
+      "independent_check": "Closed-form sums: sum(bytes) and sum((length-index)*byte), modulo 255; abcde=C8F0, abcdef=2057."
+    },
+    {
+      "family": "fletcher16",
+      "variant": "std",
+      "input_hex": "616263646566",
+      "expected_return": 8279,
+      "expected_output_hex": null,
+      "references": [
+        "https://www.rfc-editor.org/rfc/rfc1146.html#appendix-A"
+      ],
+      "independent_check": "Closed-form sums: sum(bytes) and sum((length-index)*byte), modulo 255; abcde=C8F0, abcdef=2057."
+    },
+    {
+      "family": "fletcher16",
+      "variant": "std",
+      "input_hex": "ff",
+      "expected_return": 0,
+      "expected_output_hex": null,
+      "references": [
+        "https://www.rfc-editor.org/rfc/rfc1146.html#appendix-A"
+      ],
+      "independent_check": "Closed-form sums: sum(bytes) and sum((length-index)*byte), modulo 255; abcde=C8F0, abcdef=2057."
+    },
+    {
+      "family": "base64",
+      "variant": "std-padded-decode",
+      "input_hex": "",
+      "expected_return": 0,
+      "expected_output_hex": "",
+      "references": [
+        "https://www.rfc-editor.org/rfc/rfc4648.html#section-10"
+      ],
+      "independent_check": "Literal decoded octets; Man=4d616e, M=4d; sextets 62,63,60 map fbff and one padding character."
+    },
+    {
+      "family": "base64",
+      "variant": "std-padded-decode",
+      "input_hex": "54574675",
+      "expected_return": 3,
+      "expected_output_hex": "4d616e",
+      "references": [
+        "https://www.rfc-editor.org/rfc/rfc4648.html#section-10"
+      ],
+      "independent_check": "Literal decoded octets; Man=4d616e, M=4d; sextets 62,63,60 map fbff and one padding character."
+    },
+    {
+      "family": "base64",
+      "variant": "std-padded-decode",
+      "input_hex": "54513d3d",
+      "expected_return": 1,
+      "expected_output_hex": "4d",
+      "references": [
+        "https://www.rfc-editor.org/rfc/rfc4648.html#section-10"
+      ],
+      "independent_check": "Literal decoded octets; Man=4d616e, M=4d; sextets 62,63,60 map fbff and one padding character."
+    },
+    {
+      "family": "base64",
+      "variant": "std-padded-decode",
+      "input_hex": "2b2f383d",
+      "expected_return": 2,
+      "expected_output_hex": "fbff",
+      "references": [
+        "https://www.rfc-editor.org/rfc/rfc4648.html#section-10"
+      ],
+      "independent_check": "Literal decoded octets; Man=4d616e, M=4d; sextets 62,63,60 map fbff and one padding character."
+    }
+  ]
+}

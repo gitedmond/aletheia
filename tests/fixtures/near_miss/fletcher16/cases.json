@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "family": "fletcher16",
+  "binary_sha256": "062d5c625e734dfe721cbd595ee0a8e3f9d9c8e5be1559600850511bee0a9679",
+  "references": [
+    {
+      "name": "std_impl",
+      "variant": "std",
+      "call_shape": "buf_len16"
+    }
+  ],
+  "near_miss": [
+    {
+      "name": "mod256",
+      "variant": "std",
+      "call_shape": "buf_len16",
+      "witness_hex": "6162636465"
+    },
+    {
+      "name": "swapped_halves",
+      "variant": "std",
+      "call_shape": "buf_len16",
+      "witness_hex": "6162636465"
+    },
+    {
+      "name": "initial_one",
+      "variant": "std",
+      "call_shape": "buf_len16",
+      "witness_hex": "6162636465"
+    }
+  ]
+}
