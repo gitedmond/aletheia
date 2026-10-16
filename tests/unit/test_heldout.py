@@ -211,3 +211,48 @@ def test_opaque_binary_transport_under_private_root_retains_input_boundary(tmp_p
     assert (handle.directory / "in" / name).read_bytes() == payload
     with pytest.raises(ValueError):
         Job.create("ghidra_analyze", {"binary": "in/private/" + name}, {})
+
+
+def test_installed_hook_blocks_a_real_commit_and_preserves_existing_hooks(tmp_path):
+    import os
+
+    from aletheia.heldout.hook import install
+
+    repo = tmp_path / "repo"
+    private = tmp_path / "private"
+    repo.mkdir()
+    private.mkdir()
+    subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
+    (private / "leakage-index.json").write_text(
+        json.dumps({"program_ids": ["secret-program"], "function_names": [], "binary_sha256": []})
+    )
+    hook = install(repo, private)
+    assert install(repo, private) == hook
+    (repo / "notes.txt").write_text("secret-program")
+    subprocess.run(["git", "-C", str(repo), "add", "notes.txt"], check=True)
+    environment = dict(
+        os.environ,
+        GIT_AUTHOR_NAME="test",
+        GIT_AUTHOR_EMAIL="test@example.invalid",
+        GIT_COMMITTER_NAME="test",
+        GIT_COMMITTER_EMAIL="test@example.invalid",
+    )
+    blocked = subprocess.run(
+        ["git", "-C", str(repo), "commit", "-m", "must be blocked"],
+        capture_output=True,
+        env=environment,
+    )
+    assert blocked.returncode != 0
+    assert b"heldout_content" in blocked.stderr
+    (repo / "notes.txt").write_text("aggregate counts only")
+    subprocess.run(["git", "-C", str(repo), "add", "notes.txt"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-m", "safe aggregate"],
+        check=True,
+        capture_output=True,
+        env=environment,
+    )
+    hook.write_text("#!/bin/sh\necho existing-user-hook\n")
+    with pytest.raises(ValueError, match="preserving existing"):
+        install(repo, private)
+    assert hook.read_text() == "#!/bin/sh\necho existing-user-hook\n"
