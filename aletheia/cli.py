@@ -19,6 +19,7 @@ app = typer.Typer(no_args_is_help=True, help="Evidence-backed reverse engineerin
 class CliOptions:
     config: Path
     json_output: bool
+    split: Literal["dev", "heldout"] = "dev"
 
 
 @app.callback(invoke_without_command=True)
@@ -26,9 +27,23 @@ def configure(
     ctx: typer.Context,
     config: Annotated[Path, typer.Option("--config")] = Path("aletheia.toml"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
+    split: Annotated[Literal["dev", "heldout"], typer.Option("--split")] = "dev",
 ) -> None:
     """Global options precede the subcommand."""
-    ctx.obj = CliOptions(config, json_output)
+    ctx.obj = CliOptions(config, json_output, split)
+    from aletheia.heldout.guard import PrivateAccessError
+
+    try:
+        if config.exists():
+            selected = read_config(ctx)
+            selected.guard.access(config)
+        elif split == "heldout":
+            raise PrivateAccessError("private_root is required for --split heldout")
+    except PrivateAccessError as exc:
+        typer.echo(json.dumps({"status": "error", "error_code": "private_path", "error": str(exc)}))
+        raise typer.Exit(7) from None
+    except (OSError, ValueError):
+        pass  # The selected command reports ordinary configuration errors.
 
 
 def options(ctx: typer.Context) -> CliOptions:
@@ -36,6 +51,27 @@ def options(ctx: typer.Context) -> CliOptions:
     if not isinstance(value, CliOptions):
         raise RuntimeError("CLI context was not initialized")
     return value
+
+
+def read_config(ctx: typer.Context):
+    from aletheia.config import Config
+
+    opts = options(ctx)
+    return Config.read(opts.config).for_split(opts.split)
+
+
+def guard_paths(ctx: typer.Context, *paths: Path | None) -> None:
+    from aletheia.config import Config
+    from aletheia.heldout.guard import PrivateAccessError
+
+    guard = (read_config(ctx) if options(ctx).config.exists() else Config()).guard
+    try:
+        for path in paths:
+            if path is not None:
+                guard.access(path)
+    except PrivateAccessError as exc:
+        typer.echo(json.dumps({"status": "error", "error_code": "private_path", "error": str(exc)}))
+        raise typer.Exit(7) from None
 
 
 @app.command()
@@ -60,12 +96,11 @@ def selftest(
     """Calibrate references and near misses using production Ghidra arity and sandbox probes."""
     from pydantic import JsonValue
 
-    from aletheia.config import Config
     from aletheia.selftest import run_selftest
 
     result: dict[str, JsonValue]
     try:
-        result = run_selftest(Config.read(options(ctx).config), family)
+        result = run_selftest(read_config(ctx), family)
     except (ValueError, OSError, RuntimeError, subprocess.SubprocessError) as exc:
         result = {"status": "error", "detail": str(exc)}
     if options(ctx).json_output:
@@ -82,9 +117,10 @@ app.add_typer(schema_app, name="schema")
 
 
 @schema_app.command("export")
-def schema_export(directory: Path = Path("spec/claims-v1")) -> None:
+def schema_export(ctx: typer.Context, directory: Path = Path("spec/claims-v1")) -> None:
     from aletheia.schema.export import export_schemas
 
+    guard_paths(ctx, directory)
     export_schemas(directory)
     typer.echo(str(directory))
 
@@ -103,6 +139,11 @@ def corpus_lint(
     """Check a program directory or all programs below a corpus root."""
     from aletheia.corpus.lint import LintError, lint_program
 
+    config = read_config(ctx)
+    if options(ctx).split == "heldout" and directory == Path("corpus/tierA"):
+        assert config.guard.root is not None
+        directory = config.guard.root / "corpus/tierA"
+    guard_paths(ctx, directory)
     if program is not None:
         directory = directory / program
     if program is not None or (directory / "src").is_dir():
@@ -134,10 +175,14 @@ def corpus_build(
     program: Annotated[str | None, typer.Option("--program")] = None,
 ) -> None:
     """Build reproducible binaries, private truth, public targets and check leakage."""
-    from aletheia.config import Config
     from aletheia.corpus.build import BuildError, Variant, build_program
 
     cfg = options(ctx)
+    config = read_config(ctx)
+    if options(ctx).split == "heldout" and directory == Path("corpus/tierA"):
+        assert config.guard.root is not None
+        directory = config.guard.root / "corpus/tierA"
+    guard_paths(ctx, directory)
     selected = directory / program if program is not None else directory
     programs = (
         ([selected] if (selected / "src").is_dir() else [])
@@ -149,7 +194,7 @@ def corpus_build(
     try:
         if not programs:
             raise BuildError("program_missing: no selected corpus programs")
-        config = Config.read(cfg.config)
+        config = read_config(ctx)
         variant = Variant(image=config.sandbox.image_build, output_root=Path(config.paths.build))
         built = [build_program(path, variant) for path in programs]
         result = {
@@ -183,16 +228,16 @@ def claims_scripted(
     """Generate JSONL case runs using private truth and a complete manifest input."""
     import re
 
-    from aletheia.config import Config
     from aletheia.schema.canonical import canonical_bytes
     from aletheia.schema.models import GroundTruth, ManifestInput
     from aletheia.sources.scripted import generate
 
     cfg = options(ctx)
+    guard_paths(ctx, manifest)
     try:
         if re.fullmatch(r"[a-z][a-z0-9-]*", program) is None:
             raise ValueError("invalid program name")
-        config = Config.read(cfg.config)
+        config = read_config(ctx)
         paths = sorted((Path(config.paths.build) / program).glob("*/private/ground_truth.json"))
         if len(paths) != 1:
             raise ValueError("program requires exactly one built ground-truth variant")
@@ -259,7 +304,6 @@ def verifiability(
 
     from pydantic import JsonValue
 
-    from aletheia.config import Config
     from aletheia.corpus.verifiability import markdown, table
     from aletheia.schema.canonical import canonical_bytes
     from aletheia.schema.models import GroundTruth
@@ -269,7 +313,7 @@ def verifiability(
     try:
         if program is not None and re.fullmatch(r"[a-z][a-z0-9-]*", program) is None:
             raise ValueError("invalid program name")
-        config = Config.read(cfg.config)
+        config = read_config(ctx)
         root = Path(config.paths.build)
         paths = sorted(
             (root / program).glob("*/private/ground_truth.json")
@@ -298,16 +342,17 @@ def verifiability(
 
 
 def _benchmark_action(ctx: typer.Context, action: "Callable[[Benchmark], Any]") -> None:
-    from aletheia.config import Config
     from aletheia.orchestrate import Benchmark
     from aletheia.schema.canonical import canonical_bytes
 
     try:
-        result = action(Benchmark(Config.read(options(ctx).config)))
+        result = action(Benchmark(read_config(ctx)))
         typer.echo(canonical_bytes(result).decode())
     except (OSError, ValueError, RuntimeError, KeyError) as error:
+        from aletheia.heldout.guard import PrivateAccessError
+
         typer.echo(json.dumps({"status": "error", "error": str(error)}, sort_keys=True))
-        raise typer.Exit(1) from None
+        raise typer.Exit(7 if isinstance(error, PrivateAccessError) else 1) from None
 
 
 @app.command()
@@ -400,6 +445,8 @@ def claims_submit(
     """Ingest JSONL submissions with their complete pinned run manifest."""
     from aletheia.schema.models import Claim, ClaimSubmission, RunManifest
 
+    guard_paths(ctx, file, manifest or file.with_suffix(".manifest.json"))
+
     def action(benchmark: "Benchmark") -> dict[str, Any]:
         value = RunManifest.model_validate_json(
             (manifest or file.with_suffix(".manifest.json")).read_bytes()
@@ -422,13 +469,12 @@ def claims_submit(
 @app.command()
 def replay(ctx: typer.Context, run: Annotated[str, typer.Option("--run")]) -> None:
     """Rerun every verifier method, refuse pin drift or missing source-job cache."""
-    from aletheia.config import Config
     from aletheia.orchestrate import Benchmark
     from aletheia.replay import replay as replay_run
     from aletheia.schema.canonical import canonical_bytes
 
     try:
-        result = replay_run(Benchmark(Config.read(options(ctx).config)), run)
+        result = replay_run(Benchmark(read_config(ctx)), run)
     except (OSError, ValueError, KeyError) as exc:
         typer.echo(json.dumps({"status": "error", "error": str(exc)}, sort_keys=True))
         raise typer.Exit(1) from None
@@ -441,12 +487,33 @@ def report(
     ctx: typer.Context,
     runs: Annotated[str, typer.Option("--runs")],
     out: Annotated[Path, typer.Option("--out")],
+    private: Annotated[bool, typer.Option("--private")] = False,
 ) -> None:
     """Write benchmark metrics, counterexamples, misses and population disclosures."""
     from aletheia.report import collect, render
 
     def action(benchmark: "Benchmark") -> dict[str, Any]:
-        payload = render(collect(benchmark, runs.split(",")))
+        from aletheia.heldout.publish import aggregate_payload
+        from aletheia.schema.canonical import content_hash
+
+        guard = benchmark.config.guard
+        if private:
+            guard.private_output(out)
+        else:
+            guard.access(out)
+        data = collect(benchmark, runs.split(","))
+        if guard.split == "heldout" and not private:
+            payload = (
+                json.dumps(
+                    aggregate_payload(
+                        data.metrics, [content_hash(manifest) for manifest in data.manifests]
+                    ),
+                    sort_keys=True,
+                )
+                + "\n"
+            )
+        else:
+            payload = render(data)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(payload)
         return {"status": "ok", "out": str(out), "runs": sorted(set(runs.split(",")))}
@@ -461,7 +528,6 @@ def gate(
     execute: Annotated[bool, typer.Option("--execute")] = False,
 ) -> None:
     """Check all Phase 1A criteria; --execute prepares the complete five-program experiment."""
-    from aletheia.config import Config
     from aletheia.gate import evaluate, prepare
     from aletheia.orchestrate import Benchmark
     from aletheia.schema.canonical import canonical_bytes
@@ -469,7 +535,7 @@ def gate(
     try:
         if phase != "1a":
             raise ValueError("only Phase 1a is implemented")
-        benchmark = Benchmark(Config.read(options(ctx).config))
+        benchmark = Benchmark(read_config(ctx))
         if execute:
             prepare(benchmark)
         result = evaluate(benchmark)
@@ -480,8 +546,31 @@ def gate(
     raise typer.Exit(0 if result["status"] == "passed" else 1)
 
 
+dev_app = typer.Typer(help="Local development guards.")
+app.add_typer(dev_app, name="dev")
+
+
+@dev_app.command("install-hooks")
+def install_hooks(ctx: typer.Context) -> None:
+    from aletheia.heldout.guard import PrivateAccessError
+    from aletheia.heldout.hook import install
+
+    config = read_config(ctx)
+    root = config.guard.root
+    if root is None:
+        raise PrivateAccessError("private_root is required to install the leakage hook")
+    result = install(Path.cwd(), root)
+    typer.echo(json.dumps({"status": "ok", "hook": str(result)}))
+
+
 def main() -> None:
-    app()
+    from aletheia.heldout.guard import PrivateAccessError
+
+    try:
+        app()
+    except PrivateAccessError as exc:
+        typer.echo(json.dumps({"status": "error", "error_code": "private_path", "error": str(exc)}))
+        raise SystemExit(7) from exc
 
 
 if __name__ == "__main__":

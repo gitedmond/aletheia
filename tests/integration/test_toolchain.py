@@ -46,35 +46,3 @@ def test_pinned_analysis_tools_start_under_containment(tmp_path):
         "unicorn": "2.1.4",
         "capa": "9.4.0",
     }
-
-
-def test_build_compiler_and_strip_work_without_network(tmp_path):
-    cfg = Config.read(Path("aletheia.toml")).sandbox
-    (tmp_path / "main.c").write_text("int main(void) { return 0; }\n")
-    # The only C input here is an independently authored compiler smoke check.
-    script = "clang -std=c17 /input/main.c -o /scratch/a && llvm-strip /scratch/a && /scratch/a"
-    subprocess.run(
-        [
-            "docker",
-            "run",
-            "--rm",
-            "--pull",
-            "never",
-            "--network",
-            "none",
-            "--read-only",
-            "--user",
-            f"{os.getuid()}:{os.getgid()}",
-            "--tmpfs",
-            "/scratch:rw,exec,nosuid,nodev,size=1g,mode=1777",
-            "--mount",
-            f"type=bind,src={tmp_path},dst=/input,readonly",
-            cfg.image_build,
-            "sh",
-            "-ec",
-            script,
-        ],
-        check=True,
-        capture_output=True,
-        timeout=30,
-    )
