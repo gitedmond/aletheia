@@ -84,3 +84,21 @@ def test_faulted_hash_order_is_counted_and_other_order_can_verify(monkeypatch, t
             "reason": "emulation_fault",
         }
     ]
+    from aletheia.verify.engine import ProbeEvidence
+
+    ProbeEvidence.model_validate(payload)
+    from aletheia.verify import engine
+
+    payload["observations"][0]["status"] = "fortify_fail"
+    payload["observations"][0]["fault"] = "fortify_fail"
+    monkeypatch.setattr(
+        engine, "infer_arity", lambda *args: Arity(arity=3, decisive=True, reason=None)
+    )
+    proof = engine.probe_proof(
+        _claim(binary, "0x00001000", "md5", "std"),
+        analysis,
+        pack,
+        ProbeEvidence.model_validate(payload),
+        result.verdict,
+    )
+    assert proof.failure() == "fortify_fail"

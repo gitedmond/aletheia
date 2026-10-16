@@ -164,3 +164,22 @@ def test_real_audit_cache_identity_preconditions_and_configuration(tmp_path):
         binary.stripped.write_bytes(b"tampered")
         with pytest.raises(ValueError, match="content/hash mismatch"):
             engine.verify(original, binary, analysis)
+
+
+def test_hash_output_evidence_reaches_the_engine(tmp_path):
+    from aletheia.selftest import _claim
+
+    cfg = Config.read(Path("aletheia.toml"))
+    root = tmp_path / "fixtures"
+    root.mkdir()
+    binary, symbols, _ = build_fixture("md5", cfg, root)
+    artifacts = ArtifactStore(tmp_path / "artifacts")
+    runner = JobRunner(cfg.sandbox, tmp_path / "public", tmp_path / "jobs", artifacts)
+    cache = GhidraAnalysisCache(runner, tmp_path / "analysis-cache")
+    subjects = [symbols["wrong_iv"], symbols["reference_out_first"]]
+    analysis = cache.analyze(binary, Path(cfg.ghidra.analysis_options), subjects=subjects)
+    with Store(tmp_path / "metadata.sqlite") as store:
+        engine = Engine(runner, store, cfg.budgets, Path(cfg.ghidra.analysis_options))
+        for name, expected in [("wrong_iv", "CONTRADICTED"), ("reference_out_first", "VERIFIED")]:
+            result = engine.verify(_claim(binary, symbols[name], "md5", "std"), binary, analysis)
+            assert (result.verdict.intrinsic_verdict, result.verdict.strength) == (expected, "E2")
