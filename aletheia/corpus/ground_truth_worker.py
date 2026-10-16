@@ -528,6 +528,34 @@ def main() -> None:
             variant_id=gt.variant_id,
             targets=[f.address for f in gt.functions if f.scorable],
         )
+        directory = Path("/in/build")
+        metadata = json.loads((directory / "build.json").read_bytes())
+        if "ir_hashes" in metadata:
+            from aletheia.corpus.abi import parse_abi
+
+            abi: dict[str, object] = {}
+            for name, digest in sorted(metadata["ir_hashes"].items()):
+                if re.fullmatch(r"private/abi-[0-9]{4}\.ll", name) is None:
+                    raise ValueError("invalid IR input name")
+                payload = (directory / name).read_bytes()
+                if hashlib.sha256(payload).hexdigest() != digest:
+                    raise ValueError("IR hash mismatch")
+                definitions = parse_abi(payload.decode())
+                if abi.keys() & definitions.keys():
+                    raise ValueError("ambiguous IR function name across translation units")
+                abi.update(definitions)
+            Path("/out/abi.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": "1.0",
+                        "binary_sha256": gt.binary_sha256,
+                        "variant_id": gt.variant_id,
+                        "functions": abi,
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+            )
         Path("/out/ground_truth.json").write_bytes(canonical_bytes(gt))
         Path("/out/targets.json").write_bytes(canonical_bytes(targets))
     elif request["action"] == "review":
