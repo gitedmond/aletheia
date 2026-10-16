@@ -443,7 +443,7 @@ class Engine:
         self.env_digest = "sha256:" + content_hash(self.harness)
         self.probes = ProbeClient(runner)
 
-    def cache_context(self, claim: Claim) -> CacheContext:
+    def cache_context(self, claim: Claim, analysis: GhidraAnalysis) -> CacheContext:
         family = claim.body.family if isinstance(claim.body, Algorithm) else None
         pack = self.packs.get(family) if family is not None else None
         hashes = (
@@ -457,7 +457,7 @@ class Engine:
             pack_hashes=hashes,
             env_digest=self.env_digest,
             analysis_options_hash=self.options_hash,
-            harness=self.harness,
+            harness=self.harness | {"analysis_result_hash": content_hash(analysis)},
         )
 
     def _stage(self, payload: bytes, suffix: str) -> str:
@@ -626,7 +626,7 @@ class Engine:
             raise ValueError("engine public binary/analysis/claim identity mismatch")
         if analysis.options_sha256 != self.options_hash:
             raise ValueError("engine analysis/options identity mismatch")
-        context = self.cache_context(claim)
+        context = self.cache_context(claim, analysis)
         key = verdict_cache_key(claim, context)
         if not no_cache:
             cached = self.store.cached_verdict(key, claim.claim_id)

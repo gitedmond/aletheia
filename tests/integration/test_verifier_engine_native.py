@@ -89,14 +89,20 @@ def test_real_audit_cache_identity_preconditions_and_configuration(tmp_path):
         ):
             budget = cfg.budgets.model_copy(update={field: getattr(cfg.budgets, field) + 1})
             altered = Engine(runner, store, budget, Path(cfg.ghidra.analysis_options))
-            assert verdict_cache_key(original, altered.cache_context(original)) != first.cache_key
+            assert (
+                verdict_cache_key(original, altered.cache_context(original, analysis))
+                != first.cache_key
+            )
         pack_dir = tmp_path / "packs"
         pack_dir.mkdir()
         raw = yaml.safe_load(Path("packs/fnv.yaml").read_text())
         raw["inputs"]["random"]["seed"] += 1
         (pack_dir / "fnv.yaml").write_text(yaml.safe_dump(raw, sort_keys=False))
         altered = Engine(runner, store, cfg.budgets, Path(cfg.ghidra.analysis_options), pack_dir)
-        assert verdict_cache_key(original, altered.cache_context(original)) != first.cache_key
+        assert (
+            verdict_cache_key(original, altered.cache_context(original, analysis))
+            != first.cache_key
+        )
         options = json.loads(Path(cfg.ghidra.analysis_options).read_bytes())
         option = next(
             item for item in options["options"] if item["name"] == "Aggressive Instruction Finder"
@@ -105,7 +111,10 @@ def test_real_audit_cache_identity_preconditions_and_configuration(tmp_path):
         option_path = tmp_path / "options.json"
         option_path.write_text(json.dumps(options))
         altered = Engine(runner, store, cfg.budgets, option_path)
-        assert verdict_cache_key(original, altered.cache_context(original)) != first.cache_key
+        assert (
+            verdict_cache_key(original, altered.cache_context(original, analysis))
+            != first.cache_key
+        )
         with pytest.raises(ValueError, match="analysis/options"):
             altered.verify(original, binary, analysis)
         ref = next(
@@ -146,6 +155,12 @@ def test_real_audit_cache_identity_preconditions_and_configuration(tmp_path):
             function.call_sites = []
         with pytest.raises(ValueError, match="binding evidence mismatch"):
             probe_proof(original, missing_callers, pack, proof_data, raw_verdict)
+        changed_analysis = engine.verify(second_claim, binary, missing_callers)
+        assert not changed_analysis.cache_hit
+        assert (changed_analysis.verdict.intrinsic_verdict, changed_analysis.verdict.reason) == (
+            "INCONCLUSIVE",
+            "binding_not_verified",
+        )
         binary.stripped.write_bytes(b"tampered")
         with pytest.raises(ValueError, match="content/hash mismatch"):
             engine.verify(original, binary, analysis)
