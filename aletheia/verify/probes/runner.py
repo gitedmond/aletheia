@@ -91,7 +91,12 @@ def run_input(
     elif result.fault is not None:
         if result.fault.startswith("unsupported_import:"):
             status = "unsupported_import"
-        elif result.fault in ("emulation_fault", "budget_exhausted", "unsupported_relocation"):
+        elif result.fault in (
+            "emulation_fault",
+            "budget_exhausted",
+            "unsupported_relocation",
+            "fortify_fail",
+        ):
             status = result.fault
         else:
             raise ValueError("unexpected emulator fault: " + result.fault)
@@ -295,6 +300,7 @@ def verify_algorithm(
             if reproduced.status in (
                 "state_dependent",
                 "emulation_fault",
+                "fortify_fail",
                 "budget_exhausted",
                 "unsupported_relocation",
             ):
@@ -338,6 +344,7 @@ def verify_algorithm(
         "unsupported_relocation",
         "unsupported_import",
         "emulation_fault",
+        "fortify_fail",
         "budget_exhausted",
     ):
         first = next((trial for trial in observations if trial.status == reason), None)
