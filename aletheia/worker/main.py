@@ -1,5 +1,6 @@
 """Container protocol boundary. Future analysis handlers fail explicitly until implemented."""
 
+import json
 import os
 import sys
 import tempfile
@@ -79,6 +80,16 @@ def execute(job_directory: Path, handlers: dict[JobType, Callable[[Job], JobResu
         os.replace(name, output / "result.json")
     finally:
         Path(name).unlink(missing_ok=True)
+    measurement: dict[str, int | str] = {}
+    try:
+        measurement["peak_memory_bytes"] = int(Path("/sys/fs/cgroup/memory.peak").read_text())
+        cpu = dict(
+            line.split() for line in Path("/sys/fs/cgroup/cpu.stat").read_text().splitlines()
+        )
+        measurement["cpu_microseconds"] = int(cpu["usage_usec"])
+    except (OSError, ValueError, KeyError) as exc:
+        measurement["error"] = type(exc).__name__ + ": " + str(exc)[:200]
+    (output / "resources.json").write_text(json.dumps(measurement, sort_keys=True))
     return result
 
 

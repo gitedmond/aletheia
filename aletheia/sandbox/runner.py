@@ -1,6 +1,7 @@
 """Fresh, bounded Docker jobs. The host transports opaque inputs and validated JSON only."""
 
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -27,6 +28,8 @@ class JobHandle:
     started: float
     early_result: JobResult | None = None
     result_artifact: str | None = None
+    cached: bool = False
+    measurement: dict[str, int | float | str] | None = None
 
 
 class JobRunner:
@@ -135,6 +138,18 @@ class JobRunner:
         except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
             result = JobResult(job_id=handle.job.job_id, status="error", error_code="internal")
         finally:
+            handle.measurement = {"wall_seconds": time.monotonic() - handle.started}
+            try:
+                resource = handle.directory / "out/resources.json"
+                if resource.is_symlink() or resource.stat().st_size > 4096:
+                    raise ValueError("unsafe resource measurement")
+                data = json.loads(resource.read_bytes())
+                for key in ("peak_memory_bytes", "cpu_microseconds"):
+                    if type(data.get(key)) is not int or data[key] < 0:
+                        raise ValueError(str(data.get("error", "missing resource measurement")))
+                    handle.measurement[key] = data[key]
+            except (OSError, ValueError, TypeError) as exc:
+                handle.measurement["error"] = type(exc).__name__ + ": " + str(exc)[:200]
             if cid:
                 try:
                     subprocess.run(

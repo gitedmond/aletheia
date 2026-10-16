@@ -2,9 +2,13 @@
 
 import json
 import subprocess
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, Any
+
+if TYPE_CHECKING:
+    from aletheia.orchestrate import Benchmark
 
 import typer
 
@@ -172,7 +176,7 @@ app.add_typer(claims_app, name="claims")
 def claims_scripted(
     ctx: typer.Context,
     program: Annotated[str, typer.Option("--program")],
-    manifest: Annotated[Path, typer.Option("--manifest")],
+    manifest: Annotated[Path | None, typer.Option("--manifest")] = None,
     seed: Annotated[int, typer.Option("--seed")] = 20261013,
 ) -> None:
     """Generate JSONL case runs using private truth and a complete manifest input."""
@@ -194,7 +198,13 @@ def claims_scripted(
         gt = GroundTruth.model_validate_json(paths[0].read_bytes())
         if gt.program_id != "tierA/" + program:
             raise ValueError("ground-truth program identity mismatch")
-        result = generate(gt, ManifestInput.model_validate_json(manifest.read_bytes()), seed)
+        if manifest is None:
+            from aletheia.orchestrate import Benchmark
+
+            inputs = Benchmark(config).manifest_input(program, "scripted")
+        else:
+            inputs = ManifestInput.model_validate_json(manifest.read_bytes())
+        result = generate(gt, inputs, seed)
         destination = Path(config.paths.runs) / "scripted" / program
         files: dict[Path, bytes] = {}
         records: list[dict[str, str]] = []
@@ -284,6 +294,128 @@ def verifiability(
         result = {"status": "error", "error": str(error)}
         typer.echo(json.dumps(result, sort_keys=True) if cfg.json_output else str(result))
         raise typer.Exit(1) from None
+
+
+def _benchmark_action(ctx: typer.Context, action: "Callable[[Benchmark], Any]") -> None:
+    from aletheia.config import Config
+    from aletheia.orchestrate import Benchmark
+    from aletheia.schema.canonical import canonical_bytes
+
+    try:
+        result = action(Benchmark(Config.read(options(ctx).config)))
+        typer.echo(canonical_bytes(result).decode())
+    except (OSError, ValueError, RuntimeError, KeyError) as error:
+        typer.echo(json.dumps({"status": "error", "error": str(error)}, sort_keys=True))
+        raise typer.Exit(1) from None
+
+
+@app.command()
+def run(
+    ctx: typer.Context,
+    source: Annotated[str, typer.Option("--source")],
+    program: Annotated[str | None, typer.Option("--program")] = None,
+    no_cache: Annotated[bool, typer.Option("--no-cache")] = False,
+) -> None:
+    """Produce claims, verify every applicable method, and score built programs."""
+    if source == "agent":
+        typer.echo(json.dumps({"status": "disabled", "reason": "llm.enabled=false"}))
+        raise typer.Exit(3)
+
+    def action(benchmark: "Benchmark") -> dict[str, Any]:
+        programs = [program] if program is not None else benchmark.programs()
+        if not programs:
+            raise ValueError("no built programs")
+        runs = [
+            run
+            for selected in programs
+            for run in benchmark.run(selected, source, no_cache=no_cache)
+        ]
+        return {"status": "ok", "runs": runs, "accounting": benchmark.accounting(runs)}
+
+    _benchmark_action(ctx, action)
+
+
+tools_app = typer.Typer(help="Run pinned tool adapters and ingest their claims.")
+app.add_typer(tools_app, name="tools")
+
+
+@tools_app.command("run")
+def tools_run(
+    ctx: typer.Context,
+    tool: Annotated[str, typer.Option("--tool")],
+    program: Annotated[str | None, typer.Option("--program")] = None,
+    no_cache: Annotated[bool, typer.Option("--no-cache")] = False,
+) -> None:
+    def action(benchmark: "Benchmark") -> dict[str, Any]:
+        selected = tool.split(",")
+        if not selected or set(selected) - {"capa", "findcrypt"}:
+            raise ValueError("--tool must select capa,findcrypt")
+        programs = [program] if program is not None else benchmark.programs()
+        if not programs:
+            raise ValueError("no built programs")
+        return {
+            "status": "ok",
+            "runs": [
+                run
+                for name in sorted(set(selected))
+                for current in programs
+                for run in benchmark.create(current, name, no_cache=no_cache)
+            ],
+        }
+
+    _benchmark_action(ctx, action)
+
+
+@app.command()
+def verify(
+    ctx: typer.Context,
+    run: Annotated[str | None, typer.Option("--run")] = None,
+    no_cache: Annotated[bool, typer.Option("--no-cache")] = False,
+) -> None:
+    """Verify active claims; existing verdicts are preserved unless --no-cache is given."""
+
+    def action(benchmark: "Benchmark") -> dict[str, Any]:
+        runs = benchmark.run_ids(run)
+        for current in runs:
+            benchmark.verify(current, no_cache=no_cache)
+        return {"status": "ok", "runs": runs}
+
+    _benchmark_action(ctx, action)
+
+
+@app.command()
+def score(ctx: typer.Context, run: Annotated[str | None, typer.Option("--run")] = None) -> None:
+    """Grade verified claims and emit reproducible metrics."""
+    _benchmark_action(ctx, lambda benchmark: benchmark.score(benchmark.run_ids(run)))
+
+
+@claims_app.command("submit")
+def claims_submit(
+    ctx: typer.Context,
+    file: Annotated[Path, typer.Option("--file")],
+    source: Annotated[str, typer.Option("--source")],
+    manifest: Annotated[Path | None, typer.Option("--manifest")] = None,
+) -> None:
+    """Ingest JSONL submissions with their complete pinned run manifest."""
+    from aletheia.schema.models import Claim, ClaimSubmission, RunManifest
+
+    def action(benchmark: "Benchmark") -> dict[str, Any]:
+        value = RunManifest.model_validate_json(
+            (manifest or file.with_suffix(".manifest.json")).read_bytes()
+        )
+        claims = [
+            Claim.intake(ClaimSubmission.model_validate_json(line))
+            for line in file.read_bytes().splitlines()
+        ]
+        if value.source_config.get("source_id") != source:
+            raise ValueError("manifest source differs from --source")
+        program = value.source_config.get("program")
+        if not isinstance(program, str):
+            raise ValueError("manifest requires a built program")
+        run = benchmark.ingest(program, value, claims)
+        return {"status": "ok", "run": run, "claims": len(claims)}
+
+    _benchmark_action(ctx, action)
 
 
 def main() -> None:
