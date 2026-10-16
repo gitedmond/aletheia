@@ -215,3 +215,7 @@ def check_leakage(stripped: Path, gt: GroundTruth, program_dir: Path) -> list[Le
                 list[dict[str, str]], json.loads((output / "leakage.json").read_bytes())
             )
         ]
+
+
+# Annotation review uses the same sandbox boundary as private extraction.
+run_private_worker = _run
