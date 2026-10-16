@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "family": "md5",
+  "binary_sha256": "feb030b6270260d70283d3834eec27115b7f45c324b272d4503a631232ed0b63",
+  "references": [
+    {
+      "name": "reference",
+      "variant": "std",
+      "call_shape": "buf_len_digest_out"
+    },
+    {
+      "name": "reference_out_first",
+      "variant": "std",
+      "call_shape": "out_buf_len_digest"
+    }
+  ],
+  "near_miss": [
+    {
+      "name": "wrong_iv",
+      "variant": "std",
+      "call_shape": "buf_len_digest_out",
+      "witness_hex": "616263"
+    },
+    {
+      "name": "big_endian_length",
+      "variant": "std",
+      "call_shape": "buf_len_digest_out",
+      "witness_hex": "616263"
+    },
+    {
+      "name": "padding_at_56",
+      "variant": "std",
+      "call_shape": "buf_len_digest_out",
+      "witness_hex": "6161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161"
+    }
+  ]
+}
