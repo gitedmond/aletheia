@@ -49,6 +49,7 @@ REGISTRY = {
     "hex": ("lower", "upper"),
 }
 REASONS = {
+    "fortify_fail",
     "state_dependent",
     "unsupported_import",
     "no_matching_call_shape",

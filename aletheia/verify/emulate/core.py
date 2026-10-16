@@ -3,13 +3,14 @@
 import hashlib
 import importlib
 import io
+import json
 import struct
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, cast
 
 from aletheia.config import Budgets
-from aletheia.verify.emulate.stubs import BudgetExhausted, MemoryFault, emulate_import
+from aletheia.verify.emulate.stubs import BudgetExhausted, FortifyFault, MemoryFault, emulate_import
 from aletheia.worker.containment import require_job_sandbox
 from aletheia.worker.main import guarded_input
 
@@ -111,6 +112,7 @@ class Emulator:
         self.tracked: list[Tracked] = []
         self.imports: dict[int, str] = {}
         self.data_imports: list[str] = []
+        self.libc_objects: dict[str, int] = {}
         self.heap_next = HEAP
         self.allocations: dict[int, int] = {}
         self.total_instructions = 0
@@ -165,6 +167,8 @@ class Emulator:
                     uc.reg_write(self.registers.UC_X86_REG_RAX, value & (2**64 - 1))
             except BudgetExhausted:
                 self.fault = "budget_exhausted"
+            except FortifyFault:
+                self.fault = "fortify_fail"
             except (MemoryFault, self.native.UcError):
                 self.fault = "emulation_fault"
             if self.fault:
@@ -225,6 +229,30 @@ class Emulator:
         if self.heap_next > HEAP + self.budget.heap_mb * 1024**2:
             raise ValueError("data imports exceed heap capacity")
         return address
+
+    def _libc_tables(self) -> list[int]:
+        tables = json.loads(Path(__file__).with_name("ctype_tables.json").read_bytes())
+        pages: list[int] = []
+        self.libc_objects["__errno_location"] = TLS + 0x80
+        for index, (name, code, width) in enumerate(
+            [
+                ("b", "H", 2),
+                ("tolower", "i", 4),
+                ("toupper", "i", 4),
+            ]
+        ):
+            values = tables[name]
+            low, high = (0, 65535) if code == "H" else (-(2**31), 2**31 - 1)
+            if len(values) != 384 or any(
+                type(x) is not int or not low <= x <= high for x in values
+            ):
+                raise ValueError("invalid pinned C-locale table")
+            page, pointer = TLS + (index + 1) * PAGE, TLS + 0x100 + index * 8
+            self.uc.mem_write(page, struct.pack("<384" + code, *values))
+            self.uc.mem_write(pointer, struct.pack("<Q", page + 128 * width))
+            self.libc_objects["__ctype_" + name + "_loc"] = pointer
+            pages.append(page)
+        return pages
 
     def _load(self, elf: Any) -> None:
         if (
@@ -291,6 +319,7 @@ class Emulator:
                 )
                 self.tracked.append(Tracked(start, mask))
         self._relocate(elf)
+        constant_pages = self._libc_tables()
         self.uc.mem_write(STUBS, (b"\xc3" + b"\xcc" * 15) * 4096)
         self.uc.mem_write(TLS + 0x28, struct.pack("<Q", CANARY))
         regs = self.registers
@@ -314,6 +343,9 @@ class Emulator:
                 self.permissions.update(
                     {page: int(permission) for page in range(region.start, region.end, PAGE)}
                 )
+        for page in constant_pages:
+            self.uc.mem_protect(page, PAGE, self.native.UC_PROT_READ)
+            self.permissions[page] = self.native.UC_PROT_READ
         self.uc.hook_add(self.native.UC_HOOK_MEM_READ | self.native.UC_HOOK_MEM_WRITE, self._memory)
         self.uc.hook_add(self.native.UC_HOOK_CODE, self._instruction)
         self.uc.hook_add(
@@ -435,6 +467,7 @@ class Emulator:
 
     def _invoke(self, entry: int, args: list[int | Buffer], ret_width: int) -> CallResult:
         self.instructions, self.fault, self.uninitialized, self.called = 0, None, False, []
+        self.uc.mem_write(TLS + 0x80, b"\0" * 4)
         if self.unsupported:
             self.fault = "unsupported_relocation"
         if len(args) > 6 or ret_width not in (8, 16, 32, 64):
@@ -495,8 +528,8 @@ class Emulator:
             sorted(set(self.called)),
         )
 
-    def call(self, entry: int, args: list[int | Buffer], ret_width: int = 32) -> CallResult:
-        """Restore initializer state for each invocation; the claim instruction total persists."""
+    def _restore(self) -> None:
+        """Restore initializer state; the claim instruction total persists."""
         self.uc.context_restore(self.context)
         for address, data in self.snapshot:
             self.uc.mem_write(address, data)
@@ -504,4 +537,43 @@ class Emulator:
             tracked.written[:] = tracked.initial
         self.heap_next = self.initial_heap
         self.allocations.clear()
+
+    def call(self, entry: int, args: list[int | Buffer], ret_width: int = 32) -> CallResult:
+        self._restore()
         return self._invoke(entry, args, ret_width)
+
+    def call_sequence(self, steps: list[tuple[int, list[int | Buffer], int]]) -> list[CallResult]:
+        """Fresh sequence; reuse a Buffer object to share its guest storage across calls."""
+        self._restore()
+        locations: dict[int, tuple[int, int]] = {}
+        cursor = INPUTS
+        for _, args, _ in steps:
+            for argument in args:
+                if not isinstance(argument, Buffer) or id(argument) in locations:
+                    continue
+                size = len(argument.data) if argument.size is None else argument.size
+                if (
+                    size < len(argument.data)
+                    or size < 0
+                    or cursor + max(1, size) > INPUTS + 16 * 1024**2
+                ):
+                    raise ValueError("sequence buffers exceed input region")
+                self.uc.mem_write(cursor, argument.data)
+                locations[id(argument)] = cursor, size
+                cursor += (max(1, size) + 15) // 16 * 16
+        results: list[CallResult] = []
+        for entry, args, width in steps:
+            self.uc.context_restore(self.context)
+            bound: list[int | Buffer] = [
+                locations[id(arg)][0] if isinstance(arg, Buffer) else arg for arg in args
+            ]
+            result = self._invoke(entry, bound, width)
+            output = [
+                bytes(self.uc.mem_read(*locations[id(arg)]))
+                for arg in args
+                if isinstance(arg, Buffer)
+            ]
+            results.append(replace(result, out_buffers=output))
+            if result.fault:
+                break
+        return results

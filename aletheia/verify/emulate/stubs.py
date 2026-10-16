@@ -14,6 +14,10 @@ class MemoryFault(Exception):
     pass
 
 
+class FortifyFault(MemoryFault):
+    pass
+
+
 def emulate_import(emu: "Emulator", name: str) -> int | None:
     """None identifies an unsupported import; all supported stubs return an integer."""
     regs = emu.registers
@@ -21,6 +25,23 @@ def emulate_import(emu: "Emulator", name: str) -> int | None:
         int(emu.uc.reg_read(register))
         for register in (regs.UC_X86_REG_RDI, regs.UC_X86_REG_RSI, regs.UC_X86_REG_RDX)
     )
+    if name in emu.libc_objects:
+        return emu.libc_objects[name]
+    if name in ("__memcpy_chk", "__memmove_chk", "__memset_chk"):
+        if n > int(emu.uc.reg_read(regs.UC_X86_REG_RCX)):
+            raise FortifyFault("copy exceeds declared destination size")
+        name = name.removeprefix("__").removesuffix("_chk")
+    if name == "__strcpy_chk":
+        output = bytearray()
+        while True:
+            if len(output) >= n:
+                raise FortifyFault("string exceeds declared destination size")
+            emu.charge_work(1)
+            value = emu.read_memory(b + len(output), 1)
+            output.extend(value)
+            if value == b"\0":
+                emu.write_memory(a, bytes(output))
+                return a
     if name in ("memcpy", "memmove"):
         emu.check_memory(a, n, write=True)
         emu.write_memory(a, emu.read_memory(b, n))
