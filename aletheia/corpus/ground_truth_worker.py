@@ -18,6 +18,7 @@ from typing import Any, cast
 from aletheia.corpus.lint import lint_program, source_functions
 from aletheia.schema.canonical import canonical_bytes
 from aletheia.schema.models import (
+    REGISTRY_V1,
     Edge,
     ExcludedFunction,
     GroundAlgorithm,
@@ -468,6 +469,12 @@ def extract(directory: Path, program: Path) -> GroundTruth:
             variant_id=metadata["variant_id"],
             build_flags=" ".join(metadata["build_flags"]),
             functions=functions,
+            algorithms_version="2.0"
+            if any(
+                fn.algorithm.family != "none" and fn.algorithm.family not in REGISTRY_V1
+                for fn in functions
+            )
+            else "1.0",
             excluded_functions=sorted(excluded, key=lambda f: (f.name, f.reason)),
         )
     finally:

@@ -60,3 +60,35 @@ def test_taxonomy_is_versioned_and_rejects_non_leaves():
     assert "crypto.hash.sha256.update" in taxonomy.leaves
     assert "hash.noncrypto.fnv1" in taxonomy.leaves
     assert "crypto.hash" not in taxonomy.leaves
+
+
+def test_new_families_require_v2_in_both_runtime_and_exported_contract(tmp_path):
+    import json
+
+    import jsonschema
+    from pydantic import ValidationError
+
+    from aletheia.schema.export import export_schemas
+    from aletheia.schema.models import ClaimSubmission
+
+    export_schemas(tmp_path)
+    validator = jsonschema.Draft202012Validator(
+        json.loads((tmp_path / "claim-submission.json").read_bytes())
+    )
+    value = {
+        "run_id": "r_" + "1" * 16,
+        "source": {"origin": "scripted", "source_id": "test"},
+        "binary_sha256": "a" * 64,
+        "subject": {"address": "0x00001000"},
+        "type": "algorithm_identity",
+        "body": {"family": "md5", "variant": "std"},
+        "confidence": 0.9,
+        "confidence_source": "scripted",
+    }
+    with pytest.raises(ValidationError, match="algorithms_version"):
+        ClaimSubmission.model_validate(value)
+    with pytest.raises(jsonschema.ValidationError):
+        validator.validate(value)
+    value["algorithms_version"] = "2.0"
+    validator.validate(value)
+    assert ClaimSubmission.model_validate(value).algorithms_version == "2.0"

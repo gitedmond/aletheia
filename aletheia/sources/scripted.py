@@ -7,6 +7,7 @@ from pathlib import Path
 from aletheia.schema.canonical import canonical_bytes, content_hash
 from aletheia.schema.models import (
     REGISTRY,
+    REGISTRY_V1,
     Algorithm,
     Call,
     Claim,
@@ -61,7 +62,8 @@ def generate(gt: GroundTruth, manifest: ManifestInput, seed: int = 20261013) -> 
     if len(addresses) != len(set(addresses)):
         raise ValueError("duplicate ground-truth function address")
     rng = random.Random(seed)
-    families = sorted(REGISTRY)
+    registry = REGISTRY_V1 if gt.algorithms_version == "1.0" else REGISTRY
+    families = sorted(registry)
     scenarios: dict[str, list[ClaimSubmission]] = {"correct": [], "family_only": [], "mutated": []}
 
     def add(scenario: str, address: str, body: Algorithm | Call) -> None:
@@ -89,7 +91,7 @@ def generate(gt: GroundTruth, manifest: ManifestInput, seed: int = 20261013) -> 
             else:
                 add("correct", function.address, Algorithm.model_validate(algorithm.model_dump()))
                 add("family_only", function.address, Algorithm(family=algorithm.family))
-                siblings = sorted(v for v in REGISTRY[algorithm.family] if v != algorithm.variant)
+                siblings = sorted(v for v in registry[algorithm.family] if v != algorithm.variant)
                 mutation = (
                     Algorithm(family=algorithm.family, variant=rng.choice(siblings))
                     if siblings

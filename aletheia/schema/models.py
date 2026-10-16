@@ -33,13 +33,16 @@ Outcome = Literal[
 ]
 Strength = Literal["E1", "E2"]
 JobType = Literal["ghidra_analyze", "findcrypt_scan", "capa_scan", "verify_static", "verify_probe"]
-REGISTRY: dict[str, tuple[str, ...]] = {
+REGISTRY_V1: dict[str, tuple[str, ...]] = {
     "crc32": ("ieee", "jamcrc", "crc32c", "bzip2"),
     "adler32": ("zlib",),
     "fletcher16": ("std",),
     "fnv": ("fnv1a-32", "fnv1-32", "fnv1a-64", "fnv1-64"),
     "djb2": ("add", "xor"),
     "base64": ("std-padded", "url-nopad", "std-padded-decode"),
+}
+REGISTRY = {
+    **REGISTRY_V1,
     "md5": ("std",),
     "sha1": ("std",),
     "sha256": ("std",),
@@ -139,13 +142,19 @@ class ClaimSubmission(Record):
         Literal["capa_rule", "constant_xref", "scripted_correct", "scripted_mutated"] | None
     ) = None
     tool_label: str | None = None
-    algorithms_version: Literal["1.0"] = "1.0"
+    algorithms_version: Literal["1.0", "2.0"] = "1.0"
     client_ref: str | None = None
 
     @model_validator(mode="after")
     def correct_body(self) -> Self:
         if (self.type == "algorithm_identity") != isinstance(self.body, Algorithm):
             raise ValueError("claim type and body disagree")
+        if (
+            self.algorithms_version == "1.0"
+            and isinstance(self.body, Algorithm)
+            and self.body.family not in REGISTRY_V1
+        ):
+            raise ValueError("algorithm family requires algorithms_version 2.0")
         if self.source.origin == "tool" and self.depends_on:
             raise ValueError("tool sources cannot declare reasoning dependencies")
         return self
@@ -255,11 +264,20 @@ class GroundTruth(Record):
     program_id: str
     variant_id: str
     build_flags: str
-    algorithms_version: Literal["1.0"] = "1.0"
+    algorithms_version: Literal["1.0", "2.0"] = "1.0"
     functions: list[GroundFunction]
     excluded_functions: list[ExcludedFunction] = Field(
         default_factory=lambda: list[ExcludedFunction]()
     )
+
+    @model_validator(mode="after")
+    def registry_version(self) -> Self:
+        if self.algorithms_version == "1.0" and any(
+            fn.algorithm.family not in REGISTRY_V1 and fn.algorithm.family != "none"
+            for fn in self.functions
+        ):
+            raise ValueError("algorithm family requires algorithms_version 2.0")
+        return self
 
 
 class Targets(Record):
@@ -295,7 +313,7 @@ class ManifestInput(Record):
     analysis_options_hash: Sha256
     pack_hashes: dict[str, Sha256]
     mapping_hashes: dict[str, Sha256]
-    algorithms_version: Literal["1.0"] = "1.0"
+    algorithms_version: Literal["1.0", "2.0"] = "1.0"
     verifier_version: str
     grader_version: str
     seeds: dict[str, int]

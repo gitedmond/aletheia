@@ -22,7 +22,7 @@ from aletheia.schema.models import (
 
 def test_registry_file_matches_versioned_contract():
     registry = yaml.safe_load(Path("algorithms.yaml").read_text())
-    assert registry["version"] == "1.0"
+    assert registry["version"] == "2.0"
     assert registry["families"] == {name: list(values) for name, values in REGISTRY.items()}
 
 
