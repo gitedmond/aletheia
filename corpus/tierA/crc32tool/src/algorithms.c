@@ -70,12 +70,14 @@ static const uint32_t table[256] = {
 /* Deliberately initialized only by crc32_table_init, never by a constructor. */
 static uint32_t runtime_table[256];
 // @algorithm crc32/ieee
+// @category checksum.crc32
 ALETHEIA_TARGET uint32_t crc32_update(uint32_t crc, const uint8_t *buf, size_t len) {
     crc ^= UINT32_MAX;
     for (size_t i = 0; i < len; ++i) crc = table[(crc ^ buf[i]) & 255] ^ (crc >> 8);
     return crc ^ UINT32_MAX;
 }
 // @algorithm crc32/ieee
+// @category checksum.crc32
 ALETHEIA_TARGET uint32_t crc32_bitwise(const uint8_t *buf, size_t len) {
     uint32_t crc = UINT32_MAX;
     for (size_t i = 0; i < len; ++i) {
@@ -86,6 +88,7 @@ ALETHEIA_TARGET uint32_t crc32_bitwise(const uint8_t *buf, size_t len) {
     return crc ^ UINT32_MAX;
 }
 // @algorithm crc32/jamcrc
+// @category checksum.crc32
 ALETHEIA_TARGET uint32_t jamcrc(const uint8_t *buf, size_t len) {
     uint32_t crc = UINT32_MAX;
     for (size_t i = 0; i < len; ++i) {
@@ -96,6 +99,7 @@ ALETHEIA_TARGET uint32_t jamcrc(const uint8_t *buf, size_t len) {
     return crc;
 }
 // @algorithm none
+// @category util.init
 ALETHEIA_TARGET void crc32_table_init(void) {
     for (unsigned i = 0; i < 256; ++i) {
         uint32_t value = i;
@@ -105,12 +109,14 @@ ALETHEIA_TARGET void crc32_table_init(void) {
     }
 }
 // @algorithm crc32/ieee
+// @category checksum.crc32
 ALETHEIA_TARGET uint32_t crc32_update_rt(uint32_t crc, const uint8_t *buf, size_t len) {
     crc ^= UINT32_MAX;
     for (size_t i = 0; i < len; ++i) crc = runtime_table[(crc ^ buf[i]) & 255] ^ (crc >> 8);
     return crc ^ UINT32_MAX;
 }
 // @algorithm none
+// @category util.other
 ALETHEIA_TARGET int crc32_selftest(void) {
     const uint8_t vector[] = "123456789";
     volatile size_t index = 1;
@@ -118,6 +124,7 @@ ALETHEIA_TARGET int crc32_selftest(void) {
         && crc32_update(0, vector, 9) == UINT32_C(0xcbf43926);
 }
 // @algorithm none
+// @category io.file.write
 ALETHEIA_TARGET void hex_print32(uint32_t v) {
     printf("%08" PRIx32 "\n", v);
 }
