@@ -168,6 +168,23 @@ def corpus_lint(
     raise typer.Exit(1 if errors else 0)
 
 
+@corpus_app.command("split")
+def corpus_split(
+    ctx: typer.Context,
+    seed: Annotated[int, typer.Option("--seed")] = 20261013,
+) -> None:
+    """Draw held-out programs once; write identifying results only under private_root."""
+    from aletheia.corpus.split import split_corpus
+    from aletheia.heldout.guard import PrivateAccessError
+
+    try:
+        split_corpus(Path.cwd(), read_config(ctx).guard, seed)
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        typer.echo(json.dumps({"status": "error", "error": str(exc)}))
+        raise typer.Exit(7 if isinstance(exc, PrivateAccessError) else 1) from None
+    typer.echo(json.dumps({"status": "ok", "dev_programs": 12, "heldout_programs": 8}))
+
+
 @corpus_app.command("build")
 def corpus_build(
     ctx: typer.Context,

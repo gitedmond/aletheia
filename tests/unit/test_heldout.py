@@ -259,6 +259,20 @@ def test_installed_hook_blocks_a_real_commit_and_preserves_existing_hooks(tmp_pa
         capture_output=True,
         env=environment,
     )
+    worktree = tmp_path / "other-worktree"
+    subprocess.run(
+        ["git", "-C", str(repo), "worktree", "add", "-qb", "other", str(worktree)],
+        check=True,
+    )
+    (worktree / "notes.txt").write_text("secret-program")
+    subprocess.run(["git", "-C", str(worktree), "add", "notes.txt"], check=True)
+    blocked_other = subprocess.run(
+        ["git", "-C", str(worktree), "commit", "-m", "must also be blocked"],
+        capture_output=True,
+        env=environment,
+    )
+    assert blocked_other.returncode != 0
+    assert b"heldout_content" in blocked_other.stderr
     hook.write_text("#!/bin/sh\necho existing-user-hook\n")
     with pytest.raises(ValueError, match="preserving existing"):
         install(repo, private)
