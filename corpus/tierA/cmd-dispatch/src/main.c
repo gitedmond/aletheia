@@ -1,6 +1,7 @@
 #include "program.h"
 #include <stdlib.h>
 // @algorithm none
+// @category control.main
 int main(int argc, char **argv) {
     if (argc > 3) { log_msg("%s\n", "usage: <in>"); return 1; }
     uint8_t *input;

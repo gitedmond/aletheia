@@ -12,6 +12,7 @@ struct ht {
     entry_t **entries;
 };
 // @algorithm none
+// @category util.init
 ALETHEIA_TARGET ht_t *ht_create(size_t buckets, hash_fn_t fn) {
     /* These are the only admitted callbacks, matching the indirect annotations. */
     if (buckets == 0 || buckets > SIZE_MAX / sizeof(entry_t *)
@@ -25,6 +26,7 @@ ALETHEIA_TARGET ht_t *ht_create(size_t buckets, hash_fn_t fn) {
     return table;
 }
 // @algorithm none
+// @category container.hashtable.insert
 // @indirect-targets fnv1a_32,djb2_buf
 ALETHEIA_TARGET int ht_insert(ht_t *t, const char *key, int value) {
     size_t length = strlen(key);
@@ -43,6 +45,7 @@ ALETHEIA_TARGET int ht_insert(ht_t *t, const char *key, int value) {
     return 0;
 }
 // @algorithm none
+// @category container.hashtable.lookup
 // @indirect-targets fnv1a_32,djb2_buf
 ALETHEIA_TARGET int ht_lookup(ht_t *t, const char *key, int *out) {
     size_t index = t->fn((const uint8_t *)key, strlen(key)) % t->buckets;
@@ -52,6 +55,7 @@ ALETHEIA_TARGET int ht_lookup(ht_t *t, const char *key, int *out) {
     return 0;
 }
 // @algorithm none
+// @category util.cleanup
 ALETHEIA_TARGET void ht_destroy(ht_t *t) {
     if (t == NULL) return;
     for (size_t i = 0; i < t->buckets; ++i) {
