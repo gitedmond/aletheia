@@ -5,13 +5,13 @@
 static volatile uint64_t keep;
 FN uint64_t length_ref(const unsigned char *s) { uint64_t n=0; while(s[n]) ++n; return n; }
 FN uint64_t length_bound(const unsigned char *s,size_t bound) { size_t n=0; while(n<bound && s[n]) ++n; return n; }
-FN uint64_t length_plus(const unsigned char *s) { return length_ref(s)+1; }
+FN uint64_t length_plus(const unsigned char *s) { uint64_t n=0; while(s[n]) ++n; return n+1; }
 FN uint64_t length_newline(const unsigned char *s) { size_t n=0; while(s[n] && s[n]!='\n') ++n; return n; }
 FN uint64_t length_cap(const unsigned char *s) { size_t n=0; while(s[n] && n<255) ++n; return n; }
 FN int compare_ref(const unsigned char *a,const unsigned char *b) { while(*a && *a==*b) { ++a; ++b; } return (int)*a-(int)*b; }
 FN int compare_signed(const unsigned char *a,const unsigned char *b) { while(*a && *a==*b) { ++a; ++b; } return (int)(signed char)*a-(int)(signed char)*b; }
 FN int compare_length(const unsigned char *a,const unsigned char *b) { size_t x=0,y=0; while(a[x]) ++x; while(b[y]) ++y; return (x>y)-(x<y); }
-FN int compare_equal(const unsigned char *a,const unsigned char *b) { return compare_ref(a,b)!=0; }
+FN int compare_equal(const unsigned char *a,const unsigned char *b) { while(*a && *a==*b) { ++a; ++b; } return *a!=*b; }
 FN void copy_ref(unsigned char *out,const unsigned char *in,size_t n) { if(n>4096) return; for(size_t i=0;i<n;++i) out[i]=in[i]; }
 FN void copy_short(unsigned char *out,const unsigned char *in,size_t n) { if(n) copy_ref(out,in,n-1); }
 FN void copy_reverse(unsigned char *out,const unsigned char *in,size_t n) { if(n>4096) return; for(size_t i=0;i<n;++i) out[i]=in[n-1-i]; }
