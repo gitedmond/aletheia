@@ -14,7 +14,7 @@ uv run python tools/check.py -- uv run pytest tests/unit/test_report_phase1b.py 
 The optional image bindings are temporary. Both tracked files are restored byte-for-byte,
 and an interrupted binding is recovered on the next invocation. Unexpected edits are
 preserved and reported. The per-checkout lock prevents overlapping validation bindings.
-Logs default to `~/.cache/aletheia-checks/<checkout>/`; use `--log-dir` to retain a separately
+Logs default to `~/.cache/aletheia-checks/<checkout>-<path-hash>/`; use `--log-dir` to retain a separately
 named validation run. Do not read entire logs when a failure excerpt is enough.
 
 Run `pr-status.ps1` from Windows PowerShell, where the PC's GitHub authentication is set up.

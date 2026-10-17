@@ -67,3 +67,25 @@ def test_successful_json_is_summarized_without_dumping_details(tmp_path, capsys)
     assert workflow.run_logged(command, tmp_path, log) == 0
     result = json.loads(capsys.readouterr().out)
     assert result["summary"] == ["status: ok"] and log.stat().st_size > 5000
+
+
+def test_separate_log_directories_cannot_bypass_checkout_lock(tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "pyproject.toml").write_text("")
+    monkeypatch.setattr(workflow.Path, "home", lambda: tmp_path / "home")
+    monkeypatch.delenv("ALETHEIA_PC_ANALYSIS_IMAGE", raising=False)
+    monkeypatch.delenv("ALETHEIA_PC_BUILD_IMAGE", raising=False)
+
+    def arguments(log):
+        return ["check", "--repo", str(repo), "--log-dir", str(tmp_path / log), "--", "echo", "ok"]
+
+    def nested_check(*args):
+        monkeypatch.setattr(sys, "argv", arguments("other-log"))
+        with pytest.raises(SystemExit, match="Another validation owns this checkout"):
+            workflow.main()
+        return 0
+
+    monkeypatch.setattr(workflow, "run_logged", nested_check)
+    monkeypatch.setattr(sys, "argv", arguments("first-log"))
+    assert workflow.main() == 0

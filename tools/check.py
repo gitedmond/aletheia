@@ -3,6 +3,7 @@
 import argparse
 import base64
 import fcntl
+import hashlib
 import json
 import os
 import re
@@ -124,10 +125,16 @@ def main():
     repo = args.repo.resolve()
     if not (repo / "pyproject.toml").is_file():
         parser.error("Not an Aletheia checkout")
-    state = (args.log_dir or Path.home() / ".cache/aletheia-checks" / repo.name).resolve()
+    identity = repo.name + "-" + hashlib.sha256(str(repo).encode()).hexdigest()[:8]
+    state = Path.home() / ".cache/aletheia-checks" / identity
     state.mkdir(parents=True, exist_ok=True)
+    logs = (args.log_dir or state).resolve()
+    logs.mkdir(parents=True, exist_ok=True)
     with (state / "checks.lock").open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise SystemExit("Another validation owns this checkout: " + str(state)) from None
         images = (
             {"analysis": args.analysis_image, "build": args.build_image}
             if args.analysis_image
@@ -152,9 +159,9 @@ def main():
                 ]
             )
             for index, command in enumerate(commands, 1):
-                if code := run_logged(command, repo, state / f"{index:02d}.log"):
+                if code := run_logged(command, repo, logs / f"{index:02d}.log"):
                     return code
-    print(json.dumps({"status": "passed", "logs": str(state), "image_bindings": "restored"}))
+    print(json.dumps({"status": "passed", "logs": str(logs), "image_bindings": "restored"}))
     return 0
 
 
