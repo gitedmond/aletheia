@@ -657,12 +657,21 @@ def gate(
     from aletheia.schema.canonical import canonical_bytes
 
     try:
-        if phase != "1a":
-            raise ValueError("only Phase 1a is implemented")
         benchmark = Benchmark(read_config(ctx))
-        if execute:
-            prepare(benchmark)
-        result = evaluate(benchmark)
+        if phase == "1b":
+            from aletheia.gate_phase1b import evaluate as evaluate_1b
+
+            if execute:
+                raise ValueError(
+                    "Phase 1B requires completed matrix evidence; run without --execute"
+                )
+            result = evaluate_1b(benchmark)
+        elif phase == "1a":
+            if execute:
+                prepare(benchmark)
+            result = evaluate(benchmark)
+        else:
+            raise ValueError("unknown phase")
     except (OSError, ValueError, RuntimeError, KeyError) as exc:
         typer.echo(json.dumps({"status": "failed", "error": str(exc)}, sort_keys=True))
         raise typer.Exit(1) from None

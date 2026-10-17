@@ -1,6 +1,7 @@
 """Pinned native acquisition, selected variant, scoring, dev fit and cache-only replay."""
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -93,3 +94,38 @@ def test_agent_batch_native_verification_fit_and_fresh_replay(tmp_path):
     assert replayed["exit_code"] == 0, replayed
     # Repeated scheduling reuses immutable acquisition and never asks the empty provider.
     assert run_agent(benchmark, agent, FakeProvider([]), "crc32tool", 0)[0] == run
+
+    # Exercise the actual held-out report path on a synthetic private copy of this dev fixture.
+    from aletheia.report.phase1b import generate
+
+    private = tmp_path / "heldout-root"
+    shutil.copytree(cfg.paths.build, private / "build")
+    held_cfg = cfg.model_copy(deep=True)
+    held_cfg.paths.private_root = str(private)
+    held = Benchmark(held_cfg.for_split("heldout"), variant=variant, algorithms_version="2.0")
+    held_run, _ = run_agent(
+        held,
+        agent,
+        FakeProvider(
+            [
+                response(
+                    "report_claim",
+                    {
+                        "type": "algorithm_identity",
+                        "subject_address": targets.targets[0],
+                        "body": {"family": "crc32", "variant": None},
+                        "confidence": 0.8,
+                    },
+                ),
+                response("finish", {}),
+            ]
+        ),
+        "crc32tool",
+        0,
+    )
+    report = generate(held, [held_run], benchmark.root / "confidence")
+    assert report["split"] == "heldout" and report["cluster_count"] == 1
+    assert report["populations"][0]["counts"]["claims"] == 1
+    serialized = json.dumps(report)
+    assert "tierA/crc32tool" not in serialized and "0x" not in serialized
+    assert {"RQ1", "RQ5", "RQ9"} == set(report["sections"])
