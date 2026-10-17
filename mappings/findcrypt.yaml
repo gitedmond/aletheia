@@ -4,3 +4,9 @@ map:
   CRYPT_CRC32_m_tab:
     family: crc32
     variant: null
+  CRYPT_MD5:
+    family: md5
+    variant: null
+  CRYPT_SHA256_K:
+    family: sha256
+    variant: null
