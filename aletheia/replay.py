@@ -150,7 +150,15 @@ def replay(benchmark: Benchmark, run: str) -> dict[str, Any]:
         else:
             verdicts = []
         truth = GroundTruth.model_validate_json((bundle / "private/ground_truth.json").read_bytes())
-        grades = grade(claims, verdicts, truth, targets)
+        grades = grade(
+            claims,
+            verdicts,
+            truth,
+            targets,
+            taxonomy_kappa=benchmark.grading_context.taxonomy_kappa
+            if benchmark.grading_context
+            else None,
+        )
         metrics = compute_metrics(
             grades,
             claims,
