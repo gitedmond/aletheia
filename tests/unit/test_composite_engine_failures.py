@@ -115,3 +115,16 @@ def test_algorithm_inherits_incomplete_role_group_without_one_shot_probe(group, 
     )
     assert all("probe.md5@1" not in result.verdict.methods_run for result in results)
     assert not list(engine.runner.jobs_root.iterdir())
+
+
+def test_batch_accepts_distinct_callees_and_rejects_duplicate_active_edges(group, monkeypatch):
+    engine, binary, analysis, claims = group
+    edges = []
+    for callee in ["import:puts", "import:printf"]:
+        data = claims[0].model_dump(mode="json", exclude={"claim_id"})
+        data.update(type="call_relation", body={"callee": callee, "kind": "direct"})
+        edges.append(Claim.intake(ClaimSubmission.model_validate(data)))
+    monkeypatch.setattr(engine, "_static", lambda spec, claim, analysis: MethodResult(spec, None))
+    assert len(engine.verify_claims(edges, binary, analysis)) == 2
+    with pytest.raises(ValueError, match="duplicate active claims"):
+        engine.verify_claims([edges[0], edges[0]], binary, analysis)
