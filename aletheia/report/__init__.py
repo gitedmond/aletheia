@@ -9,11 +9,11 @@ from typing import Any, cast
 from pydantic import JsonValue
 
 from aletheia import __version__
+from aletheia.grade import claimed_correctness
 from aletheia.metrics import MetricsReport, Population, compute_metrics
 from aletheia.orchestrate import Benchmark, file_hash
 from aletheia.schema.canonical import canonical_bytes, content_hash
 from aletheia.schema.models import (
-    Algorithm,
     Claim,
     ExcludedFunction,
     Grade,
@@ -274,12 +274,8 @@ def render(data: ReportData) -> str:
         ),
     )
 
-    def correct(claim: Claim, item: Grade) -> bool:
-        return (
-            item.correct_lenient
-            if isinstance(claim.body, Algorithm) and claim.body.variant is None
-            else item.correct_strict
-        )
+    def correct(claim: Claim, item: Grade) -> bool | None:
+        return claimed_correctness(claim, item)
 
     def describe(row: tuple[Claim, Verdict, Grade, str]) -> None:
         claim, verdict, item, program = row
@@ -292,7 +288,13 @@ def render(data: ReportData) -> str:
                 "  Claim: `"
                 + canonical_bytes(claim.body).decode()
                 + "`; "
-                + ("correct" if correct(claim, item) else "wrong")
+                + (
+                    "not applicable"
+                    if correct(claim, item) is None
+                    else "correct"
+                    if correct(claim, item)
+                    else "wrong"
+                )
                 + " at claimed granularity; "
                 + f"on_target={str(item.on_target).lower()}, phantom={str(item.phantom).lower()}.",
                 f"  Verdict: {verdict.intrinsic_verdict}; reason {cell(verdict.reason or 'none')}.",
@@ -317,7 +319,7 @@ def render(data: ReportData) -> str:
     missed = [
         row
         for row in ordered
-        if not correct(row[0], row[2]) and row[1].intrinsic_verdict != "CONTRADICTED"
+        if correct(row[0], row[2]) is False and row[1].intrinsic_verdict != "CONTRADICTED"
     ]
     for row in missed:
         describe(row)

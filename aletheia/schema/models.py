@@ -429,9 +429,24 @@ class Grade(Record):
     family_correct: bool | None = None
     variant_correct: bool | None = None
     edge_correct: bool | None = None
-    correct_strict: bool
-    correct_lenient: bool
+    correct_strict: bool | None
+    correct_lenient: bool | None
     verdict_correct: bool | None = None
+    correct_claimed: bool | None = Field(default=None, exclude_if=lambda value: value is None)
+    correct_partial: float | None = Field(
+        default=None, ge=0, le=1, exclude_if=lambda value: value is None
+    )
+    role_correct: bool | None = Field(default=None, exclude_if=lambda value: value is None)
+    family_credit_suppressed: bool = Field(default=False, exclude_if=lambda value: not value)
+    strict_exclusion_reason: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    lenient_exclusion_reason: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    aspect_correct: dict[AspectName, bool | None] = Field(
+        default_factory=lambda: dict[AspectName, bool | None](), exclude_if=lambda value: not value
+    )
 
 
 class ManifestInput(Record):
