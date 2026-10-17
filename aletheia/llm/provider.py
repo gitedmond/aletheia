@@ -188,6 +188,8 @@ class OpenAICompatibleProvider:
             # Some compatible servers include informational assistant fields.
             message = {key: message[key] for key in Message.model_fields if key in message}
             if isinstance(message.get("tool_calls"), list):
+                if any(not isinstance(call, dict) for call in message["tool_calls"]):
+                    raise ValueError("invalid tool call object")
                 message["tool_calls"] = [
                     {key: value for key, value in call.items() if key != "index"}
                     for call in message["tool_calls"]
