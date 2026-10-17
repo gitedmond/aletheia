@@ -220,6 +220,7 @@ def generate(benchmark: Benchmark, runs: list[str], fit_root: Path) -> dict[str,
             [v for _, v, _ in group],
             settings,
             ground_truths=list(truths[variant].values()),
+            method_results=benchmark.observations([v for _, v, _ in group]),
         )
         # Whitelist aggregates: Headline also contains private program cluster identities.
         item: dict[str, Any] = {
