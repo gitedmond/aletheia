@@ -38,6 +38,11 @@ class PurposeMapping(Strict):
     def known_categories(self) -> Self:
         if not set(self.map) <= set(Taxonomy.bundled().leaves):
             raise ValueError("unknown purpose category")
+        for category, scope in self.map.items():
+            if scope.composite and category not in {
+                f"crypto.hash.{scope.pack}.{role}" for role in ("init", "update", "final")
+            }:
+                raise ValueError("composite mapping requires a matching hash role")
         return self
 
     @classmethod

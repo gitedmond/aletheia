@@ -12,6 +12,8 @@ class CacheContext(Strict):
     pack_hashes: dict[str, Sha256]
     env_digest: Digest
     analysis_options_hash: Sha256
+    taxonomy_version: str = "1.0"
+    purpose_packs_hash: Sha256 | None = None
     harness: dict[str, JsonValue] = Field(min_length=1)
 
 

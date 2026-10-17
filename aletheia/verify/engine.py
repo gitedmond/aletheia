@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from collections import Counter
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Literal, cast
@@ -28,6 +29,8 @@ from aletheia.schema.models import (
     Claim,
     Digest,
     Evidence,
+    FunctionPurpose,
+    FunctionSignature,
     Job,
     JobResult,
     Outcome,
@@ -37,13 +40,23 @@ from aletheia.schema.models import (
     Strict,
     Verdict,
 )
+from aletheia.schema.taxonomy import Taxonomy
 from aletheia.sources.base import BinaryRef
 from aletheia.store.cache import CacheContext, verdict_cache_key
 from aletheia.store.database import Store
+from aletheia.verify.composite import CompositeMember, CompositeRequest
+from aletheia.verify.composite_client import CompositeClient
 from aletheia.verify.emulate.core import BASE, CANARY, HEAP, INPUTS, SENTINEL, STACK, STUBS, TLS
+from aletheia.verify.groups import (
+    GroupEvidence,
+    collect_groups,
+    group_preconditions,
+    public_members,
+)
 from aletheia.verify.probes.client import ProbeClient
-from aletheia.verify.probes.inputs import generate_inputs, inputs_for_shape
+from aletheia.verify.probes.inputs import generate_inputs, inputs_for_call, inputs_for_shape
 from aletheia.verify.probes.pack import HexInput, Pack, load_pack
+from aletheia.verify.probes.purpose import PurposeMapping, PurposeScope
 from aletheia.verify.static.arity import Arity, infer_arity
 from aletheia.verify.static.worker import StaticRequest
 
@@ -51,7 +64,9 @@ from aletheia.verify.static.worker import StaticRequest
 @dataclass(frozen=True)
 class MethodSpec:
     name: str
-    claim_type: Literal["algorithm_identity", "call_relation"]
+    claim_type: Literal[
+        "algorithm_identity", "call_relation", "function_signature", "function_purpose"
+    ]
     aspect: (
         Literal[
             "output_match",
@@ -131,11 +146,12 @@ def guarded_result(result: MethodResult) -> MethodResult:
     return replace(result, verdict=value, details=result.details | {"precondition_failure": reason})
 
 
-def merge_results(claim: Claim, results: list[MethodResult], env_digest: Digest) -> Verdict:
+def _merge_aspect(
+    claim: Claim, results: list[MethodResult], env_digest: Digest, aspect: AspectName
+) -> Verdict:
     results = sorted(
         (guarded_result(result) for result in results), key=lambda result: result.spec.name
     )
-    aspect = "output_match" if claim.type == "algorithm_identity" else "edge_exists"
     eligible = [
         result
         for result in results
@@ -240,11 +256,7 @@ def merge_results(claim: Claim, results: list[MethodResult], env_digest: Digest)
         )
     ]
     aspects: dict[AspectName, Aspect] = {}
-    if (
-        winner is not None
-        and winner.spec.aspect is not None
-        and outcome not in ("NOT_CHECKED", "INVALID_CLAIM")
-    ):
+    if winner is not None and winner.spec.aspect is not None and outcome != "INVALID_CLAIM":
         aspects[aspect] = Aspect(verdict=outcome, strength=strength, method=winner.spec.name)
     return Verdict(
         claim_id=claim.claim_id,
@@ -264,6 +276,111 @@ def merge_results(claim: Claim, results: list[MethodResult], env_digest: Digest)
                 for result in results
                 if result.verdict is not None
             )
+        ),
+        verifier_version=__version__,
+        env_digest=env_digest,
+    )
+
+
+REQUIRED_ASPECTS: dict[str, tuple[AspectName, ...]] = {
+    "algorithm_identity": ("output_match",),
+    "call_relation": ("edge_exists",),
+    "function_signature": ("arity", "return_width"),
+    "function_purpose": ("category_behavior",),
+}
+OPTIONAL_ASPECTS: dict[str, tuple[AspectName, ...]] = {
+    "function_signature": ("param_widths", "param_types"),
+}
+
+
+def merge_results(claim: Claim, results: list[MethodResult], env_digest: Digest) -> Verdict:
+    required = REQUIRED_ASPECTS[claim.type]
+    if len(required) == 1:
+        return _merge_aspect(claim, results, env_digest, required[0])
+    results = [guarded_result(result) for result in results]
+    decisions: dict[AspectName, Verdict] = {}
+    for name in (*required, *OPTIONAL_ASPECTS.get(claim.type, ())):
+        projected: list[MethodResult] = []
+        for result in results:
+            value = result.verdict
+            aspect = value.aspects.get(name) if value else None
+            if aspect is not None and result.spec.claim_type == claim.type:
+                assert value is not None
+                if aspect.method != result.spec.name:
+                    raise ValueError("method/aspect identity mismatch")
+                projected.append(
+                    replace(
+                        result,
+                        spec=replace(result.spec, aspect=name),
+                        verdict=value.model_copy(
+                            update={
+                                "intrinsic_verdict": aspect.verdict,
+                                "strength": aspect.strength,
+                                "reason": None
+                                if aspect.verdict in {"VERIFIED", "CONTRADICTED"}
+                                else value.reason or "width_ambiguous",
+                                "harness": value.harness
+                                or (
+                                    f"{result.spec.name}: public register facts "
+                                    f"for {claim.subject.address}"
+                                ),
+                            }
+                        ),
+                    )
+                )
+            elif result.spec.aspect == name:
+                projected.append(result)
+        decisions[name] = _merge_aspect(claim, projected, env_digest, name)
+    required_values = [decisions[name] for name in required]
+    outcomes = {value.intrinsic_verdict for value in required_values}
+    if "INVALID_CLAIM" in outcomes:
+        outcome: Outcome = "INVALID_CLAIM"
+    elif "CONTRADICTED" in outcomes:
+        outcome = "CONTRADICTED"
+    elif outcomes == {"VERIFIED"}:
+        outcome = "VERIFIED"
+    elif outcomes & {"VERIFIED", "INCONCLUSIVE"}:
+        outcome = "INCONCLUSIVE"
+    elif "ERROR" in outcomes:
+        outcome = "ERROR"
+    elif "NOT_CHECKED" in outcomes:
+        outcome = "NOT_CHECKED"
+    else:
+        outcome = "UNVERIFIABLE"
+    candidates = [value for value in required_values if value.intrinsic_verdict == outcome]
+    selected = (candidates or [v for v in required_values if v.intrinsic_verdict != "VERIFIED"])[0]
+    decisive = outcome in {"VERIFIED", "CONTRADICTED"}
+    strength: Strength | None = (
+        min(
+            (cast(Strength, v.strength) for v in required_values),
+            key=lambda x: {"E1": 1, "E2": 2}[x],
+        )
+        if outcome == "VERIFIED"
+        else selected.strength
+        if decisive
+        else None
+    )
+    evidence = {
+        (e.kind, e.artifact, e.summary): e for value in decisions.values() for e in value.evidence
+    }
+    return Verdict(
+        claim_id=claim.claim_id,
+        intrinsic_verdict=outcome,
+        strength=strength,
+        reason=None if decisive else selected.reason or "no_pack",
+        aspects={
+            name: aspect for value in decisions.values() for name, aspect in value.aspects.items()
+        },
+        methods_run=sorted(
+            {method for value in decisions.values() for method in value.methods_run}
+        ),
+        harness="; ".join(dict.fromkeys(v.harness for v in required_values if v.harness))
+        if decisive
+        else None,
+        counterexample=selected.counterexample if outcome == "CONTRADICTED" else None,
+        evidence=[evidence[key] for key in sorted(evidence)],
+        budget_used=Budget(
+            instructions=sum(r.verdict.budget_used.instructions for r in results if r.verdict)
         ),
         verifier_version=__version__,
         env_digest=env_digest,
@@ -304,6 +421,7 @@ class ProbeEvidence(Record):
     subject: Address
     family: str
     claimed_variant: str | None
+    category: str | None = None
     supported_variants: list[str]
     unsupported_variants: list[str]
     arity: Arity | None
@@ -314,10 +432,17 @@ class ProbeEvidence(Record):
 
 
 def probe_proof(
-    claim: Claim, analysis: GhidraAnalysis, pack: Pack, evidence: ProbeEvidence, verdict: Verdict
+    claim: Claim,
+    analysis: GhidraAnalysis,
+    pack: Pack,
+    evidence: ProbeEvidence,
+    verdict: Verdict,
+    purpose_scope: PurposeScope | None = None,
 ) -> DynamicProof:
-    if not isinstance(claim.body, Algorithm):
-        raise ValueError("dynamic proof requires algorithm_identity")
+    if not isinstance(claim.body, (Algorithm, FunctionPurpose)):
+        raise ValueError("dynamic proof requires a behavioral claim")
+    if isinstance(claim.body, FunctionPurpose) and purpose_scope is None:
+        raise ValueError("purpose proof requires its pinned scope")
     binding = infer_arity(claim.subject.address, analysis)
     if evidence.arity is not None and evidence.arity != binding:
         raise ValueError("probe/analysis binding evidence mismatch")
@@ -345,6 +470,7 @@ def probe_proof(
             len(row.expected_hex) // 2
             == len(row.actual_hex) // 2
             == shapes[row.shape].output_size(len(bytes.fromhex(row.input_hex)))
+            - int(shapes[row.shape].out_size == "hex")
             if shapes[row.shape].comparison == "output"
             else len(row.expected_hex) // 2 >= shapes[row.shape].return_width // 8
             and len(row.actual_hex) // 2 >= shapes[row.shape].return_width // 8
@@ -366,12 +492,42 @@ def probe_proof(
         == (ce.call_shape, ce.variant, ce.input_hex, ce.expected_hex, ce.actual_hex)
         and last.expected_hex != last.actual_hex
     )
+    wanted = (
+        purpose_scope.variants
+        if purpose_scope is not None
+        else [claim.body.variant]
+        if isinstance(claim.body, Algorithm) and claim.body.variant
+        else list(pack.variants)
+    )
+    complete = set(wanted) <= set(pack.variants) and (
+        purpose_scope is not None
+        or isinstance(claim.body, Algorithm)
+        and (claim.body.variant is not None or not pack.unsupported_variants)
+    )
+    values = generate_inputs(pack.inputs)
+    for shape in pack.call_shapes:
+        if len(shape.roles) != binding.arity:
+            continue
+        for variant in wanted:
+            if variant not in pack.variants:
+                complete = False
+                continue
+            probe = pack.variants[variant]
+            if probe.call_shapes is not None and shape.id not in probe.call_shapes:
+                continue
+            expected = Counter(value.hex() for value in inputs_for_call(values, probe, shape))
+            observed = Counter(
+                row.input_hex
+                for row in eligible
+                if row.shape == shape.id and row.variant == variant
+            )
+            complete = complete and bool(expected) and expected == observed
     return DynamicProof(
         binding.decisive,
         state_clean,
         widths,
         reproduced,
-        claim.body.variant is not None or not pack.unsupported_variants,
+        complete,
         execution,
     )
 
@@ -402,8 +558,26 @@ def methods_for(claim: Claim, pack: Pack | None) -> list[MethodSpec]:
         return [
             MethodSpec("static.edges@1", "call_relation", "edge_exists", "E1", True, True, "static")
         ]
-    if not isinstance(claim.body, Algorithm):
-        return []
+    if isinstance(claim.body, FunctionSignature):
+        return [
+            MethodSpec("static.arity@2", "function_signature", "arity", "E1", True, True, "static"),
+            MethodSpec(
+                "static.widths@1", "function_signature", "return_width", "E1", True, True, "static"
+            ),
+        ]
+    if isinstance(claim.body, FunctionPurpose):
+        return [
+            MethodSpec(
+                f"probe.{pack.family if pack else 'purpose'}@{pack.version if pack else 1}",
+                "function_purpose",
+                "category_behavior",
+                "E2",
+                True,
+                True,
+                "emulation",
+            )
+        ]
+    assert isinstance(claim.body, Algorithm)
     return [
         MethodSpec("static.constants@1", "algorithm_identity", None, "E1", False, False, "static"),
         MethodSpec(
@@ -429,7 +603,13 @@ class Engine:
         budgets: Budgets,
         options: Path,
         pack_directory: Path = DEFAULT_PACK_DIRECTORY,
+        purpose_mapping: Path | None = None,
+        mode: Literal["audit", "runtime"] = "audit",
     ):
+        if mode not in {"audit", "runtime"}:
+            raise ValueError("unknown engine mode")
+        self.mode = mode
+        self.last_verification_edges: list[tuple[str, str]] = []
         self.runner, self.store = runner, store
         self.budgets = budgets.model_copy(deep=True)
         self.options = GhidraOptions.read(options)
@@ -449,8 +629,20 @@ class Engine:
                 raise ValueError("duplicate or mislabeled family pack")
             self.pack_paths[pack.family], self.packs[pack.family] = snapshot, pack
             self.pack_hashes[pack.family] = digest
+        mapping_path = (
+            purpose_mapping or DEFAULT_PACK_DIRECTORY.parent / "mappings/purpose_packs.yaml"
+        )
+        if any(part.is_symlink() for part in (mapping_path, *mapping_path.parents)):
+            raise ValueError("purpose mapping cannot be a symlink")
+        mapping_bytes = mapping_path.read_bytes()
+        self.purpose_mapping_hash = hashlib.sha256(mapping_bytes).hexdigest()
+        self.purpose_mapping_path = (
+            self.runner.input_root / "in" / (self.purpose_mapping_hash + ".yaml")
+        )
+        publish_immutable(self.purpose_mapping_path, mapping_bytes)
+        self.purpose_mapping = PurposeMapping.read(self.purpose_mapping_path)
         self.harness: dict[str, JsonValue] = {
-            "mode": "audit",
+            "mode": mode,
             "verifier_version": __version__,
             "verifier_source_hash": verifier_source_hash(),
             "sandbox": cast(JsonValue, runner.config.model_dump(mode="json")),
@@ -473,8 +665,33 @@ class Engine:
         self.env_digest = "sha256:" + content_hash(self.harness)
         self.probes = ProbeClient(runner)
 
-    def cache_context(self, claim: Claim, analysis: GhidraAnalysis) -> CacheContext:
-        family = claim.body.family if isinstance(claim.body, Algorithm) else None
+    def family_for(self, claim: Claim) -> str | None:
+        if isinstance(claim.body, Algorithm):
+            return claim.body.family
+        if isinstance(claim.body, FunctionPurpose):
+            scope = self.purpose_mapping.map.get(claim.body.category)
+            return scope.pack if scope is not None and not scope.composite else None
+        return None
+
+    def _methods(
+        self, claim: Claim, pack: Pack | None, group: MethodResult | None
+    ) -> list[MethodSpec]:
+        if group is None:
+            return methods_for(claim, pack)
+        return (
+            [
+                MethodSpec(
+                    "static.constants@1", "algorithm_identity", None, "E1", False, False, "static"
+                )
+            ]
+            if isinstance(claim.body, Algorithm)
+            else []
+        ) + [group.spec]
+
+    def cache_context(
+        self, claim: Claim, analysis: GhidraAnalysis, group: MethodResult | None = None
+    ) -> CacheContext:
+        family = str(group.details["family"]) if group else self.family_for(claim)
         pack = self.packs.get(family) if family is not None else None
         hashes = (
             {family: self.pack_hashes[family]}
@@ -483,11 +700,15 @@ class Engine:
         )
         return CacheContext(
             verifier_version=__version__,
-            method_versions=sorted(spec.name for spec in methods_for(claim, pack)),
+            method_versions=sorted(spec.name for spec in self._methods(claim, pack, group)),
             pack_hashes=hashes,
             env_digest=self.env_digest,
             analysis_options_hash=self.options_hash,
-            harness=self.harness | {"analysis_result_hash": content_hash(analysis)},
+            taxonomy_version=Taxonomy.bundled().version,
+            purpose_packs_hash=self.purpose_mapping_hash,
+            harness=self.harness
+            | {"analysis_result_hash": content_hash(analysis)}
+            | ({"composite_group": group.details["members"]} if group else {}),
         )
 
     def _stage(self, payload: bytes, suffix: str) -> str:
@@ -595,15 +816,22 @@ class Engine:
         analysis: GhidraAnalysis,
         pack: Pack | None,
     ) -> MethodResult:
-        assert isinstance(claim.body, Algorithm)
+        assert isinstance(claim.body, (Algorithm, FunctionPurpose))
+        family = self.family_for(claim)
+        scope = (
+            self.purpose_mapping.map.get(claim.body.category)
+            if isinstance(claim.body, FunctionPurpose)
+            else None
+        )
         try:
             verdict = self.probes.probe(
                 binary,
                 claim,
                 analysis,
-                self.pack_paths.get(claim.body.family),
+                self.pack_paths.get(family) if family else None,
                 self.budgets,
                 self.env_digest,
+                self.purpose_mapping_path if isinstance(claim.body, FunctionPurpose) else None,
             )
         except RuntimeError:
             if self.probes.last_artifact is None:
@@ -627,10 +855,19 @@ class Engine:
             evidence.subject,
             evidence.family,
             evidence.claimed_variant,
-        ) != (claim.binary_sha256, claim.subject.address, claim.body.family, claim.body.variant):
+        ) != (
+            claim.binary_sha256,
+            claim.subject.address,
+            family or "purpose",
+            claim.body.variant if isinstance(claim.body, Algorithm) else None,
+        ):
             raise ValueError("probe evidence identity mismatch")
+        if evidence.category != (
+            claim.body.category if isinstance(claim.body, FunctionPurpose) else None
+        ):
+            raise ValueError("probe category identity mismatch")
         proof = (
-            probe_proof(claim, analysis, pack, evidence, verdict)
+            probe_proof(claim, analysis, pack, evidence, verdict, scope)
             if (pack is not None and verdict.intrinsic_verdict == "CONTRADICTED")
             else None
         )
@@ -651,10 +888,265 @@ class Engine:
                         for variant in sorted(pack.variants)
                     },
                 }
+                if isinstance(claim.body, FunctionPurpose):
+                    selected_variants = scope.variants if scope else []
+                    eligible_by_variant = {
+                        variant: len(inputs_for_call(values, pack.variants[variant], shape))
+                        for variant in selected_variants
+                        if variant in pack.variants
+                        and (
+                            pack.variants[variant].call_shapes is None
+                            or shape.id in (pack.variants[variant].call_shapes or [])
+                        )
+                    }
+                    counts[shape.id] = cast(
+                        JsonValue,
+                        {
+                            "generated": len(values),
+                            "eligible_by_variant": eligible_by_variant,
+                            "skipped_by_variant": {
+                                variant: len(values) - count
+                                for variant, count in eligible_by_variant.items()
+                            },
+                            "executed_by_variant": {
+                                variant: sum(
+                                    row.shape == shape.id and row.variant == variant
+                                    for row in evidence.observations
+                                )
+                                for variant in eligible_by_variant
+                            },
+                        },
+                    )
         return MethodResult(spec, verdict, proof=proof, details={"input_counts": counts})
 
+    def _composite_results(
+        self,
+        family: str,
+        claims: list[Claim],
+        binary: BinaryRef,
+        analysis: GhidraAnalysis,
+        no_cache: bool,
+    ) -> dict[str, MethodResult]:
+        members = public_members(claims)
+        identity = cast(JsonValue, [member.model_dump(mode="json") for member in members])
+        details: dict[str, JsonValue] = {"family": family, "members": identity}
+        spec = MethodSpec(
+            "composite.hash@1",
+            "function_purpose",
+            "category_behavior",
+            "E2",
+            True,
+            True,
+            "emulation",
+        )
+        pack = self.packs.get(family)
+        cache_key = content_hash(
+            {
+                "kind": "composite_group",
+                "taxonomy_version": Taxonomy.bundled().version,
+                "purpose_packs_hash": self.purpose_mapping_hash,
+                "family": family,
+                "members": identity,
+                "environment": self.env_digest,
+                "analysis": content_hash(analysis),
+                "pack": self.pack_hashes.get(family),
+            }
+        )
+        first = None if no_cache else self.store.cached_verdict(cache_key, claims[0].claim_id)
+        if first is None:
+            if (
+                sorted(member.role for member in members) != ["final", "init", "update"]
+                or pack is None
+            ):
+                payload = cast(
+                    JsonValue,
+                    {"binary_sha256": binary.binary_sha256, "family": family, "members": identity},
+                )
+                artifact = self.runner.artifacts.put(canonical_bytes(payload))
+                first = Verdict(
+                    claim_id=claims[0].claim_id,
+                    intrinsic_verdict="INCONCLUSIVE" if pack else "UNVERIFIABLE",
+                    reason="composite_incomplete" if pack else "no_pack",
+                    methods_run=[spec.name],
+                    evidence=[
+                        Evidence(
+                            kind="composite_membership",
+                            artifact=artifact,
+                            summary="Incomplete or unsupported composite group.",
+                        )
+                    ],
+                    verifier_version=__version__,
+                    env_digest=self.env_digest,
+                )
+            else:
+                request = CompositeRequest(
+                    binary_sha256=binary.binary_sha256,
+                    family=cast(Literal["md5", "sha1", "sha256"], family),
+                    members=[
+                        CompositeMember.model_validate(
+                            {
+                                "claim_id": claim.claim_id,
+                                "subject": claim.subject.address,
+                                "role": claim.body.category.rsplit(".", 1)[1],
+                            }
+                        )
+                        for claim in claims
+                        if isinstance(claim.body, FunctionPurpose)
+                    ],
+                    budgets=self.budgets,
+                    env_digest=self.env_digest,
+                )
+                client = CompositeClient(self.runner)
+                try:
+                    result = client.verify(binary, analysis, self.pack_paths[family], request)
+                except RuntimeError as exc:
+                    error = (
+                        JobResult.model_validate_json(
+                            self.runner.artifacts.get(client.last_artifact)
+                        )
+                        if client.last_artifact
+                        else None
+                    )
+                    return {
+                        claim.claim_id: replace(
+                            self._error(
+                                spec,
+                                claim,
+                                error.error_code or "internal" if error else "internal",
+                                str(exc),
+                                client.last_artifact,
+                            ),
+                            details=details,
+                        )
+                        for claim in claims
+                    }
+                first = result.verdicts[0]
+        proof = None
+        if first.intrinsic_verdict == "CONTRADICTED":
+            if pack is None:
+                raise ValueError("composite contradiction has no pack")
+            artifact = next(
+                item.artifact for item in first.evidence if item.kind == "composite_results"
+            )
+            evidence = GroupEvidence.model_validate_json(self.runner.artifacts.get(artifact))
+            proof = DynamicProof(*group_preconditions(evidence, members, analysis, pack, first))
+        first = guarded_result(MethodResult(spec, first, proof=proof)).verdict
+        assert first is not None
+        if first.intrinsic_verdict != "ERROR":
+            self.store.cache_verdict(cache_key, first)
+        output: dict[str, MethodResult] = {}
+        for claim in claims:
+            value = first.model_copy(
+                update={
+                    "claim_id": claim.claim_id,
+                    "aspects": {
+                        "category_behavior": Aspect(
+                            verdict=first.intrinsic_verdict,
+                            strength=first.strength,
+                            method=spec.name,
+                        )
+                    },
+                }
+            )
+            output[claim.claim_id] = MethodResult(spec, value, proof=proof, details=details)
+        return output
+
+    def verify_claims(
+        self,
+        claims: list[Claim],
+        binary: BinaryRef,
+        analysis: GhidraAnalysis,
+        *,
+        no_cache: bool = False,
+    ) -> list[EngineResult]:
+        self.last_verification_edges = []
+        if not claims:
+            return []
+        if len({claim.run_id for claim in claims}) != 1 or any(
+            claim.binary_sha256 != binary.binary_sha256 for claim in claims
+        ):
+            raise ValueError("verification batch requires one run and binary")
+        if len({(claim.subject.address, claim.type) for claim in claims}) != len(claims):
+            raise ValueError("verification batch contains duplicate active claims")
+        if (
+            analysis.binary_sha256 != binary.binary_sha256
+            or analysis.options_sha256 != self.options_hash
+        ):
+            raise ValueError("verification batch analysis identity mismatch")
+        read_public_binary(binary)
+        signatures = {
+            claim.subject.address: claim
+            for claim in claims
+            if isinstance(claim.body, FunctionSignature)
+        }
+        self.last_verification_edges = sorted(
+            (signatures[claim.subject.address].claim_id, claim.claim_id)
+            for claim in claims
+            if not isinstance(claim.body, FunctionSignature) and claim.subject.address in signatures
+        )
+        results = [
+            self.verify(claim, binary, analysis, no_cache=no_cache)
+            for claim in sorted(signatures.values(), key=lambda item: item.claim_id)
+        ]
+        group_results: dict[str, MethodResult] = {}
+        for family, group_claims in collect_groups(claims, self.purpose_mapping).items():
+            grouped = self._composite_results(family, group_claims, binary, analysis, no_cache)
+            group_results.update(grouped)
+            for claim in claims:
+                if isinstance(claim.body, Algorithm) and claim.body.family == family:
+                    parents = [
+                        parent
+                        for parent in group_claims
+                        if parent.subject.address == claim.subject.address
+                    ]
+                    if parents:
+                        parent = parents[0]
+                        source = grouped[parent.claim_id]
+                        assert source.verdict is not None
+                        value = source.verdict.model_copy(
+                            update={
+                                "claim_id": claim.claim_id,
+                                "aspects": {
+                                    "output_match": Aspect(
+                                        verdict=source.verdict.intrinsic_verdict,
+                                        strength=source.verdict.strength,
+                                        method=source.spec.name,
+                                    )
+                                },
+                            }
+                        )
+                        group_results[claim.claim_id] = replace(
+                            source,
+                            spec=replace(
+                                source.spec, claim_type="algorithm_identity", aspect="output_match"
+                            ),
+                            verdict=value,
+                        )
+                        self.last_verification_edges.append((parent.claim_id, claim.claim_id))
+        ordered = sorted(
+            (claim for claim in claims if not isinstance(claim.body, FunctionSignature)),
+            key=lambda claim: (
+                isinstance(claim.body, Algorithm) and claim.claim_id in group_results,
+                claim.claim_id,
+            ),
+        )
+        results += [
+            self.verify(
+                claim, binary, analysis, no_cache=no_cache, _group=group_results.get(claim.claim_id)
+            )
+            for claim in ordered
+        ]
+        self.last_verification_edges = sorted(set(self.last_verification_edges))
+        return results
+
     def verify(
-        self, claim: Claim, binary: BinaryRef, analysis: GhidraAnalysis, *, no_cache: bool = False
+        self,
+        claim: Claim,
+        binary: BinaryRef,
+        analysis: GhidraAnalysis,
+        *,
+        no_cache: bool = False,
+        _group: MethodResult | None = None,
     ) -> EngineResult:
         read_public_binary(binary)
         if (
@@ -664,7 +1156,13 @@ class Engine:
             raise ValueError("engine public binary/analysis/claim identity mismatch")
         if analysis.options_sha256 != self.options_hash:
             raise ValueError("engine analysis/options identity mismatch")
-        context = self.cache_context(claim, analysis)
+        if _group is None and isinstance(claim.body, FunctionPurpose):
+            scope = self.purpose_mapping.map.get(claim.body.category)
+            if scope is not None and scope.composite:
+                _group = self._composite_results(scope.pack, [claim], binary, analysis, no_cache)[
+                    claim.claim_id
+                ]
+        context = self.cache_context(claim, analysis, _group)
         key = verdict_cache_key(claim, context)
         if not no_cache:
             cached = self.store.cached_verdict(key, claim.claim_id)
@@ -677,20 +1175,36 @@ class Engine:
                 if set(observations) != set(cached.methods_run):
                     raise ValueError("cached method audit mismatch")
                 return EngineResult(cached, observations, key, True)
-        pack = self.packs.get(claim.body.family) if isinstance(claim.body, Algorithm) else None
+        family = self.family_for(claim)
+        pack = self.packs.get(family) if family else None
         results: list[MethodResult] = []
-        for spec in methods_for(claim, pack):
+        for spec in sorted(
+            self._methods(claim, pack, _group),
+            key=lambda method: (method.cost_class != "static", method.name),
+        ):
             try:
                 result = (
-                    self._static(spec, claim, analysis)
-                    if spec.cost_class == "static"
-                    else (self._probe(spec, claim, binary, analysis, pack))
+                    _group
+                    if _group is not None and spec.name == _group.spec.name
+                    else (
+                        self._static(spec, claim, analysis)
+                        if spec.cost_class == "static"
+                        else (self._probe(spec, claim, binary, analysis, pack))
+                    )
                 )
             except Exception as exc:
                 result = self._error(
                     spec, claim, "internal", type(exc).__name__ + ": " + str(exc)[:240]
                 )
             results.append(guarded_result(result))
+            if self.mode == "runtime":
+                partial = merge_results(claim, results, self.env_digest)
+                if all(
+                    name in partial.aspects
+                    and partial.aspects[name].verdict in {"VERIFIED", "CONTRADICTED"}
+                    for name in REQUIRED_ASPECTS[claim.type]
+                ):
+                    break
         verdict = merge_results(claim, results, self.env_digest)
         observations: dict[str, Aspect] = {}
         records: list[dict[str, JsonValue]] = []

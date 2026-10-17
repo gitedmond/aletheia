@@ -17,6 +17,7 @@ from aletheia.verify.composite import CompositeOutcome, CompositeRequest
 class CompositeClient:
     def __init__(self, runner: JobRunner):
         self.runner = runner
+        self.last_artifact: str | None = None
 
     def verify(
         self, binary: BinaryRef, analysis: GhidraAnalysis, pack: Path, request: CompositeRequest
@@ -45,7 +46,9 @@ class CompositeClient:
             },
             {},
         )
-        result = self.runner.wait(self.runner.submit(job))
+        handle = self.runner.submit(job)
+        result = self.runner.wait(handle)
+        self.last_artifact = handle.result_artifact
         if result.status != "ok":
             raise RuntimeError(
                 f"verify_composite failed: {result.error_code}: {result.output.get('detail', '')}"
