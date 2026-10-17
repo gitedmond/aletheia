@@ -5,7 +5,7 @@ description = "Evidence-backed verification of reverse engineering claims"
 requires-python = ">=3.12,<3.13"
 license = "MIT"
 readme = "README.md"
-dependencies = ["pydantic==2.14.1", "typer==0.27.3", "PyYAML==6.0.3"]
+dependencies = ["pydantic==2.14.1", "typer==0.27.3", "PyYAML==6.0.3", "mcp==1.30.0"]
 
 [project.scripts]
 aletheia = "aletheia.cli:main"
@@ -28,7 +28,6 @@ analysis = [
     "pyghidra==2.2.1",
     "flare-capa==9.4.0",
     "pyghidra-mcp==0.1.6",
-    "mcp==1.30.0",
 ]
 
 [tool.ruff]

@@ -42,7 +42,10 @@ def configure(
         elif split == "heldout":
             raise PrivateAccessError("private_root is required for --split heldout")
     except PrivateAccessError as exc:
-        typer.echo(json.dumps({"status": "error", "error_code": "private_path", "error": str(exc)}))
+        typer.echo(
+            json.dumps({"status": "error", "error_code": "private_path", "error": str(exc)}),
+            err=ctx.invoked_subcommand == "serve-mcp",
+        )
         raise typer.Exit(7) from None
     except (OSError, ValueError):
         pass  # The selected command reports ordinary configuration errors.
@@ -712,6 +715,95 @@ def calibrate_fit(ctx: typer.Context) -> None:
     _benchmark_action(ctx, fit_dev)
 
 
+names_app = typer.Typer(
+    help="Secondary dev-only name quality; excluded from primary metrics and gates."
+)
+app.add_typer(names_app, name="names")
+
+
+@names_app.command("export")
+def names_export(ctx: typer.Context, out: Annotated[Path, typer.Option("--out")]) -> None:
+    from aletheia.names import export_dev_pairs
+    from aletheia.orchestrate import write_json
+
+    def action(benchmark: "Benchmark") -> dict[str, Any]:
+        path = benchmark.config.guard.public_path(out)
+        if path.exists():
+            raise ValueError("preserving existing name-pair export")
+        labels = export_dev_pairs(benchmark)
+        write_json(path, labels)
+        return {
+            "status": "ok",
+            "available": labels.available,
+            "pairs": len(labels.pairs),
+            "out": str(path),
+        }
+
+    _benchmark_action(ctx, action)
+
+
+@names_app.command("label")
+def names_label(
+    ctx: typer.Context,
+    pairs: Annotated[Path, typer.Option("--pairs")],
+    out: Annotated[Path, typer.Option("--out")],
+    annotator: Annotated[str, typer.Option("--annotator")],
+) -> None:
+    from aletheia.names import NameLabels
+    from aletheia.orchestrate import write_json
+
+    def action(benchmark: "Benchmark") -> dict[str, Any]:
+        if benchmark.config.guard.split != "dev":
+            raise ValueError("name labeling accepts dev pairs only")
+        source = benchmark.config.guard.public_path(pairs)
+        target = benchmark.config.guard.public_path(out)
+        if target.exists():
+            raise ValueError("preserving existing label file")
+        labels = NameLabels.model_validate_json(source.read_bytes())
+        memo: dict[tuple[str, str], bool] = {}
+        for pair in labels.pairs:
+            key = pair.proposed_name, pair.true_name
+            if labels.method == "human" and pair.match is not None:
+                memo[key] = pair.match
+            if key not in memo:
+                memo[key] = typer.confirm(
+                    f"Match {pair.proposed_name!r} to {pair.true_name!r}?", default=False
+                )
+            pair.match = memo[key]
+        labels.method, labels.annotator_id, labels.human_validated = "human", annotator, True
+        write_json(target, labels)
+        return {"status": "ok", "pairs": len(labels.pairs), "out": str(target)}
+
+    _benchmark_action(ctx, action)
+
+
+@names_app.command("fit")
+def names_fit(
+    ctx: typer.Context,
+    labels: Annotated[Path, typer.Option("--labels")],
+    out: Annotated[Path, typer.Option("--out")],
+    lexicon: Annotated[Path, typer.Option("--lexicon")] = Path("lexicon/name-quality.yaml"),
+) -> None:
+    from aletheia.names import Lexicon, NameLabels, fit_threshold
+    from aletheia.orchestrate import write_json
+
+    def action(benchmark: "Benchmark") -> dict[str, Any]:
+        if benchmark.config.guard.split != "dev":
+            raise ValueError("name threshold fitting accepts dev labels only")
+        guard = benchmark.config.guard
+        target = guard.public_path(out)
+        if target.exists():
+            raise ValueError("preserving existing name fit")
+        fit = fit_threshold(
+            NameLabels.model_validate_json(guard.public_path(labels).read_bytes()),
+            Lexicon.read(guard.public_path(lexicon)),
+        )
+        write_json(target, fit)
+        return {"status": "ok", "fit": fit.model_dump(mode="json"), "out": str(target)}
+
+    _benchmark_action(ctx, action)
+
+
 def main() -> None:
     from aletheia.heldout.guard import PrivateAccessError
 
@@ -720,6 +812,14 @@ def main() -> None:
     except PrivateAccessError as exc:
         typer.echo(json.dumps({"status": "error", "error_code": "private_path", "error": str(exc)}))
         raise SystemExit(7) from exc
+
+
+@app.command("serve-mcp")
+def serve_mcp(ctx: typer.Context) -> None:
+    """Serve verifier tools over stdio; logs must remain on stderr."""
+    from aletheia.mcp_server import serve
+
+    serve(read_config(ctx))
 
 
 if __name__ == "__main__":
