@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pydantic import Field
 
 from aletheia.config import Metrics
+from aletheia.grade import claimed_correctness
 from aletheia.schema.models import (
     Algorithm,
     Aspect,
@@ -75,13 +76,8 @@ class Observation:
     false_label: bool
 
     @property
-    def correct(self) -> bool:
-        body = self.claim.body
-        return (
-            self.grade.correct_lenient
-            if isinstance(body, Algorithm) and body.variant is None
-            else self.grade.correct_strict
-        )
+    def correct(self) -> bool | None:
+        return claimed_correctness(self.claim, self.grade)
 
 
 def _summary(
@@ -98,17 +94,20 @@ def _summary(
 
     total = count(rows)
     targets = [row for row in rows if row.grade.on_target]
-    reliable = [row for row in rows if row.outcome != "ERROR"]
+    graded = [row for row in rows if row.correct is not None]
+    reliable = [row for row in graded if row.outcome != "ERROR"]
     correct = [row for row in reliable if row.correct]
     wrong = [row for row in reliable if not row.correct]
     verified = [row for row in reliable if row.outcome == "VERIFIED"]
     denominator = sum(len(functions) * weights[program] for program, functions in coverage.items())
     metrics = {
         "strict_accuracy": ratio(
-            count([row for row in targets if row.grade.correct_strict]), count(targets)
+            count([row for row in targets if row.grade.correct_strict]),
+            count([row for row in targets if row.grade.correct_strict is not None]),
         ),
         "lenient_accuracy": ratio(
-            count([row for row in targets if row.grade.correct_lenient]), count(targets)
+            count([row for row in targets if row.grade.correct_lenient]),
+            count([row for row in targets if row.grade.correct_lenient is not None]),
         ),
         "granularity": ratio(
             count(
@@ -123,10 +122,12 @@ def _summary(
         "false_label_rate": ratio(count([row for row in rows if row.false_label]), total),
         "brier": ratio(
             math.fsum(
-                weights[row.program] * (row.claim.confidence - row.grade.correct_strict) ** 2
+                weights[row.program]
+                * (row.claim.confidence - int(row.grade.correct_strict is True)) ** 2
                 for row in rows
+                if row.grade.correct_strict is not None
             ),
-            total,
+            count([row for row in rows if row.grade.correct_strict is not None]),
         ),
         "decisiveness": ratio(
             count([row for row in reliable if row.outcome in ("VERIFIED", "CONTRADICTED")]),
@@ -157,7 +158,12 @@ def _summary(
             denominator,
         )
         for threshold in sorted(set(thresholds)):
-            confident = [row for row in rows if row.claim.confidence >= threshold]
+            confident = [
+                row
+                for row in rows
+                if row.claim.confidence >= threshold
+                and getattr(row.grade, "correct_" + mode) is not None
+            ]
             metrics[f"cwr_{mode}@{threshold:g}"] = ratio(
                 count([row for row in confident if not getattr(row.grade, "correct_" + mode)]),
                 count(confident),
@@ -166,11 +172,50 @@ def _summary(
     confusion = {
         outcome: {
             "correct": count([row for row in rows if row.outcome == outcome and row.correct]),
-            "wrong": count([row for row in rows if row.outcome == outcome and not row.correct]),
+            "wrong": count(
+                [row for row in rows if row.outcome == outcome and row.correct is False]
+            ),
         }
         for outcome in outcomes
     }
     errors = count([row for row in rows if row.outcome == "ERROR"])
+    ungraded = count([row for row in rows if row.correct is None])
+    exclusions = {"ERROR": errors} if errors else {}
+    if ungraded:
+        exclusions["ungraded"] = ungraded
+    for mode in ("strict", "lenient"):
+        reasons = {getattr(row.grade, mode + "_exclusion_reason") for row in rows}
+        for reason in sorted(value for value in reasons if value is not None):
+            exclusions[mode + ":" + reason] = count(
+                [row for row in rows if getattr(row.grade, mode + "_exclusion_reason") == reason]
+            )
+    if any(
+        row.grade.correct_claimed is not None or row.grade.strict_exclusion_reason is not None
+        for row in rows
+    ):
+        metrics["accuracy_claimed"] = ratio(
+            count([row for row in graded if row.correct is True]), count(graded)
+        )
+        metrics["brier_claimed"] = ratio(
+            math.fsum(
+                weights[row.program] * (row.claim.confidence - int(row.correct is True)) ** 2
+                for row in graded
+            ),
+            count(graded),
+        )
+        metrics["overconfidence_gap"] = ratio(
+            math.fsum(
+                weights[row.program] * (row.claim.confidence - int(row.correct is True))
+                for row in graded
+                if row.grade.on_target
+            ),
+            count([row for row in graded if row.grade.on_target]),
+        )
+        for threshold in sorted(set(thresholds)):
+            confident = [row for row in graded if row.claim.confidence >= threshold]
+            metrics[f"cwr_claimed@{threshold:g}"] = ratio(
+                count([row for row in confident if row.correct is False]), count(confident)
+            )
     return Summary(
         metrics=dict(sorted(metrics.items())),
         counts={
@@ -180,7 +225,7 @@ def _summary(
             "scorable_algorithm_functions": denominator,
         },
         confusion=confusion,
-        exclusions={"ERROR": errors} if errors else {},
+        exclusions=dict(sorted(exclusions.items())),
     )
 
 
