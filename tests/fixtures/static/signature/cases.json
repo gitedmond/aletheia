@@ -248,7 +248,24 @@
         "param_widths": "VERIFIED",
         "param_types": "INCONCLUSIVE"
       }
+    },
+    {
+      "name": "sig_integer_address",
+      "body": {
+        "return_type": "uint32_t",
+        "params": [
+          {
+            "type": "uintptr_t"
+          }
+        ]
+      },
+      "expected": {
+        "arity": "VERIFIED",
+        "return_width": "VERIFIED",
+        "param_widths": "INCONCLUSIVE",
+        "param_types": "INCONCLUSIVE"
+      }
     }
   ],
-  "review_basis": "Independent C/SysV declarations and explicit assembly register widths; no human review is claimed."
+  "review_basis": "Independent C/SysV declarations and explicit assembly register widths; no human review is claimed. An additional integer-address diagnostic pins the limit of pointer-use inference: address-compatible integer and pointer types cannot be distinguished from memory use."
 }
