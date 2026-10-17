@@ -1,0 +1,22 @@
+{
+  "agreement_sha256": "9681b80e5e2f11fd66f7ea3e96a7813bc0992ece20892db8caac549bcd88ee98",
+  "human_validated": false,
+  "method": "ai-assisted",
+  "schema_version": "1.0",
+  "taxonomy_kappa": {
+    "checksum": 1.0,
+    "compression": 1.0,
+    "container": 0.4705882352941178,
+    "control": 0.7096774193548386,
+    "crypto": 1.0,
+    "encoding": 0.7804878048780485,
+    "hash": 1.0,
+    "io": 1.0,
+    "memory": 1.0,
+    "parse": 0.4705882352941178,
+    "protocol": 1.0,
+    "string": 0.6493506493506489,
+    "util": 0.4705882352941178
+  },
+  "taxonomy_version": "1.0"
+}
