@@ -123,3 +123,92 @@ def markdown(report: Table) -> str:
         f"{report['scorable_functions']} ({percentage}).",
     ]
     return "\n".join(lines)
+
+
+def table_v2(truths: list[GroundTruth], packs: list[Pack]) -> Table:
+    """Potential E2 union of algorithm and purpose scopes, never static signature evidence."""
+    from pathlib import Path
+
+    from aletheia.schema.models import GroundFunctionV2
+    from aletheia.verify.probes.purpose import PurposeMapping
+
+    if any(gt.schema_version != "2.0" for gt in truths):
+        raise ValueError("v2 coverage requires compiler ABI/category ground truth")
+    output = table(truths, packs)
+    mapping = PurposeMapping.read(Path(__file__).parents[2] / "mappings/purpose_packs.yaml")
+    installed = {pack.family for pack in packs}
+    by_leaf: dict[str, Row] = {}
+    programs: list[ProgramCoverage] = []
+    for gt in sorted(truths, key=lambda item: item.program_id):
+        functions = [fn for fn in gt.functions if isinstance(fn, GroundFunctionV2) and fn.scorable]
+        categories = {fn.category for fn in functions}
+        covered = 0
+        for fn in functions:
+            scope = mapping.map.get(fn.category or "")
+            composite_ready = scope is not None and (
+                not scope.composite
+                or all(
+                    f"crypto.hash.{scope.pack}.{role}" in categories
+                    for role in ("init", "update", "final")
+                )
+            )
+            algorithm_ready = any(
+                p.family == fn.algorithm.family and fn.algorithm.variant in p.variants
+                for p in packs
+            )
+            purpose_ready = (
+                scope is not None
+                and scope.pack in installed
+                and composite_ready
+                and any(
+                    p.family == scope.pack and set(scope.variants) & set(p.variants) for p in packs
+                )
+            )
+            ready = algorithm_ready or purpose_ready
+            covered += ready
+            key = fn.category or "none"
+            row = by_leaf.setdefault(
+                key,
+                {
+                    "leaf": key,
+                    "scorable_functions": 0,
+                    "e2_method": None,
+                    "decisive_for": [],
+                    "known_blockers": [],
+                },
+            )
+            row["scorable_functions"] += 1
+            if ready:
+                row["e2_method"] = "probe." + (
+                    scope.pack if purpose_ready and scope else fn.algorithm.family
+                )
+                row["decisive_for"] = ["VERIFIED", "CONTRADICTED"]
+                row["known_blockers"] = sorted(
+                    set(row["known_blockers"]) | {"binding/state preconditions"}
+                )
+            else:
+                row["known_blockers"] = sorted(
+                    set(row["known_blockers"]) | {"no_complete_e2_scope"}
+                )
+        programs.append(
+            {
+                "program_id": gt.program_id,
+                "scorable_functions": len(functions),
+                "decidable_functions": covered,
+                "decidable_share": covered / len(functions) if functions else None,
+            }
+        )
+    total = sum(p["scorable_functions"] for p in programs)
+    covered = sum(p["decidable_functions"] for p in programs)
+    output.update(
+        population=(
+            "v2; potential E2 algorithm/purpose union; binding/state "
+            "preconditions apply; static E1 signatures excluded"
+        ),
+        programs=programs,
+        rows=[by_leaf[k] for k in sorted(by_leaf)],
+        scorable_functions=total,
+        decidable_functions=covered,
+        decidable_share=covered / total if total else None,
+    )
+    return output
