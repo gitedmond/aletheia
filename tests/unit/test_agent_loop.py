@@ -122,3 +122,12 @@ def test_prompt_is_frozen_appendix_with_public_inputs_only():
     assert len(digest) == 64 and messages[0].role == "system" and messages[1].role == "user"
     assert "Algorithm registry" in messages[0].content
     assert "{taxonomy}" not in messages[0].content
+    assert 'binary_name is "input"' in messages[1].content
+
+
+def test_missing_claim_field_is_reported_without_echoing_input(tmp_path):
+    runner, _ = loop(tmp_path, [])
+    output = runner.proxy.call("report_claim", {"rationale": "private marker"})
+    assert output["reason"] == "invalid_claim"
+    assert "type: missing" in output["message"]
+    assert "private marker" not in output["message"]

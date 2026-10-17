@@ -1,0 +1,21 @@
+config_id: local-c
+provider: openai-compatible
+base_url: http://127.0.0.1:11434/v1
+api_key_env: null
+model: aletheia-qwen3-4b-p1b-32k
+model_file_sha256: 3e4cb14174460404e7a233e531675303b2fbf7749c02f91864fe311ab6344e4f
+hosted: false
+retention_setting: local
+prompt: prompts/agent-v1.md
+temperature: 0.0
+seed_supported: true
+max_output_tokens: 2048
+budgets:
+  re_tool_calls: 150
+  harness_tool_calls: 200
+  input_tokens: 2000000
+  wall_minutes: 30
+price:
+  input_per_mtok: 0.0
+  output_per_mtok: 0.0
+reasoning_effort: none

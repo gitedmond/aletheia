@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Literal, Protocol
 
 import yaml
-from pydantic import Field, JsonValue, TypeAdapter
+from pydantic import Field, JsonValue, TypeAdapter, ValidationError
 
 from aletheia.agent.upstream import UpstreamCrash
 from aletheia.heldout.guard import PrivateGuard
@@ -232,6 +232,15 @@ class HarnessProxy:
                 self.harness_calls += 1
                 try:
                     result = self.report(arguments, revise=name == "revise_claim")
+                except ValidationError as exc:
+                    result = {
+                        "status": "error",
+                        "reason": "invalid_claim",
+                        "message": "; ".join(
+                            ".".join(map(str, error["loc"])) + ": " + error["type"]
+                            for error in exc.errors(include_input=False, include_url=False)[:8]
+                        ),
+                    }
                 except ValueError:
                     result = {"status": "error", "reason": "invalid_claim"}
         elif name not in self.allowlist.tools:

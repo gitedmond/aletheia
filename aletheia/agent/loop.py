@@ -34,15 +34,10 @@ def build_messages(prompt: Path, targets: Targets) -> tuple[list[Message], str]:
         "taxonomy": canonical_bytes(Taxonomy.bundled()).decode(),
     }.items():
         content = content.replace("{" + key + "}", value)
-    summary = (
-        "algorithm_identity: body {family, variant}; call_relation: body {callee, kind}; "
-        "function_signature: body {return_type, params: [{type}]}; "
-        "function_purpose: body {category}. Use canonical subject_address, confidence, "
-        "evidence_refs and depends_on. The advertised tools define the exact schemas."
-    )
+    context = (Path(__file__).parents[2] / "prompts/context-v1.md").read_text()
     return [
         Message(role="system", content=content),
-        Message(role="user", content="Analyze the listed targets. Claim schemas: " + summary),
+        Message(role="user", content=context),
     ], hashlib.sha256(raw).hexdigest()
 
 
@@ -122,6 +117,7 @@ class AgentLoop:
                 temperature=self.config.temperature,
                 seed=self.seed if self.config.seed_supported else None,
                 max_output_tokens=self.config.max_output_tokens,
+                reasoning_effort=self.config.reasoning_effort,
             )
             response = None
             for attempt in range(3):

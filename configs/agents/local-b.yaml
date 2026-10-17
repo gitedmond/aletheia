@@ -1,0 +1,21 @@
+config_id: local-b
+provider: openai-compatible
+base_url: http://127.0.0.1:11434/v1
+api_key_env: null
+model: aletheia-phi4-mini-p1b-32k
+model_file_sha256: 3c168af1dea0a414299c7d9077e100ac763370e5a98b3c53801a958a47f0a5db
+hosted: false
+retention_setting: local
+prompt: prompts/agent-v1.md
+temperature: 0.0
+seed_supported: true
+max_output_tokens: 2048
+budgets:
+  re_tool_calls: 150
+  harness_tool_calls: 200
+  input_tokens: 2000000
+  wall_minutes: 30
+price:
+  input_per_mtok: 0.0
+  output_per_mtok: 0.0
+reasoning_effort: none

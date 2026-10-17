@@ -52,6 +52,7 @@ class ChatRequest(Strict):
     tools: list[ToolSpec] = Field(default_factory=list[ToolSpec])
     temperature: float | None = None
     seed: int | None = None
+    reasoning_effort: Literal["none", "low", "medium", "high"] | None = None
     max_output_tokens: int = Field(default=2048, gt=0)
 
 
@@ -91,6 +92,7 @@ class AgentConfig(Strict):
     prompt: str = "prompts/agent-v1.md"
     temperature: float | None = 0.0
     seed_supported: bool = True
+    reasoning_effort: Literal["none", "low", "medium", "high"] | None = None
     max_output_tokens: int = Field(default=2048, gt=0)
     budgets: AgentBudgets = Field(default_factory=AgentBudgets)
     price: Price = Field(default_factory=Price)
@@ -174,6 +176,8 @@ class OpenAICompatibleProvider:
         }
         if req.tools:
             data["tools"] = [tool.model_dump(mode="json") for tool in req.tools]
+        if req.reasoning_effort is not None:
+            data["reasoning_effort"] = req.reasoning_effort
         if req.temperature is not None:
             data["temperature"] = req.temperature
         if req.seed is not None and self.config.seed_supported:
