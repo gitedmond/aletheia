@@ -9,6 +9,7 @@ from aletheia.analysis.ghidra_session import GhidraAnalysis
 from aletheia.schema.models import Claim, Digest, Job, JobResult, Record, Sha256
 from aletheia.verify.static.constants import constant_evidence
 from aletheia.verify.static.edges import verify_edges
+from aletheia.verify.static.signatures import verify_arity, verify_widths
 from aletheia.worker.containment import require_job_sandbox
 from aletheia.worker.main import guarded_input
 
@@ -35,6 +36,14 @@ def verify_static(directory: Path, job: Job) -> JobResult:
     if method == "static.edges@1":
         verdict = verify_edges(request.claim, analysis, request.env_digest)
         output = {"verdict": cast(JsonValue, verdict.model_dump(mode="json"))}
+    elif method in {"static.arity@2", "static.widths@1"}:
+        result = (verify_arity if method == "static.arity@2" else verify_widths)(
+            request.claim, analysis, request.env_digest
+        )
+        output = {
+            "verdict": cast(JsonValue, result.verdict.model_dump(mode="json")),
+            "artifacts": cast(JsonValue, result.artifacts),
+        }
     elif method == "static.constants@1":
         matches = constant_evidence(request.claim, analysis)
         output = {"matches": cast(JsonValue, [match.model_dump(mode="json") for match in matches])}

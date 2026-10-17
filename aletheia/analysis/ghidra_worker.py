@@ -19,6 +19,7 @@ from aletheia.analysis.ghidra_session import (
     GhidraAnalysis,
     GhidraOptions,
 )
+from aletheia.analysis.signature_worker import caller_signature_use, signature_facts
 from aletheia.schema.models import Address, Job, JobResult
 from aletheia.verify.static.arity import ARGUMENT_REGISTERS
 from aletheia.verify.static.constants import IMMEDIATES, TABLES
@@ -205,6 +206,9 @@ def _call_sites(
                     "address": f"0x{at:08x}",
                     "kind": kind,
                     "target": target_name,
+                    "signature_use": caller_signature_use(program, instruction, blocks, monitor)
+                    if is_call
+                    else None,
                     "argument_registers": _caller_registers(program, instruction, blocks, monitor)
                     if is_call
                     else None,
@@ -226,6 +230,9 @@ def _call_sites(
                     "address": f"0x{at:08x}",
                     "kind": kind,
                     "target": name,
+                    "signature_use": caller_signature_use(program, instruction, blocks, monitor)
+                    if is_call
+                    else None,
                     "argument_registers": _caller_registers(program, instruction, blocks, monitor)
                     if is_call
                     else None,
@@ -464,6 +471,14 @@ def analyze_ghidra(directory: Path, job: Job) -> JobResult:
                             is_thunk=bool(function.isThunk()),
                             call_sites=sites,
                             body_complete=complete,
+                            signature_facts=signature_facts(
+                                program,
+                                function,
+                                blocks,
+                                monitor,
+                                complete=complete,
+                                tail=any(site.kind == "tail" for site in sites),
+                            ),
                             decompiler_param_count=int(high.getFunctionPrototype().getNumParams())
                             if high is not None
                             else None,

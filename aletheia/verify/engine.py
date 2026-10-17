@@ -23,6 +23,7 @@ from aletheia.schema.models import (
     Address,
     Algorithm,
     Aspect,
+    AspectName,
     Budget,
     Claim,
     Digest,
@@ -51,7 +52,18 @@ from aletheia.verify.static.worker import StaticRequest
 class MethodSpec:
     name: str
     claim_type: Literal["algorithm_identity", "call_relation"]
-    aspect: Literal["output_match", "edge_exists"] | None
+    aspect: (
+        Literal[
+            "output_match",
+            "edge_exists",
+            "arity",
+            "return_width",
+            "param_widths",
+            "param_types",
+            "category_behavior",
+        ]
+        | None
+    )
     strength: Strength | None
     decisive_verified: bool
     decisive_contradicted: bool
@@ -227,7 +239,7 @@ def merge_results(claim: Claim, results: list[MethodResult], env_digest: Digest)
             {(item.kind, item.artifact, item.summary) for item in all_evidence}
         )
     ]
-    aspects: dict[Literal["output_match", "edge_exists"], Aspect] = {}
+    aspects: dict[AspectName, Aspect] = {}
     if (
         winner is not None
         and winner.spec.aspect is not None
@@ -390,7 +402,8 @@ def methods_for(claim: Claim, pack: Pack | None) -> list[MethodSpec]:
         return [
             MethodSpec("static.edges@1", "call_relation", "edge_exists", "E1", True, True, "static")
         ]
-    assert isinstance(claim.body, Algorithm)
+    if not isinstance(claim.body, Algorithm):
+        return []
     return [
         MethodSpec("static.constants@1", "algorithm_identity", None, "E1", False, False, "static"),
         MethodSpec(
@@ -500,7 +513,7 @@ class Engine:
         evidence = Evidence(
             kind="method_error", artifact=artifact, summary=code + ": " + detail[:160]
         )
-        aspects: dict[Literal["output_match", "edge_exists"], Aspect] = (
+        aspects: dict[AspectName, Aspect] = (
             {spec.aspect: Aspect(verdict="ERROR", method=spec.name)} if spec.aspect else {}
         )
         verdict = Verdict(
@@ -537,10 +550,18 @@ class Engine:
                 str(result.output.get("detail", "")),
                 handle.result_artifact,
             )
-        if spec.name == "static.edges@1":
+        if spec.name in {"static.edges@1", "static.arity@2", "static.widths@1"}:
             verdict = Verdict.model_validate(result.output["verdict"])
             if verdict.claim_id != claim.claim_id or verdict.env_digest != self.env_digest:
                 raise ValueError("static verdict identity mismatch")
+            payloads = result.output.get("artifacts", {})
+            if not isinstance(payloads, dict) or set(payloads) != {
+                item.artifact for item in verdict.evidence
+            }:
+                raise ValueError("static evidence map mismatch")
+            for digest, value in sorted(payloads.items()):
+                if self.runner.artifacts.put(canonical_bytes(cast(JsonValue, value))) != digest:
+                    raise ValueError("static evidence content/hash mismatch")
             return MethodResult(spec, verdict)
         matches = TypeAdapter(list[ConstantMatch]).validate_python(result.output["matches"])
         payload = cast(

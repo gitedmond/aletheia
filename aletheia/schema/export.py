@@ -53,14 +53,27 @@ def export_schemas(directory: Path) -> None:
                 for family, variants in families.items()
             ]
         if issubclass(model, ClaimSubmission):
+            from aletheia.schema.taxonomy import Taxonomy
+
+            schema["$defs"]["FunctionPurpose"]["properties"]["category"]["enum"] = (
+                Taxonomy.bundled().leaves
+            )
             schema["allOf"] = [
                 {
-                    "if": {
-                        "properties": {"type": {"const": "algorithm_identity"}},
-                        "required": ["type"],
-                    },
-                    "then": {"properties": {"body": {"$ref": "#/$defs/Algorithm"}}},
-                    "else": {"properties": {"body": {"$ref": "#/$defs/Call"}}},
+                    "oneOf": [
+                        {
+                            "properties": {
+                                "type": {"const": claim_type},
+                                "body": {"$ref": "#/$defs/" + definition},
+                            }
+                        }
+                        for claim_type, definition in [
+                            ("algorithm_identity", "Algorithm"),
+                            ("call_relation", "Call"),
+                            ("function_signature", "FunctionSignature"),
+                            ("function_purpose", "FunctionPurpose"),
+                        ]
+                    ],
                 },
                 {
                     "if": {"properties": {"algorithms_version": {"const": "1.0"}}},

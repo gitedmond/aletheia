@@ -1,7 +1,7 @@
 """Deterministic benchmark grading; never imported by the verifier."""
 
 from aletheia import __version__
-from aletheia.schema.models import Algorithm, Claim, Grade, GroundTruth, Targets, Verdict
+from aletheia.schema.models import Algorithm, Call, Claim, Grade, GroundTruth, Targets, Verdict
 
 
 def grade(
@@ -41,7 +41,7 @@ def grade(
             strict = family_correct and variant_correct is True
             lenient = family_correct
             claimed_correct = lenient if claim.body.variant is None else strict
-        else:
+        elif isinstance(claim.body, Call):
             edges = function.callees if function is not None else []
             edge_correct = any(
                 edge.target == claim.body.callee and edge.kind == claim.body.kind for edge in edges
@@ -49,6 +49,8 @@ def grade(
             strict = edge_correct
             lenient = any(edge.target == claim.body.callee for edge in edges)
             claimed_correct = strict
+        else:
+            raise ValueError("claim type requires the Phase 1B grader")
         outcome = outcomes.get(claim.claim_id)
         verdict_correct = (
             claimed_correct

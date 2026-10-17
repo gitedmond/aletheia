@@ -58,6 +58,9 @@ REGISTRY = {
 REASONS = {
     "fortify_fail",
     "composite_incomplete",
+    "arity_not_decisive",
+    "width_ambiguous",
+    "unknown_category",
     "state_dependent",
     "unsupported_import",
     "no_matching_call_shape",
@@ -129,6 +132,34 @@ class GroundAlgorithm(Strict):
         return self
 
 
+Role = Literal["seed", "buf", "len", "cstr", "out", "out_len", "ctx", "key", "other"]
+
+
+class SignatureParam(Strict):
+    type: str = Field(min_length=1)
+    role: Role | None = None
+    name: str | None = None
+
+
+class FunctionSignature(Strict):
+    return_type: str = Field(min_length=1)
+    params: list[SignatureParam]
+
+
+class FunctionPurpose(Strict):
+    category: str
+    proposed_name: str | None = None
+    summary: str | None = None
+
+    @model_validator(mode="after")
+    def known_category(self) -> Self:
+        from aletheia.schema.taxonomy import Taxonomy
+
+        if self.category not in Taxonomy.bundled().leaves:
+            raise ValueError("unknown_category")
+        return self
+
+
 class Call(Strict):
     callee: Target
     kind: Kind
@@ -139,8 +170,8 @@ class ClaimSubmission(Record):
     source: Source
     binary_sha256: Sha256
     subject: Subject
-    type: Literal["algorithm_identity", "call_relation"]
-    body: Algorithm | Call
+    type: Literal["algorithm_identity", "call_relation", "function_signature", "function_purpose"]
+    body: Algorithm | Call | FunctionSignature | FunctionPurpose
     confidence: Annotated[float, Field(ge=0, le=1)]
     confidence_source: Literal["stated", "tool_default", "scripted"]
     rationale: str | None = None
@@ -156,7 +187,13 @@ class ClaimSubmission(Record):
 
     @model_validator(mode="after")
     def correct_body(self) -> Self:
-        if (self.type == "algorithm_identity") != isinstance(self.body, Algorithm):
+        bodies = {
+            "algorithm_identity": Algorithm,
+            "call_relation": Call,
+            "function_signature": FunctionSignature,
+            "function_purpose": FunctionPurpose,
+        }
+        if type(self.body) is not bodies[self.type]:
             raise ValueError("claim type and body disagree")
         if (
             self.algorithms_version == "1.0"
@@ -210,13 +247,22 @@ class Counterexample(Strict):
     matches_variant: str | None = None
 
 
+AspectName = Literal[
+    "output_match",
+    "edge_exists",
+    "arity",
+    "return_width",
+    "param_widths",
+    "param_types",
+    "category_behavior",
+]
+
+
 class Verdict(Record):
     claim_id: ClaimId
     intrinsic_verdict: Outcome
     strength: Strength | None = None
-    aspects: dict[Literal["output_match", "edge_exists"], Aspect] = Field(
-        default_factory=lambda: dict[Literal["output_match", "edge_exists"], Aspect]()
-    )
+    aspects: dict[AspectName, Aspect] = Field(default_factory=lambda: dict[AspectName, Aspect]())
     graph_status: Literal["OK"] = "OK"
     methods_run: list[str] = Field(default_factory=list)
     reason: str | None = None
@@ -261,9 +307,6 @@ class GroundFunction(Strict):
     exclusion_reason: str | None = None
     callees: list[Edge] = Field(default_factory=lambda: list[Edge]())
     source_signature: str | None = None
-
-
-Role = Literal["seed", "buf", "len", "cstr", "out", "out_len", "ctx", "key", "other"]
 
 
 class AbiType(Strict):
