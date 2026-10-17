@@ -113,10 +113,25 @@ def export_schemas(directory: Path) -> None:
             function["category"] = {"enum": [None, *leaves]}
             function["acceptable_categories"]["items"] = {"enum": leaves}
             function["acceptable_categories"]["uniqueItems"] = True
+            schema["$defs"]["GroundFunctionV2"]["allOf"] = [
+                {
+                    "if": {"properties": {"scorable": {"const": True}}, "required": ["scorable"]},
+                    "then": {
+                        "required": ["category", "abi_signature"],
+                        "properties": {
+                            "category": {"type": "string"},
+                            "abi_signature": {"type": "object"},
+                        },
+                    },
+                }
+            ]
             schema.setdefault("allOf", []).extend(
                 [
                     {
-                        "if": {"properties": {"schema_version": {"const": version}}},
+                        "if": {
+                            "properties": {"schema_version": {"const": version}},
+                            **({"required": ["schema_version"]} if version == "2.0" else {}),
+                        },
                         "then": {
                             "properties": {
                                 "functions": {"items": {"$ref": "#/$defs/" + function_model}}

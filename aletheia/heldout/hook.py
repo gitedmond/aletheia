@@ -25,14 +25,22 @@ def scan_staged(repo: Path, private_root: Path) -> list[dict[str, str]]:
     except (OSError, ValueError) as exc:
         raise PrivateAccessError("private leakage index is unavailable; commit refused") from exc
     tokens: list[bytes] = []
-    for values in (index.program_ids, index.function_names, index.binary_sha256):
+    for values in (index.program_ids, index.binary_sha256):
         for value in values:
             if not value:
                 raise PrivateAccessError("invalid private leakage token; commit refused")
             tokens.append(value.encode())
-    pattern = (
-        re.compile(b"|".join(re.escape(token) for token in sorted(set(tokens)))) if tokens else None
-    )
+    functions = sorted(set(index.function_names))
+    if any(not re.fullmatch(r"[A-Za-z_]\w*", name) for name in functions):
+        raise PrivateAccessError("invalid private function identifier; commit refused")
+    alternatives = [re.escape(token) for token in sorted(set(tokens))]
+    if functions:
+        alternatives.append(
+            rb"(?<![A-Za-z0-9_$])(?:"
+            + b"|".join(re.escape(name.encode()) for name in functions)
+            + rb")(?![A-Za-z0-9_$])"
+        )
+    pattern = re.compile(b"|".join(alternatives)) if alternatives else None
     # Disabling rename folding exposes both old/deleted and new paths in one pass.
     staged = subprocess.check_output(
         ["git", "-C", str(repo), "diff", "--cached", "--name-status", "--no-renames", "-z"]

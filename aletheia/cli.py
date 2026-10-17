@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 
 import typer
 
+from aletheia.heldout.guard import PrivateAccessError
+
 app = typer.Typer(no_args_is_help=True, help="Evidence-backed reverse engineering verification.")
 
 
@@ -112,6 +114,73 @@ def selftest(
     raise typer.Exit(0 if result["status"] == "ok" else 1)
 
 
+annotate_app = typer.Typer(help="Blinded secondary annotation and agreement.")
+app.add_typer(annotate_app, name="annotate")
+
+
+@annotate_app.command("export")
+def annotate_export(
+    ctx: typer.Context,
+    sample: Annotated[float, typer.Option("--sample")] = 0.2,
+    seed: Annotated[int, typer.Option("--seed")] = 20261014,
+) -> None:
+    from aletheia.config import Config
+    from aletheia.corpus.annotate import export_sample
+    from aletheia.corpus.build import Variant
+
+    try:
+        base = Config.read(options(ctx).config)
+        config = read_config(ctx)
+        if config.guard.root is None:
+            raise PrivateAccessError("private_root is required")
+        variant = Variant(image=base.sandbox.image_build).id
+        public = Path("corpus/tierA")
+        private = config.guard.root / "corpus/tierA"
+        programs = [
+            (source, build / source.name / variant)
+            for corpus, build in [
+                (public, Path(base.paths.build)),
+                (private, config.guard.root / "build"),
+            ]
+            for source in sorted(corpus.iterdir())
+            if (source / "src").is_dir()
+        ]
+        if len(programs) != 20:
+            raise ValueError("annotation sample requires all 20 programs")
+        path = export_sample(
+            programs, config.guard, sample=sample, seed=seed, taxonomy_path=Path("taxonomy.yaml")
+        )
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        typer.echo(json.dumps({"status": "error", "error": str(exc)}))
+        raise typer.Exit(7 if isinstance(exc, PrivateAccessError) else 1) from None
+    typer.echo(json.dumps({"status": "ok", "path": str(path)}))
+
+
+@annotate_app.command("import")
+def annotate_import(ctx: typer.Context, labels: Path) -> None:
+    from aletheia.corpus.annotate import import_labels
+
+    guard_paths(ctx, labels)
+    try:
+        path = import_labels(labels, read_config(ctx).guard, Path("taxonomy.yaml"))
+    except (OSError, ValueError) as exc:
+        typer.echo(json.dumps({"status": "error", "error": str(exc)}))
+        raise typer.Exit(7 if isinstance(exc, PrivateAccessError) else 1) from None
+    typer.echo(json.dumps({"status": "ok", "path": str(path)}))
+
+
+@annotate_app.command("kappa")
+def annotate_kappa(ctx: typer.Context) -> None:
+    from aletheia.corpus.annotate import compute_agreement
+
+    try:
+        path = compute_agreement(read_config(ctx).guard)
+    except (OSError, ValueError, KeyError) as exc:
+        typer.echo(json.dumps({"status": "error", "error": str(exc)}))
+        raise typer.Exit(7 if isinstance(exc, PrivateAccessError) else 1) from None
+    typer.echo(json.dumps({"status": "ok", "path": str(path)}))
+
+
 schema_app = typer.Typer(help="Export Phase 1A JSON Schemas.")
 app.add_typer(schema_app, name="schema")
 
@@ -166,6 +235,23 @@ def corpus_lint(
             typer.echo(f"{error.path}:{error.line}: {error.rule}: {error.message}")
         typer.echo(f"{len(programs)} programs, {len(errors)} errors")
     raise typer.Exit(1 if errors else 0)
+
+
+@corpus_app.command("split")
+def corpus_split(
+    ctx: typer.Context,
+    seed: Annotated[int, typer.Option("--seed")] = 20261013,
+) -> None:
+    """Draw held-out programs once; write identifying results only under private_root."""
+    from aletheia.corpus.split import split_corpus
+    from aletheia.heldout.guard import PrivateAccessError
+
+    try:
+        split_corpus(Path.cwd(), read_config(ctx).guard, seed)
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        typer.echo(json.dumps({"status": "error", "error": str(exc)}))
+        raise typer.Exit(7 if isinstance(exc, PrivateAccessError) else 1) from None
+    typer.echo(json.dumps({"status": "ok", "dev_programs": 12, "heldout_programs": 8}))
 
 
 @corpus_app.command("build")
