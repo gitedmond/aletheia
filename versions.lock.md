@@ -46,6 +46,11 @@ sha256 = "4cf4e47b9243b8c1d668ca067d658e91b62292e2df2048bf93f9dfc442970ba3"
 version = "9.4.0"
 url = "https://github.com/mandiant/capa-rules/archive/2af9fbfc1c9b4634dbeb76b5d34fca9389fa7f80.tar.gz"
 sha256 = "d18c5d57c3ab2089a54ca95da2b54d83ccb7dbc6c9db071f47d3f6c4afe703de"
+[pins.pyghidra_mcp]
+version = "0.1.6"
+commit = "3634509f9f60e36c04dddffc777b27d74ce83d61"
+[pins.mcp]
+version = "1.30.0"
 [pins.trivy]
 version = "0.75.0"
 url = "https://github.com/aquasecurity/trivy/releases/download/v0.75.0/trivy_0.75.0_Linux-64bit.tar.gz"

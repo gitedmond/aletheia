@@ -22,7 +22,14 @@ module-root = ""
 [dependency-groups]
 dev = ["ruff==0.17.0", "pyright[nodejs]==1.1.414", "nodejs-wheel-binaries==24.19.0", "pytest==9.1.1", "jsonschema==4.26.0"]
 corpus = ["pyelftools==0.33", "capstone==5.0.9"]
-analysis = ["pyelftools==0.33", "unicorn==2.1.4", "pyghidra==2.2.1", "flare-capa==9.4.0"]
+analysis = [
+    "pyelftools==0.33",
+    "unicorn==2.1.4",
+    "pyghidra==2.2.1",
+    "flare-capa==9.4.0",
+    "pyghidra-mcp==0.1.6",
+    "mcp==1.30.0",
+]
 
 [tool.ruff]
 target-version = "py312"

@@ -27,7 +27,7 @@ from aletheia.worker.containment import require_job_sandbox
 from aletheia.worker.main import guarded_input
 
 
-def _validate_binary(path: Path) -> None:
+def validate_binary(path: Path) -> None:
     parser = cast(Any, importlib.import_module("elftools.elf.elffile"))
     with path.open("rb") as stream:
         elf = parser.ELFFile(stream)
@@ -44,7 +44,7 @@ def _validate_binary(path: Path) -> None:
             raise ValueError("Ghidra input must be a stripped little-endian x86-64 PIE")
 
 
-def _apply_options(program: Any, manager: Any, config: GhidraOptions) -> None:
+def apply_options(program: Any, manager: Any, config: GhidraOptions) -> None:
     manager.initializeOptions()
     options = program.getOptions(program.ANALYSIS_PROPERTIES)
     actual_names = {str(name) for name in options.getOptionNames()}
@@ -361,7 +361,7 @@ def analyze_ghidra(directory: Path, job: Job) -> JobResult:
         or importlib.metadata.version("pyghidra") != config.pyghidra_version
     ):
         raise ValueError("Ghidra tool/options pins mismatch")
-    _validate_binary(binary)
+    validate_binary(binary)
     ghidra = cast(Any, importlib.import_module("pyghidra"))
     ghidra.start()
     jpype = cast(Any, importlib.import_module("jpype"))
@@ -388,7 +388,7 @@ def analyze_ghidra(directory: Path, job: Job) -> JobResult:
                 address = program.getAddressFactory().getDefaultAddressSpace().getAddress(0)
                 program.setImageBase(address, True)
                 manager = manager_class.getAnalysisManager(program)
-                _apply_options(program, manager, config)
+                apply_options(program, manager, config)
                 if findcrypt:
                     options = program.getOptions(program.ANALYSIS_PROPERTIES)
                     options.setBoolean("Find Crypt", True)
