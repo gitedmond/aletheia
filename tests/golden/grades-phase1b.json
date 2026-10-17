@@ -248,7 +248,7 @@
           ]
         },
         {
-          "name": "signature-return-width",
+          "name": "signature-return-class",
           "scenario": "scripted_mutated",
           "claims": [
             {
