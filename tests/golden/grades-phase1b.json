@@ -1,0 +1,428 @@
+{
+  "schema_version": "1.0",
+  "taxonomy_kappa": {
+    "checksum": 0.7,
+    "crypto": 1.0
+  },
+  "programs": [
+    {
+      "program": "crc32tool",
+      "binary_sha256": "d03a204794b100030d3720f579c52bd84b2bac0b7ea7481901cec42c12ae09c1",
+      "subject": "0x00001eb0",
+      "cases": [
+        {
+          "name": "signature-correct",
+          "scenario": "scripted_correct",
+          "claims": [
+            {
+              "type": "function_signature",
+              "body": {
+                "return_type": "uint32_t",
+                "params": [
+                  {
+                    "type": "uint32_t"
+                  },
+                  {
+                    "type": "const uint8_t *"
+                  },
+                  {
+                    "type": "size_t"
+                  }
+                ]
+              },
+              "expected": {
+                "correct_strict": true,
+                "correct_lenient": true,
+                "correct_claimed": true
+              }
+            }
+          ]
+        },
+        {
+          "name": "signature-return-width",
+          "scenario": "scripted_mutated",
+          "claims": [
+            {
+              "type": "function_signature",
+              "body": {
+                "return_type": "uint64_t",
+                "params": [
+                  {
+                    "type": "uint32_t"
+                  },
+                  {
+                    "type": "const uint8_t *"
+                  },
+                  {
+                    "type": "size_t"
+                  }
+                ]
+              },
+              "expected": {
+                "correct_strict": false,
+                "correct_lenient": true,
+                "correct_claimed": false
+              }
+            }
+          ]
+        },
+        {
+          "name": "signature-parameter-class",
+          "scenario": "scripted_mutated",
+          "claims": [
+            {
+              "type": "function_signature",
+              "body": {
+                "return_type": "uint32_t",
+                "params": [
+                  {
+                    "type": "void *"
+                  },
+                  {
+                    "type": "const uint8_t *"
+                  },
+                  {
+                    "type": "size_t"
+                  }
+                ]
+              },
+              "expected": {
+                "correct_strict": false,
+                "correct_lenient": false,
+                "correct_claimed": false
+              }
+            }
+          ]
+        },
+        {
+          "name": "purpose-correct",
+          "scenario": "scripted_correct",
+          "claims": [
+            {
+              "type": "function_purpose",
+              "body": {
+                "category": "checksum.crc32"
+              },
+              "expected": {
+                "correct_strict": true,
+                "correct_lenient": true,
+                "correct_claimed": true,
+                "correct_partial": 1.0
+              }
+            }
+          ]
+        },
+        {
+          "name": "purpose-sibling",
+          "scenario": "scripted_mutated",
+          "claims": [
+            {
+              "type": "function_purpose",
+              "body": {
+                "category": "checksum.crc32c"
+              },
+              "expected": {
+                "correct_strict": false,
+                "correct_lenient": true,
+                "correct_claimed": false,
+                "correct_partial": 0.5
+              }
+            }
+          ]
+        },
+        {
+          "name": "family-only",
+          "scenario": "scripted_correct",
+          "claims": [
+            {
+              "type": "algorithm_identity",
+              "body": {
+                "family": "crc32",
+                "variant": null
+              },
+              "expected": {
+                "correct_strict": false,
+                "correct_lenient": true,
+                "correct_claimed": true,
+                "family_credit_suppressed": false
+              }
+            }
+          ]
+        },
+        {
+          "name": "overlap-family-only",
+          "scenario": "scripted_correct",
+          "claims": [
+            {
+              "type": "function_purpose",
+              "body": {
+                "category": "checksum.crc32"
+              },
+              "expected": {
+                "correct_strict": true,
+                "correct_lenient": true,
+                "correct_claimed": true,
+                "correct_partial": 1.0
+              }
+            },
+            {
+              "type": "algorithm_identity",
+              "body": {
+                "family": "crc32",
+                "variant": null
+              },
+              "expected": {
+                "correct_strict": null,
+                "correct_lenient": null,
+                "correct_claimed": null,
+                "family_credit_suppressed": true,
+                "strict_exclusion_reason": "family_credit_suppressed"
+              }
+            }
+          ]
+        },
+        {
+          "name": "overlap-variant",
+          "scenario": "scripted_correct",
+          "claims": [
+            {
+              "type": "function_purpose",
+              "body": {
+                "category": "checksum.crc32"
+              },
+              "expected": {
+                "correct_strict": true,
+                "correct_lenient": true,
+                "correct_claimed": true,
+                "correct_partial": 1.0
+              }
+            },
+            {
+              "type": "algorithm_identity",
+              "body": {
+                "family": "crc32",
+                "variant": "ieee"
+              },
+              "expected": {
+                "correct_strict": true,
+                "correct_lenient": true,
+                "correct_claimed": true,
+                "family_credit_suppressed": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "program": "hashkit-sha",
+      "binary_sha256": "374295259a9f8ae3767ab38803640e7b07111da534cd4b1c3f644f26ecf44ccf",
+      "subject": "0x00002160",
+      "cases": [
+        {
+          "name": "signature-correct",
+          "scenario": "scripted_correct",
+          "claims": [
+            {
+              "type": "function_signature",
+              "body": {
+                "return_type": "void",
+                "params": [
+                  {
+                    "type": "sha1_t *"
+                  },
+                  {
+                    "type": "const uint8_t *"
+                  },
+                  {
+                    "type": "size_t"
+                  }
+                ]
+              },
+              "expected": {
+                "correct_strict": true,
+                "correct_lenient": true,
+                "correct_claimed": true
+              }
+            }
+          ]
+        },
+        {
+          "name": "signature-return-class",
+          "scenario": "scripted_mutated",
+          "claims": [
+            {
+              "type": "function_signature",
+              "body": {
+                "return_type": "uint64_t",
+                "params": [
+                  {
+                    "type": "sha1_t *"
+                  },
+                  {
+                    "type": "const uint8_t *"
+                  },
+                  {
+                    "type": "size_t"
+                  }
+                ]
+              },
+              "expected": {
+                "correct_strict": false,
+                "correct_lenient": true,
+                "correct_claimed": false
+              }
+            }
+          ]
+        },
+        {
+          "name": "signature-parameter-class",
+          "scenario": "scripted_mutated",
+          "claims": [
+            {
+              "type": "function_signature",
+              "body": {
+                "return_type": "void",
+                "params": [
+                  {
+                    "type": "uintptr_t"
+                  },
+                  {
+                    "type": "const uint8_t *"
+                  },
+                  {
+                    "type": "size_t"
+                  }
+                ]
+              },
+              "expected": {
+                "correct_strict": false,
+                "correct_lenient": false,
+                "correct_claimed": false
+              }
+            }
+          ]
+        },
+        {
+          "name": "purpose-correct",
+          "scenario": "scripted_correct",
+          "claims": [
+            {
+              "type": "function_purpose",
+              "body": {
+                "category": "crypto.hash.sha1.update"
+              },
+              "expected": {
+                "correct_strict": true,
+                "correct_lenient": true,
+                "correct_claimed": true,
+                "correct_partial": 1.0
+              }
+            }
+          ]
+        },
+        {
+          "name": "purpose-sibling",
+          "scenario": "scripted_mutated",
+          "claims": [
+            {
+              "type": "function_purpose",
+              "body": {
+                "category": "crypto.hash.sha1.final"
+              },
+              "expected": {
+                "correct_strict": false,
+                "correct_lenient": true,
+                "correct_claimed": false,
+                "correct_partial": 0.75
+              }
+            }
+          ]
+        },
+        {
+          "name": "family-only",
+          "scenario": "scripted_correct",
+          "claims": [
+            {
+              "type": "algorithm_identity",
+              "body": {
+                "family": "sha1",
+                "variant": null
+              },
+              "expected": {
+                "correct_strict": false,
+                "correct_lenient": true,
+                "correct_claimed": true,
+                "family_credit_suppressed": false
+              }
+            }
+          ]
+        },
+        {
+          "name": "overlap-family-only",
+          "scenario": "scripted_correct",
+          "claims": [
+            {
+              "type": "function_purpose",
+              "body": {
+                "category": "crypto.hash.sha1.update"
+              },
+              "expected": {
+                "correct_strict": true,
+                "correct_lenient": true,
+                "correct_claimed": true,
+                "correct_partial": 1.0
+              }
+            },
+            {
+              "type": "algorithm_identity",
+              "body": {
+                "family": "sha1",
+                "variant": null
+              },
+              "expected": {
+                "correct_strict": null,
+                "correct_lenient": null,
+                "correct_claimed": null,
+                "family_credit_suppressed": true,
+                "strict_exclusion_reason": "family_credit_suppressed"
+              }
+            }
+          ]
+        },
+        {
+          "name": "overlap-variant",
+          "scenario": "scripted_correct",
+          "claims": [
+            {
+              "type": "function_purpose",
+              "body": {
+                "category": "crypto.hash.sha1.update"
+              },
+              "expected": {
+                "correct_strict": true,
+                "correct_lenient": true,
+                "correct_claimed": true,
+                "correct_partial": 1.0
+              }
+            },
+            {
+              "type": "algorithm_identity",
+              "body": {
+                "family": "sha1",
+                "variant": "std"
+              },
+              "expected": {
+                "correct_strict": true,
+                "correct_lenient": true,
+                "correct_claimed": true,
+                "family_credit_suppressed": true
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "review_basis": "Expected grade values specified independently of the grader; compiler ABI and source spellings come from the two reviewed public v2 ground-truth records. Author-delegated review; no independent human annotation is claimed."
+}
