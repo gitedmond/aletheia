@@ -19,7 +19,9 @@ named validation run. Do not read entire logs when a failure excerpt is enough.
 
 Run `pr-status.ps1` from Windows PowerShell, where the PC's GitHub authentication is set up.
 It summarizes the current PR heads, CI and unresolved reviews without downloading review
-bodies. `MoreThreads=True` means that PR needs a targeted paginated review query.
+bodies. Skipped status-context reviews are shown as `SKIPPED`, even when GitHub marks
+them green. Zero unresolved threads alone does not establish that a review ran.
+`MoreThreads=True` means that PR needs a targeted paginated review query.
 
 ```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File '\\wsl.localhost\Ubuntu-24.04\home\edmond\src\aletheia-t68\tools\pr-status.ps1'
