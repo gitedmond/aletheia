@@ -13,8 +13,8 @@ inputs:
   - '-9223372036854775808'
   - '18446744073709551615'
   random:
-    count: 32
-    max_len: 8
+    count: 64
+    max_len: 4096
     seed: 20261013
 family: parse-int
 call_shapes:

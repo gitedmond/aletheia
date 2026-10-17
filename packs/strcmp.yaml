@@ -6,8 +6,8 @@ near_miss:
 inputs:
   fixed: []
   random:
-    count: 32
-    max_len: 64
+    count: 64
+    max_len: 4096
     seed: 20261013
   string_pairs: true
   fixed_pairs:

@@ -6,7 +6,7 @@ near_miss:
 inputs:
   fixed: []
   random:
-    count: 32
+    count: 64
     max_len: 4096
     seed: 20261013
   fixed_hex:

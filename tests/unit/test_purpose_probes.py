@@ -4,12 +4,25 @@ from pathlib import Path
 import pytest
 
 from aletheia.verify.probes.inputs import generate_inputs, inputs_for_call
-from aletheia.verify.probes.oracles import evaluate, string_pair
+from aletheia.verify.probes.oracles import PURPOSE_VARIANTS, evaluate, string_pair
 from aletheia.verify.probes.pack import load_pack
 
 
 def test_protected_purpose_vectors():
     vectors = json.loads(Path("tests/golden/purpose-vectors-phase1b.json").read_bytes())
+    declared = set()
+    for family in PURPOSE_VARIANTS:
+        pack = load_pack(Path("packs") / (family + ".yaml"))
+        pack.inputs.random.count = 0
+        for variant, probe in pack.variants.items():
+            for shape in pack.call_shapes:
+                declared.update(
+                    (family, variant, value.hex())
+                    for value in inputs_for_call(generate_inputs(pack.inputs), probe, shape)
+                )
+    assert declared == {
+        (row["family"], row["variant"], row["input_hex"]) for row in vectors["vectors"]
+    }
     for row in vectors["vectors"]:
         result = evaluate(row["oracle"], bytes.fromhex(row["input_hex"]))
         assert result.return_value == row["return_value"]
