@@ -20,6 +20,7 @@ from aletheia.analysis.ghidra_session import (
 from aletheia.config import Config
 from aletheia.doctor import read_lock
 from aletheia.grade import grade
+from aletheia.grade.context import GradingContext
 from aletheia.metrics import MetricsReport, compute_metrics
 from aletheia.sandbox.cached import SOURCE_JOBS, CachedJobRunner
 from aletheia.schema.canonical import canonical_bytes, content_hash
@@ -71,6 +72,11 @@ class Benchmark:
             else:
                 config.guard.public_path(Path(path))
         self.config = config.model_copy(deep=True)
+        self.grading_context, self.grading_context_hash = (
+            GradingContext.snapshot(config.guard.access(Path(config.grading.agreement)))
+            if config.grading.agreement is not None
+            else (None, None)
+        )
         self.root = Path(config.paths.runs)
         self.root.mkdir(parents=True, exist_ok=True)
         self.artifacts = ArtifactStore(Path(config.paths.artifacts))
@@ -152,7 +158,15 @@ class Benchmark:
                     "run_config": {
                         "harness": engine.harness,
                         "metrics": self.config.metrics.model_dump(mode="json"),
-                    },
+                    }
+                    | (
+                        {
+                            "grading_context": self.grading_context.model_dump(mode="json"),
+                            "grading_context_hash": self.grading_context_hash,
+                        }
+                        if self.grading_context
+                        else {}
+                    ),
                 },
             ),
             binaries=[binary.binary_sha256],
@@ -160,6 +174,8 @@ class Benchmark:
             | {
                 "package_source_hash": code_hash,
                 "algorithms_hash": file_hash(package.parent / "algorithms.yaml"),
+                "taxonomy_hash": file_hash(package / "schema/taxonomy.yaml"),
+                "taxonomy_version": engine.harness["taxonomy_version"],
             },
             image_digests={
                 "analysis": self.config.sandbox.image_analysis,
@@ -170,7 +186,8 @@ class Benchmark:
             mapping_hashes={
                 name: file_hash(Path(getattr(self.config.sources, name).mapping))
                 for name in ("capa", "findcrypt")
-            },
+            }
+            | {"purpose_packs": engine.purpose_mapping_hash},
             verifier_version=__version__,
             grader_version=__version__,
             seeds={"scripted": 20261013, "bootstrap": self.config.metrics.bootstrap_seed},
@@ -396,8 +413,19 @@ class Benchmark:
                         )
                         return engine.verify(claim, binary, analysis, no_cache=no_cache)
 
-                with ThreadPoolExecutor(max_workers=self.config.sandbox.concurrency) as pool:
-                    results = list(pool.map(verify_claim, pending))
+                if any(
+                    claim.type in {"function_signature", "function_purpose"} for claim in claims
+                ):
+                    with self.store() as worker_store:
+                        results = Engine(
+                            runner,
+                            worker_store,
+                            self.config.budgets,
+                            Path(self.config.ghidra.analysis_options),
+                        ).verify_claims(claims, binary, analysis, no_cache=no_cache)
+                else:
+                    with ThreadPoolExecutor(max_workers=self.config.sandbox.concurrency) as pool:
+                        results = list(pool.map(verify_claim, pending))
                 with self.store() as store:
                     for result in results:
                         value = result.verdict
@@ -448,7 +476,15 @@ class Benchmark:
             with self.store() as store:
                 claims = self.claims(store, run)
                 verdicts = [store.get_verdict(claim.claim_id) for claim in claims]
-                grades = grade(claims, verdicts, truth, targets)
+                grades = grade(
+                    claims,
+                    verdicts,
+                    truth,
+                    targets,
+                    taxonomy_kappa=self.grading_context.taxonomy_kappa
+                    if self.grading_context
+                    else None,
+                )
                 for item in grades:
                     prior = store.connection.execute(
                         "SELECT canonical_json FROM grades WHERE claim_id=?", (item.claim_id,)

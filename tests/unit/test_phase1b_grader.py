@@ -249,3 +249,62 @@ def test_purpose_role_segment_and_invalid_agreement():
     assert result.correct_strict is False and result.correct_lenient is True
     with pytest.raises(ValueError, match="agreement kappa"):
         apply(gt, [item], {"protocol": float("nan")})
+
+
+def test_public_grading_context_is_pinned_for_benchmark_and_replay(tmp_path):
+    import hashlib
+
+    from aletheia.config import Config
+    from aletheia.grade.context import GradingContext
+    from aletheia.orchestrate import Benchmark
+    from aletheia.replay import pin_differences
+    from aletheia.schema.canonical import canonical_bytes
+    from aletheia.schema.models import RunManifest
+
+    context = GradingContext.read(Path("configs/grading-phase1b.json"))
+    assert context.human_validated is False
+    policy = tmp_path / "agreement.json"
+    policy.write_text(context.model_dump_json())
+    cfg = Config()
+    cfg.paths.build = str(tmp_path / "programs")
+    cfg.paths.runs = str(tmp_path / "runs")
+    cfg.paths.artifacts = str(tmp_path / "artifacts")
+    cfg.grading.agreement = str(policy)
+    cfg.sandbox.image_analysis = "sha256:" + "a" * 64
+    cfg.sandbox.image_build = "sha256:" + "b" * 64
+    data = b"opaque input: metadata test never parses ELF"
+    digest = hashlib.sha256(data).hexdigest()
+    bundle = Path(cfg.paths.build) / "example/unit"
+    (bundle / "stripped").mkdir(parents=True)
+    (bundle / "private").mkdir()
+    (bundle / "stripped" / (digest + ".bin")).write_bytes(data)
+    (bundle / "private/ground_truth.json").write_bytes(b"opaque truth identity")
+    (bundle / "targets.json").write_bytes(
+        canonical_bytes(Targets(binary_sha256=digest, variant_id="unit", targets=[]))
+    )
+    benchmark = Benchmark(cfg)
+    original = benchmark.manifest_input("example", "scripted")
+    assert original.source_config["run_config"]["grading_context"] == context.model_dump(
+        mode="json"
+    )
+    # Sub-wire-precision agreement edits must still invalidate the run pin.
+    changed = context.model_copy(
+        update={"taxonomy_kappa": context.taxonomy_kappa | {"checksum": 0.99999999}}
+    )
+    policy.write_text(changed.model_dump_json())
+    assert benchmark.grading_context == context
+    differences = pin_differences(Benchmark(cfg), RunManifest.create(original))
+    assert "source_config.run_config" in differences
+
+
+def test_dev_configuration_rejects_a_private_grading_context(tmp_path):
+    from aletheia.config import Config
+    from aletheia.heldout.guard import PrivateAccessError
+
+    cfg = Config()
+    cfg.paths.private_root = str(tmp_path / "private")
+    cfg.grading.agreement = str(
+        Path(cfg.paths.private_root) / "annotations/annotation_agreement.json"
+    )
+    with pytest.raises(PrivateAccessError, match="--split heldout"):
+        cfg.for_split("dev")

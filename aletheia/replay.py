@@ -129,13 +129,36 @@ def replay(benchmark: Benchmark, run: str) -> dict[str, Any]:
                         )
                         return engine.verify(claim, binary, analysis, no_cache=True)
 
-                with ThreadPoolExecutor(max_workers=benchmark.config.sandbox.concurrency) as pool:
-                    results = list(pool.map(verify, claims))
-            verdicts = [result.verdict for result in results]
+                if any(
+                    claim.type in {"function_signature", "function_purpose"} for claim in claims
+                ):
+                    with Store(database) as store:
+                        results = Engine(
+                            runner,
+                            store,
+                            benchmark.config.budgets,
+                            Path(benchmark.config.ghidra.analysis_options),
+                        ).verify_claims(claims, binary, analysis, no_cache=True)
+                else:
+                    with ThreadPoolExecutor(
+                        max_workers=benchmark.config.sandbox.concurrency
+                    ) as pool:
+                        results = list(pool.map(verify, claims))
+            verdicts = sorted(
+                (result.verdict for result in results), key=lambda verdict: verdict.claim_id
+            )
         else:
             verdicts = []
         truth = GroundTruth.model_validate_json((bundle / "private/ground_truth.json").read_bytes())
-        grades = grade(claims, verdicts, truth, targets)
+        grades = grade(
+            claims,
+            verdicts,
+            truth,
+            targets,
+            taxonomy_kappa=benchmark.grading_context.taxonomy_kappa
+            if benchmark.grading_context
+            else None,
+        )
         metrics = compute_metrics(
             grades,
             claims,

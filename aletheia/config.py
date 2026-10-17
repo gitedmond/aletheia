@@ -27,6 +27,10 @@ class Paths(StrictModel):
         return value
 
 
+class Grading(StrictModel):
+    agreement: str | None = None
+
+
 class Sandbox(StrictModel):
     image_analysis: str = ""
     image_build: str = ""
@@ -79,6 +83,7 @@ class Config(StrictModel):
     sources: Sources = Field(default_factory=Sources)
     llm: Llm = Field(default_factory=Llm)
     metrics: Metrics = Field(default_factory=Metrics)
+    grading: Grading = Field(default_factory=Grading)
 
     @property
     def guard(self):
@@ -98,6 +103,8 @@ class Config(StrictModel):
         else:
             for path in (result.paths.build, result.paths.runs, result.paths.artifacts):
                 guard.public_path(Path(path))
+        if result.grading.agreement is not None:
+            guard.access(Path(result.grading.agreement))
         for path in (
             result.ghidra.analysis_options,
             result.sources.capa.mapping,

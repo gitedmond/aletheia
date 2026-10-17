@@ -26,6 +26,7 @@ from aletheia.schema.models import (
     Aspect,
     AspectName,
     Budget,
+    Call,
     Claim,
     Digest,
     Evidence,
@@ -643,6 +644,8 @@ class Engine:
         self.purpose_mapping = PurposeMapping.read(self.purpose_mapping_path)
         self.harness: dict[str, JsonValue] = {
             "mode": mode,
+            "taxonomy_version": Taxonomy.bundled().version,
+            "purpose_packs_hash": self.purpose_mapping_hash,
             "verifier_version": __version__,
             "verifier_source_hash": verifier_source_hash(),
             "sandbox": cast(JsonValue, runner.config.model_dump(mode="json")),
@@ -1102,7 +1105,15 @@ class Engine:
             claim.binary_sha256 != binary.binary_sha256 for claim in claims
         ):
             raise ValueError("verification batch requires one run and binary")
-        if len({(claim.subject.address, claim.type) for claim in claims}) != len(claims):
+        keys = [
+            (
+                claim.subject.address,
+                claim.type,
+                claim.body.callee if isinstance(claim.body, Call) else "",
+            )
+            for claim in claims
+        ]
+        if len(set(keys)) != len(keys):
             raise ValueError("verification batch contains duplicate active claims")
         if (
             analysis.binary_sha256 != binary.binary_sha256
