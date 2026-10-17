@@ -157,3 +157,84 @@ def test_composite_groups_order_inheritance_and_cross_source_cache(tmp_path):
             repeated = engine.verify_claims(claims("second"), binary, analysis)
             assert all(result.cache_hit for result in repeated)
             assert len(list(runner.jobs_root.iterdir())) == jobs
+
+
+def test_benchmark_uses_one_shared_composite_job(tmp_path):
+    import shutil
+
+    from aletheia.orchestrate import Benchmark
+    from aletheia.schema.canonical import canonical_bytes
+    from aletheia.schema.models import ManifestInput, RunManifest, Targets
+
+    cfg = Config.read(Path("aletheia.toml"))
+    binary, symbols, fixture = build_fixture("md5", cfg, tmp_path, fixture_set="composite")
+    case = next(case for case in fixture.composite_cases if case.expected == "VERIFIED")
+    cfg.paths.build = str(tmp_path / "programs")
+    cfg.paths.runs = str(tmp_path / "benchmark-runs")
+    cfg.paths.artifacts = str(tmp_path / "benchmark-artifacts")
+    bundle = Path(cfg.paths.build) / "calibration" / binary.variant_id
+    (bundle / "stripped").mkdir(parents=True)
+    shutil.copyfile(binary.stripped, bundle / "stripped" / binary.stripped.name)
+    targets = Targets(
+        binary_sha256=binary.binary_sha256,
+        variant_id=binary.variant_id,
+        targets=sorted(
+            {symbols[getattr(case, role)] for role in ["init", "update", "final"]},
+            key=lambda address: int(address, 16),
+        ),
+    )
+    (bundle / "targets.json").write_bytes(canonical_bytes(targets))
+    manifest = RunManifest.create(
+        ManifestInput(
+            source_config={
+                "origin": "human",
+                "source_id": "human:synthetic-first",
+                "source": "human",
+                "program": "calibration",
+            },
+            binaries=[binary.binary_sha256],
+            versions={},
+            image_digests={
+                "analysis": cfg.sandbox.image_analysis,
+                "build": cfg.sandbox.image_build,
+            },
+            analysis_options_hash="a" * 64,
+            pack_hashes={},
+            mapping_hashes={},
+            verifier_version="0.1.0",
+            grader_version="0.1.0",
+            seeds={},
+        )
+    )
+    claims = [
+        make(
+            binary,
+            symbols[getattr(case, role)],
+            "function_purpose",
+            {"category": "crypto.hash.md5." + role},
+        )
+        for role in ["init", "update", "final"]
+    ]
+    claims.append(
+        make(
+            binary, symbols[case.update], "algorithm_identity", {"family": "md5", "variant": "std"}
+        )
+    )
+    claims = [
+        Claim.intake(
+            ClaimSubmission.model_validate(
+                claim.model_dump(mode="json", exclude={"claim_id"}) | {"run_id": manifest.run_id}
+            )
+        )
+        for claim in claims
+    ]
+    benchmark = Benchmark(cfg)
+    run = benchmark.ingest("calibration", manifest, claims)
+    benchmark.verify(run)
+    with benchmark.store() as store:
+        verdicts = [store.get_verdict(claim.claim_id) for claim in claims]
+    assert all(
+        verdict.intrinsic_verdict == "VERIFIED" and verdict.strength == "E2" for verdict in verdicts
+    )
+    metadata = json.loads((benchmark.directory(run) / "run.json").read_bytes())
+    assert sum(record["job"]["type"] == "verify_composite" for record in metadata["jobs"]) == 1

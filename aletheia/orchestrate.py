@@ -160,6 +160,8 @@ class Benchmark:
             | {
                 "package_source_hash": code_hash,
                 "algorithms_hash": file_hash(package.parent / "algorithms.yaml"),
+                "taxonomy_hash": file_hash(package / "schema/taxonomy.yaml"),
+                "taxonomy_version": engine.harness["taxonomy_version"],
             },
             image_digests={
                 "analysis": self.config.sandbox.image_analysis,
@@ -170,7 +172,8 @@ class Benchmark:
             mapping_hashes={
                 name: file_hash(Path(getattr(self.config.sources, name).mapping))
                 for name in ("capa", "findcrypt")
-            },
+            }
+            | {"purpose_packs": engine.purpose_mapping_hash},
             verifier_version=__version__,
             grader_version=__version__,
             seeds={"scripted": 20261013, "bootstrap": self.config.metrics.bootstrap_seed},
@@ -396,8 +399,19 @@ class Benchmark:
                         )
                         return engine.verify(claim, binary, analysis, no_cache=no_cache)
 
-                with ThreadPoolExecutor(max_workers=self.config.sandbox.concurrency) as pool:
-                    results = list(pool.map(verify_claim, pending))
+                if any(
+                    claim.type in {"function_signature", "function_purpose"} for claim in claims
+                ):
+                    with self.store() as worker_store:
+                        results = Engine(
+                            runner,
+                            worker_store,
+                            self.config.budgets,
+                            Path(self.config.ghidra.analysis_options),
+                        ).verify_claims(claims, binary, analysis, no_cache=no_cache)
+                else:
+                    with ThreadPoolExecutor(max_workers=self.config.sandbox.concurrency) as pool:
+                        results = list(pool.map(verify_claim, pending))
                 with self.store() as store:
                     for result in results:
                         value = result.verdict
