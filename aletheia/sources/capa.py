@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import JsonValue
 
 from aletheia.schema.models import (
+    REGISTRY_V1,
     Algorithm,
     Claim,
     ClaimSubmission,
@@ -146,6 +147,7 @@ class CapaAdapter:
                         subject=Subject(address=f"0x{address:08x}"),
                         type="algorithm_identity",
                         body=algorithm,
+                        algorithms_version="1.0" if algorithm.family in REGISTRY_V1 else "2.0",
                         confidence=1.0,
                         confidence_source="tool_default",
                         derived_from="capa_rule",
