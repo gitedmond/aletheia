@@ -229,7 +229,7 @@ def _summary(
     )
 
 
-def _percentile(values: list[float], fraction: float) -> float:
+def percentile(values: list[float], fraction: float) -> float:
     position = (len(values) - 1) * fraction
     low = math.floor(position)
     high = math.ceil(position)
@@ -330,8 +330,8 @@ def compute_metrics(
             summary=point,
             intervals={
                 key: Interval(
-                    low=_percentile(sorted(values), 0.025) if values else None,
-                    high=_percentile(sorted(values), 0.975) if values else None,
+                    low=percentile(sorted(values), 0.025) if values else None,
+                    high=percentile(sorted(values), 0.975) if values else None,
                     defined_resamples=len(values),
                 )
                 for key, values in samples.items()
