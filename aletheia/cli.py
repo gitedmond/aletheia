@@ -670,13 +670,13 @@ def main() -> None:
         raise SystemExit(7) from exc
 
 
-if __name__ == "__main__":
-    main()
-
-
 @app.command("serve-mcp")
 def serve_mcp(ctx: typer.Context) -> None:
     """Serve verifier tools over stdio; logs must remain on stderr."""
     from aletheia.mcp_server import serve
 
     serve(read_config(ctx))
+
+
+if __name__ == "__main__":
+    main()
