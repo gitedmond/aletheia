@@ -1,8 +1,20 @@
 address_base_field: meta.analysis.base_address.value
 capa_version: 9.4.0
 map:
+  decode data using Base64 via WinAPI:
+    family: base64
+    variant: null
+  decode data using Base64 via dword translation table:
+    family: base64
+    variant: null
   encode data using Base64:
     family: base64
+    variant: null
+  hash data using SHA1:
+    family: sha1
+    variant: null
+  hash data using SHA256:
+    family: sha256
     variant: null
   hash data using djb2:
     family: djb2
@@ -12,5 +24,8 @@ map:
     variant: null
   hash data with CRC32:
     family: crc32
+    variant: null
+  hash data with MD5:
+    family: md5
     variant: null
 rules_tag: 9.4.0
