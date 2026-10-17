@@ -5,7 +5,8 @@
 static volatile uint64_t keep;
 FN uint64_t length_ref(const unsigned char *s) { uint64_t n=0; while(s[n]) ++n; return n; }
 FN uint64_t length_bound(const unsigned char *s,size_t bound) { size_t n=0; while(n<bound && s[n]) ++n; return n; }
-FN uint64_t length_plus(const unsigned char *s) { uint64_t n=0; while(s[n]) ++n; return n+1; }
+/* Volatile reads keep this independent near miss from becoming a libc call. */
+FN uint64_t length_plus(const unsigned char *s) { const volatile unsigned char *v=s; uint64_t n=0; while(v[n]) ++n; return n+1; }
 FN uint64_t length_newline(const unsigned char *s) { size_t n=0; while(s[n] && s[n]!='\n') ++n; return n; }
 FN uint64_t length_cap(const unsigned char *s) { size_t n=0; while(s[n] && n<255) ++n; return n; }
 FN int compare_ref(const unsigned char *a,const unsigned char *b) { while(*a && *a==*b) { ++a; ++b; } return (int)*a-(int)*b; }
