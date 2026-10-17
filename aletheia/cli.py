@@ -42,7 +42,10 @@ def configure(
         elif split == "heldout":
             raise PrivateAccessError("private_root is required for --split heldout")
     except PrivateAccessError as exc:
-        typer.echo(json.dumps({"status": "error", "error_code": "private_path", "error": str(exc)}))
+        typer.echo(
+            json.dumps({"status": "error", "error_code": "private_path", "error": str(exc)}),
+            err=ctx.invoked_subcommand == "serve-mcp",
+        )
         raise typer.Exit(7) from None
     except (OSError, ValueError):
         pass  # The selected command reports ordinary configuration errors.
@@ -668,6 +671,14 @@ def main() -> None:
     except PrivateAccessError as exc:
         typer.echo(json.dumps({"status": "error", "error_code": "private_path", "error": str(exc)}))
         raise SystemExit(7) from exc
+
+
+@app.command("serve-mcp")
+def serve_mcp(ctx: typer.Context) -> None:
+    """Serve verifier tools over stdio; logs must remain on stderr."""
+    from aletheia.mcp_server import serve
+
+    serve(read_config(ctx))
 
 
 if __name__ == "__main__":
