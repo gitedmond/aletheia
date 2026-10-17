@@ -355,7 +355,7 @@ class VerifierSession:
                     with self.lock:
                         self.claims.update(by_id)
                         self.verdicts.update(staged)
-                    return response(results=[staged[v.claim_id] for v in verdicts])
+                    return response(results=[staged[c.claim_id] for c in parsed])
 
             return self.schedule(
                 digest,

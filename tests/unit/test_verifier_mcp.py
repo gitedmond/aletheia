@@ -95,14 +95,14 @@ def test_all_tools_and_purge_ownership(session):
     assert session.get_job(loaded["job_id"])["error_code"] == "invalid_claim"
 
 
-def test_batch_preserves_backend_verification_order(session):
+def test_batch_preserves_submission_order(session):
     digest = load(session)["binary_sha256"]
     result = session.verify_claims([claim(digest), claim(digest, "0x00002000")])
     assert result["status"] == "ok"
     addresses = [
         session.claims[r["verdict"]["claim_id"]].subject.address for r in result["results"]
     ]
-    assert addresses == ["0x00002000", "0x00001000"]
+    assert addresses == ["0x00001000", "0x00002000"]
 
 
 def test_validation_and_unknown_identity_errors(session):
@@ -236,8 +236,8 @@ def test_reversed_calibrated_dependency_batch_is_atomic(session, monkeypatch):
     child["depends_on"] = [parent_id]
     result = session.verify_claims([parent, child], "caller")
     assert result["status"] == "ok"
-    assert result["results"][0]["calibration"] == "calibrated"
-    assert result["results"][0]["c_adj"] == pytest.approx(0.8)
+    assert result["results"][1]["calibration"] == "calibrated"
+    assert result["results"][1]["c_adj"] == pytest.approx(0.8)
     before = dict(session.verdicts)
 
     def fail(*args):
