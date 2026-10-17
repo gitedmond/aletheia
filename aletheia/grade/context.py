@@ -28,6 +28,13 @@ class GradingContext(Record):
             raise ValueError("invalid aggregate annotation agreement")
         return self
 
+    @property
+    def primary_kappa(self) -> dict[str, float | None]:
+        # R15: retain descriptive assisted agreement, but never use it as human validation.
+        if self.human_validated is not True:
+            return {node: None for node in self.taxonomy_kappa}
+        return dict(self.taxonomy_kappa)
+
     @classmethod
     def read(cls, path: Path) -> "GradingContext":
         return cls.snapshot(path)[0]

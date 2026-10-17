@@ -11,7 +11,7 @@ from pydantic import TypeAdapter
 from aletheia.analysis.ghidra_session import GhidraAnalysisCache
 from aletheia.grade import grade
 from aletheia.metrics import MetricsReport, compute_metrics
-from aletheia.orchestrate import Benchmark, write_json
+from aletheia.orchestrate import Benchmark, file_hash, write_json
 from aletheia.sandbox.cached import SOURCE_JOBS, SourceCacheMiss
 from aletheia.schema.canonical import canonical_bytes, content_hash
 from aletheia.schema.models import Claim, GroundTruth, Job, RunManifest
@@ -23,7 +23,22 @@ def pin_differences(benchmark: Benchmark, manifest: RunManifest) -> list[str]:
     program, source = manifest.source_config.get("program"), manifest.source_config.get("source")
     if not isinstance(program, str) or not isinstance(source, str):
         raise ValueError("manifest lacks program/source")
-    current = benchmark.manifest_input(program, source)
+    variant = manifest.source_config.get("variant_id")
+    current = benchmark.manifest_input(
+        program, source, variant=variant if isinstance(variant, str) else None
+    )
+    current.algorithms_version = manifest.algorithms_version
+    if source == "agent":
+        current.seeds["agent"] = manifest.seeds["agent"]
+        config = manifest.source_config["agent_config"]
+        if not isinstance(config, dict) or not isinstance(config.get("prompt"), str):
+            raise ValueError("manifest lacks agent prompt")
+        prompt = config["prompt"]
+        assert isinstance(prompt, str)
+        current.source_config["prompt_hash"] = file_hash(Path(prompt))
+        current.source_config["context_hash"] = file_hash(
+            Path(__file__).parent.parent / "prompts/context-v1.md"
+        )
     expected = manifest.model_dump(mode="json", exclude={"run_id", "created_at"})
     actual = current.model_dump(mode="json")
     differences = [
@@ -54,7 +69,9 @@ def replay(benchmark: Benchmark, run: str) -> dict[str, Any]:
         metadata = TypeAdapter(dict[str, Any]).validate_json((directory / "run.json").read_bytes())
         if not isinstance(metadata.get("jobs"), list):
             raise ValueError("invalid job records in run metadata")
-        binary, targets, bundle = benchmark.bundle(str(manifest.source_config["program"]))
+        binary, targets, bundle = benchmark.bundle(
+            str(manifest.source_config["program"]), metadata.get("variant_id")
+        )
     except (OSError, ValueError, KeyError, TypeError) as exc:
         return receipt | {"exit_code": 5, "differences": ["run metadata: " + str(exc)[:300]]}
     runner = benchmark.runner(require_cache=True)
@@ -155,7 +172,7 @@ def replay(benchmark: Benchmark, run: str) -> dict[str, Any]:
             verdicts,
             truth,
             targets,
-            taxonomy_kappa=benchmark.grading_context.taxonomy_kappa
+            taxonomy_kappa=benchmark.grading_context.primary_kappa
             if benchmark.grading_context
             else None,
         )

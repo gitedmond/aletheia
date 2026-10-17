@@ -83,6 +83,7 @@ class Price(Strict):
 class AgentConfig(Strict):
     config_id: str = Field(pattern=r"^[a-z][a-z0-9-]*$")
     provider: Literal["openai-compatible"] = "openai-compatible"
+    transport: Literal["http", "windows-loopback"] = "http"
     base_url: str
     api_key_env: str | None = Field(default=None, pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
     model: str = Field(min_length=1)

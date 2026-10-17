@@ -52,3 +52,54 @@ def test_manifest_pins_and_pack_coverage_do_not_depend_on_working_directory(tmp_
     monkeypatch.chdir(elsewhere)
     repeated = Benchmark(cfg).manifest_input("example", "scripted")
     assert canonical_bytes(repeated) == canonical_bytes(original)
+
+
+def test_explicit_variant_and_heldout_metadata_are_preserved(tmp_path):
+    import pytest
+
+    cfg = Config()
+    cfg.paths.private_root = str(tmp_path / "hidden")
+    cfg = cfg.for_split("heldout")
+    cfg.sandbox.image_analysis = "sha256:" + "a" * 64
+    cfg.sandbox.image_build = "sha256:" + "b" * 64
+    digests = {}
+    for variant in ["baseline", "hardened"]:
+        data = variant.encode()
+        digest = hashlib.sha256(data).hexdigest()
+        digests[variant] = digest
+        root = Path(cfg.paths.build) / "example" / variant
+        (root / "stripped").mkdir(parents=True)
+        (root / "private").mkdir()
+        (root / "stripped" / (digest + ".bin")).write_bytes(data)
+        (root / "private/ground_truth.json").write_bytes(b"opaque hash pin")
+        (root / "targets.json").write_bytes(
+            canonical_bytes(Targets(binary_sha256=digest, variant_id=variant, targets=[]))
+        )
+    with pytest.raises(ValueError, match="exactly one"):
+        Benchmark(cfg).bundle("example")
+    benchmark = Benchmark(cfg, variant="baseline", algorithms_version="2.0")
+    assert benchmark.bundle("example")[0].binary_sha256 == digests["baseline"]
+    manifest_input = benchmark.manifest_input("example", "human")
+    assert manifest_input.algorithms_version == "2.0"
+    manifest_input.source_config.update(origin="human", source_id="fixture")
+    from aletheia.schema.models import RunManifest
+
+    run = benchmark.ingest("example", RunManifest.create(manifest_input), [])
+    with benchmark.store() as store:
+        assert store.connection.execute("SELECT split FROM binaries").fetchone()[0] == "heldout"
+    import json
+
+    assert (
+        json.loads((benchmark.directory(run) / "run.json").read_bytes())["variant_id"] == "baseline"
+    )
+
+
+def test_dev_fit_refuses_heldout_scope_before_reading_runs(tmp_path):
+    import pytest
+
+    from aletheia.agent.batch import fit_dev
+
+    cfg = Config()
+    cfg.paths.private_root = str(tmp_path / "hidden")
+    with pytest.raises(ValueError, match="dev runs only"):
+        fit_dev(Benchmark(cfg.for_split("heldout")))

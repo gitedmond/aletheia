@@ -9,6 +9,7 @@ from pydantic import Field, model_validator
 from aletheia.analysis.ghidra_session import GhidraOptions, publish_immutable, read_public_binary
 from aletheia.sandbox.runner import JobRunner
 from aletheia.schema.models import (
+    REGISTRY_V1,
     Address,
     Algorithm,
     Claim,
@@ -116,6 +117,7 @@ class FindcryptAdapter:
                     subject=Subject(address=f"0x{address:08x}"),
                     type="algorithm_identity",
                     body=algorithm,
+                    algorithms_version="1.0" if algorithm.family in REGISTRY_V1 else "2.0",
                     confidence=1.0,
                     confidence_source="tool_default",
                     derived_from="constant_xref",

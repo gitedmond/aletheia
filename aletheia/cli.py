@@ -660,6 +660,58 @@ def install_hooks(ctx: typer.Context) -> None:
     typer.echo(json.dumps({"status": "ok", "hook": str(result)}))
 
 
+agents_app = typer.Typer(
+    help="Explicit pinned local agent configurations; hosted spending stays disabled."
+)
+app.add_typer(agents_app, name="agents")
+
+
+@agents_app.command("run")
+def agents_run(
+    ctx: typer.Context,
+    config: Annotated[Path, typer.Option("--config")],
+    variant: Annotated[Literal["baseline", "hardened"], typer.Option("--variant")] = "baseline",
+    samples: Annotated[int, typer.Option("--samples", min=1)] = 3,
+    program: Annotated[str | None, typer.Option("--program")] = None,
+) -> None:
+    import yaml
+
+    from aletheia.agent.batch import provider_for, run_agent
+    from aletheia.corpus.build import Variant
+    from aletheia.llm.provider import AgentConfig
+    from aletheia.orchestrate import Benchmark
+
+    cfg = read_config(ctx)
+    cfg.guard.access(config)
+    agent = AgentConfig.model_validate(yaml.safe_load(config.read_bytes()))
+    if agent.hosted:
+        typer.echo(json.dumps({"status": "skipped", "reason": "hosted_cost_cap"}))
+        raise typer.Exit(8)
+    build_variant = Variant(
+        cfg.sandbox.image_build, hardening="hardoff" if variant == "baseline" else "hardened"
+    ).id
+    benchmark = Benchmark(cfg, variant=build_variant, algorithms_version="2.0")
+    programs = [program] if program else benchmark.programs()
+    provider = provider_for(agent)
+    runs: list[dict[str, str | None]] = []
+    for selected in programs:
+        for index in range(samples):
+            run, result = run_agent(benchmark, agent, provider, selected, index)
+            runs.append({"run_id": run, "status": result.status, "reason": result.reason})
+    typer.echo(json.dumps({"status": "ok", "runs": runs}, sort_keys=True))
+
+
+calibrate_app = typer.Typer(help="Confidence fitting from dev claims only.")
+app.add_typer(calibrate_app, name="calibrate")
+
+
+@calibrate_app.command("fit")
+def calibrate_fit(ctx: typer.Context) -> None:
+    from aletheia.agent.batch import fit_dev
+
+    _benchmark_action(ctx, fit_dev)
+
+
 def main() -> None:
     from aletheia.heldout.guard import PrivateAccessError
 

@@ -4,6 +4,7 @@ from pathlib import Path
 
 from aletheia.agent.loop import AgentLoop, AgentResult, build_messages
 from aletheia.agent.proxy import HarnessProxy
+from aletheia.agent.replay import RecordingProvider
 from aletheia.agent.upstream import GhidraUpstream
 from aletheia.config import Config
 from aletheia.llm.provider import AgentConfig, CachedProvider, Provider
@@ -59,12 +60,17 @@ def collect(
         if sorted(tool.function.name for tool in tools) != proxy.allowlist.tools:
             raise ValueError("upstream tool schema drift")
         messages, prompt_hash, context_hash = build_messages(Path(agent.prompt), targets)
-        loop = AgentLoop(agent, cached, proxy, tools, seed=seed)
+        recording = RecordingProvider(cached)
+        loop = AgentLoop(agent, recording, proxy, tools, seed=seed)
         result = loop.run(messages)
         write_json(
             root / "agent.json",
             {
                 "run_id": run_id,
+                "binary_sha256": binary.binary_sha256,
+                "messages": [m.model_dump(mode="json") for m in messages],
+                "provider_events": recording.events,
+                "clock_trace": [repr(value) for value in loop.clock_trace],
                 "config": agent.model_dump(mode="json"),
                 "provider_transport": provider.id,
                 "prompt_hash": prompt_hash,
