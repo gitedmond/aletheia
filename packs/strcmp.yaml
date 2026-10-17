@@ -1,0 +1,38 @@
+version: 1
+near_miss:
+- compare_signed
+- compare_length
+- compare_equal
+inputs:
+  fixed: []
+  random:
+    count: 64
+    max_len: 4096
+    seed: 20261013
+  string_pairs: true
+  fixed_pairs:
+  - - '616263'
+    - '616264'
+  - - '62'
+    - '61'
+  - - '80'
+    - '01'
+  - - ''
+    - ''
+  - - '61'
+    - '6161'
+  - - '6161'
+    - '61'
+  - - '6162'
+    - '6261'
+family: strcmp
+call_shapes:
+- id: strcmp
+  roles:
+  - cstr
+  - cstr_b
+  return_width: 32
+  comparison: sign
+variants:
+  std:
+    oracle: strcmp_std

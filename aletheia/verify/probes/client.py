@@ -33,6 +33,7 @@ class ProbeClient:
         pack: Path | None,
         budgets: Budgets,
         env_digest: Digest,
+        purpose_mapping: Path | None = None,
     ) -> Verdict:
         self.last_artifact = None
         if (
@@ -58,6 +59,10 @@ class ProbeClient:
             if any(part.is_symlink() for part in (pack, *pack.parents)):
                 raise ValueError("probe pack cannot be a symlink")
             inputs["pack"] = stage(pack.read_bytes(), ".yaml")
+        if purpose_mapping is not None:
+            if any(part.is_symlink() for part in (purpose_mapping, *purpose_mapping.parents)):
+                raise ValueError("purpose mapping cannot be a symlink")
+            inputs["purpose_mapping"] = stage(purpose_mapping.read_bytes(), ".yaml")
         job = Job.create("verify_probe", inputs, {})
         handle = self.runner.submit(job)
         result = self.runner.wait(handle)

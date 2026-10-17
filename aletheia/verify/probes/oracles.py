@@ -2,13 +2,40 @@
 
 import base64
 import hashlib
+import re
 import zlib
 from dataclasses import dataclass
 
 MASK32 = 0xFFFFFFFF
 
+PURPOSE_VARIANTS: dict[str, tuple[str, ...]] = {
+    "strlen": ("std",),
+    "strcmp": ("std",),
+    "memcpy": ("std",),
+    "hex": ("lower", "upper"),
+    "parse-int": ("decimal-signed", "decimal-unsigned"),
+}
+
+
+def string_pair(data: bytes) -> tuple[bytes, bytes]:
+    if len(data) < 2:
+        raise ValueError("string pair requires a length prefix")
+    size = int.from_bytes(data[:2], "little")
+    if size > len(data) - 2:
+        raise ValueError("string pair length exceeds payload")
+    left, right = data[2 : 2 + size], data[2 + size :]
+    if b"\0" in left or b"\0" in right:
+        raise ValueError("string pair cannot contain embedded NULs")
+    return left, right
+
+
 # Registry membership alone does not imply probe support.
 ORACLE_VARIANTS: dict[str, tuple[str, str]] = {
+    **{name + "_std": (name, "std") for name in ("strlen", "strcmp", "memcpy")},
+    "hex_lower": ("hex", "lower"),
+    "hex_upper": ("hex", "upper"),
+    "parse_int_signed": ("parse-int", "decimal-signed"),
+    "parse_int_unsigned": ("parse-int", "decimal-unsigned"),
     "crc32_ieee": ("crc32", "ieee"),
     "crc32_jamcrc": ("crc32", "jamcrc"),
     "crc32c": ("crc32", "crc32c"),
@@ -58,6 +85,27 @@ def evaluate(name: str, data: bytes, *, seed: int | None = None) -> OracleResult
     family, _ = ORACLE_VARIANTS[name]
     if seed is not None and family not in {"crc32", "adler32"}:
         raise ValueError(f"oracle does not accept a seed: {name}")
+    if family == "strlen":
+        if b"\0" in data:
+            raise ValueError("strlen input contains embedded NUL")
+        return OracleResult(len(data))
+    if family == "strcmp":
+        left, right = string_pair(data)
+        return OracleResult((left > right) - (left < right))
+    if family == "memcpy":
+        return OracleResult(0, data + b"\xa5" * 16)
+    if family == "hex":
+        output = data.hex().encode("ascii")
+        return OracleResult(0, output.upper() if name == "hex_upper" else output)
+    if family == "parse-int":
+        pattern = (
+            rb"(?:0|-[1-9][0-9]*|[1-9][0-9]*)"
+            if name == "parse_int_signed"
+            else rb"(?:0|[1-9][0-9]*)"
+        )
+        if re.fullmatch(pattern, data) is None or len(data) > 20:
+            raise ValueError("parse-int input must be canonical decimal")
+        return OracleResult(int(data))
     if name in {"crc32_ieee", "crc32_jamcrc"}:
         value = zlib.crc32(data, 0 if seed is None else seed) & MASK32
         return OracleResult(value ^ MASK32 if name == "crc32_jamcrc" else value)

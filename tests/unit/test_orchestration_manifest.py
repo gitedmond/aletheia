@@ -41,6 +41,11 @@ def test_manifest_pins_and_pack_coverage_do_not_depend_on_working_directory(tmp_
         "md5",
         "sha1",
         "sha256",
+        "strlen",
+        "strcmp",
+        "memcpy",
+        "hex",
+        "parse-int",
     }
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()

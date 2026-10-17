@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 from aletheia.verify.probes.inputs import inputs_for_variant
-from aletheia.verify.probes.oracles import evaluate
+from aletheia.verify.probes.oracles import PURPOSE_VARIANTS, evaluate
 from aletheia.verify.probes.pack import load_pack
 
 
@@ -23,6 +23,8 @@ def test_pack_fixed_inputs_equal_published_vector_table():
     for path in sorted(Path("packs").glob("*.yaml")):
         pack = load_pack(path)
         assert pack.inputs.random.count == 64 and pack.inputs.random.max_len == 4096
+        if pack.family in PURPOSE_VARIANTS:
+            continue  # Purpose vectors have their own F10 table and domain checks.
         inputs = [value.encode() for value in pack.inputs.fixed]
         inputs += [bytes.fromhex(value) for value in pack.inputs.fixed_hex]
         for variant, probe in pack.variants.items():

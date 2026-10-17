@@ -7,12 +7,19 @@ import yaml
 from pydantic import Field, model_validator
 
 from aletheia.schema.models import REGISTRY, Strict
-from aletheia.verify.probes.oracles import ORACLE_VARIANTS
+from aletheia.verify.probes.oracles import ORACLE_VARIANTS, PURPOSE_VARIANTS
 
-type Role = Literal["seed", "buf", "len", "cstr", "out"]
+type Role = Literal["seed", "buf", "len", "cstr", "cstr_b", "out"]
 Identifier = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]*$")]
 HexInput = Annotated[str, Field(pattern=r"^(?:[0-9a-f]{2})*$")]
 SHAPES: dict[str, list[Role]] = {
+    "strlen_cstr": ["cstr"],
+    "strlen_bound": ["cstr", "len"],
+    "strcmp": ["cstr", "cstr_b"],
+    "memcpy": ["out", "buf", "len"],
+    "hex": ["buf", "len", "out"],
+    "parse_int32": ["cstr"],
+    "parse_int64": ["cstr"],
     "seed_buf_len": ["seed", "buf", "len"],
     "buf_len": ["buf", "len"],
     "buf_len_digest_out": ["buf", "len", "out"],
@@ -23,6 +30,11 @@ SHAPES: dict[str, list[Role]] = {
     "buf_len_out": ["buf", "len", "out"],
 }
 FAMILY_SHAPES: dict[str, set[str]] = {
+    "strlen": {"strlen_cstr", "strlen_bound"},
+    "strcmp": {"strcmp"},
+    "memcpy": {"memcpy"},
+    "hex": {"hex"},
+    "parse-int": {"parse_int32", "parse_int64"},
     "crc32": {"seed_buf_len", "buf_len"},
     "adler32": {"seed_buf_len", "buf_len"},
     "fnv": {"buf_len"},
@@ -37,11 +49,33 @@ class CallShape(Strict):
     id: Identifier
     roles: list[Role]
     return_width: Literal[16, 32, 64]
-    comparison: Literal["return_output", "output"] = "return_output"
-    out_size: Literal["base64_encode", "base64_decode", "md5", "sha1", "sha256"] | None = None
+    comparison: Literal["return_output", "output", "sign"] = "return_output"
+    out_size: (
+        Literal["base64_encode", "base64_decode", "md5", "sha1", "sha256", "memcpy", "hex"] | None
+    ) = None
 
     @model_validator(mode="after")
     def semantics(self) -> Self:
+        if self.id in {
+            "strlen_cstr",
+            "strlen_bound",
+            "strcmp",
+            "memcpy",
+            "hex",
+            "parse_int32",
+            "parse_int64",
+        }:
+            output = self.id if self.id in {"memcpy", "hex"} else None
+            comparison = "output" if output else "sign" if self.id == "strcmp" else "return_output"
+            width = 32 if self.id in {"strcmp", "parse_int32"} else 64
+            if (
+                self.roles != SHAPES[self.id]
+                or self.out_size != output
+                or self.comparison != comparison
+                or self.return_width != width
+            ):
+                raise ValueError("purpose call shape semantics mismatch")
+            return self
         digest_shape = self.id in {"buf_len_digest_out", "out_buf_len_digest"}
         if digest_shape != (self.comparison == "output"):
             raise ValueError("digest shapes compare only their fixed output")
@@ -66,6 +100,10 @@ class CallShape(Strict):
             raise ValueError("negative input length")
         if self.out_size is None:
             return 0
+        if self.out_size == "memcpy":
+            return input_len + 16
+        if self.out_size == "hex":
+            return 2 * input_len + 1
         if self.out_size in {"md5", "sha1", "sha256"}:
             return {"md5": 16, "sha1": 20, "sha256": 32}[self.out_size]
         if self.out_size == "base64_decode":
@@ -79,7 +117,7 @@ def _empty_bindings() -> dict[Literal["seed"], int]:
 
 class VariantProbe(Strict):
     oracle: Identifier
-    input_encoding: Literal["raw", "base64"] = "raw"
+    input_encoding: Literal["raw", "base64", "decimal_signed", "decimal_unsigned"] = "raw"
     call_shapes: list[Identifier] | None = None
     bind: dict[Literal["seed"], Annotated[int, Field(ge=0, le=0xFFFFFFFF)]] = Field(
         default_factory=_empty_bindings
@@ -95,16 +133,29 @@ class RandomInputs(Strict):
 class Inputs(Strict):
     fixed: list[str]
     boundary_lengths: bool = False
+    string_pairs: bool = False
+    string_data: bool = False
+    fixed_pairs: list[Annotated[list[HexInput], Field(min_length=2, max_length=2)]] = Field(
+        default_factory=lambda: []
+    )
     fixed_hex: list[HexInput] = Field(default_factory=list)
     random: RandomInputs
 
     @model_validator(mode="after")
     def nonempty(self) -> Self:
-        if (
-            not self.fixed
-            and not self.fixed_hex
-            and not self.random.count
-            and not self.boundary_lengths
+        if self.string_pairs:
+            if self.fixed or self.fixed_hex or self.boundary_lengths or self.string_data:
+                raise ValueError("pair generation accepts only fixed_pairs and random inputs")
+            if self.random.max_len > 65535:
+                raise ValueError("string pair exceeds its length encoding")
+        elif self.fixed_pairs:
+            raise ValueError("fixed_pairs requires string_pairs generation")
+        if not (
+            self.fixed
+            or self.fixed_hex
+            or self.fixed_pairs
+            or self.boundary_lengths
+            or self.random.count
         ):
             raise ValueError("pack must declare at least one input")
         return self
@@ -120,7 +171,8 @@ class Pack(Strict):
 
     @model_validator(mode="after")
     def relationships(self) -> Self:
-        if self.family not in REGISTRY or self.family not in FAMILY_SHAPES:
+        registry = REGISTRY | PURPOSE_VARIANTS
+        if self.family not in registry or self.family not in FAMILY_SHAPES:
             raise ValueError("family has no Phase 1A pack support")
         ids = [shape.id for shape in self.call_shapes]
         if len(ids) != len(set(ids)):
@@ -145,7 +197,15 @@ class Pack(Strict):
                 )
                 if set(probe.call_shapes or ids) != {expected}:
                     raise ValueError("base64 oracle requires its matching call shape")
-            if variant not in REGISTRY[self.family]:
+            if (probe.input_encoding in {"decimal_signed", "decimal_unsigned"}) != (
+                self.family == "parse-int"
+            ):
+                raise ValueError("decimal input encoding is only valid for parse-int")
+            if self.family == "parse-int" and probe.input_encoding != (
+                "decimal_signed" if variant == "decimal-signed" else "decimal_unsigned"
+            ):
+                raise ValueError("decimal variant/encoding mismatch")
+            if variant not in registry[self.family]:
                 raise ValueError("unknown variant for family")
             if ORACLE_VARIANTS.get(probe.oracle) != (self.family, variant):
                 raise ValueError("oracle does not implement the declared family/variant")
@@ -159,10 +219,10 @@ class Pack(Strict):
 
     @property
     def unsupported_variants(self) -> tuple[str, ...]:
-        return tuple(sorted(set(REGISTRY[self.family]) - self.variants.keys()))
+        return tuple(sorted(set((REGISTRY | PURPOSE_VARIANTS)[self.family]) - self.variants.keys()))
 
 
-class _UniqueLoader(yaml.SafeLoader):
+class UniqueLoader(yaml.SafeLoader):
     """Reject ambiguous duplicate keys instead of silently using the last value."""
 
 
@@ -170,7 +230,7 @@ class _Constructor(Protocol):
     def construct_object(self, node: yaml.Node, deep: bool = False) -> object: ...
 
 
-def _mapping(loader: _UniqueLoader, node: yaml.MappingNode) -> dict[object, object]:
+def _mapping(loader: UniqueLoader, node: yaml.MappingNode) -> dict[object, object]:
     loader.flatten_mapping(node)
     result: dict[object, object] = {}
     for key_node, value_node in node.value:
@@ -185,12 +245,12 @@ def _mapping(loader: _UniqueLoader, node: yaml.MappingNode) -> dict[object, obje
     return result
 
 
-_UniqueLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _mapping)
+UniqueLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _mapping)
 
 
 def load_pack(path: Path) -> Pack:
     try:
-        raw: object = yaml.load(path.read_text(encoding="utf-8"), Loader=_UniqueLoader)
+        raw: object = yaml.load(path.read_text(encoding="utf-8"), Loader=UniqueLoader)
     except yaml.YAMLError as error:
         raise ValueError(f"invalid pack YAML: {path}") from error
     return Pack.model_validate(raw)
