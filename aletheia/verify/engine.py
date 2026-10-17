@@ -26,6 +26,7 @@ from aletheia.schema.models import (
     Aspect,
     AspectName,
     Budget,
+    Call,
     Claim,
     Digest,
     Evidence,
@@ -1104,7 +1105,15 @@ class Engine:
             claim.binary_sha256 != binary.binary_sha256 for claim in claims
         ):
             raise ValueError("verification batch requires one run and binary")
-        if len({(claim.subject.address, claim.type) for claim in claims}) != len(claims):
+        keys = [
+            (
+                claim.subject.address,
+                claim.type,
+                claim.body.callee if isinstance(claim.body, Call) else "",
+            )
+            for claim in claims
+        ]
+        if len(set(keys)) != len(keys):
             raise ValueError("verification batch contains duplicate active claims")
         if (
             analysis.binary_sha256 != binary.binary_sha256
