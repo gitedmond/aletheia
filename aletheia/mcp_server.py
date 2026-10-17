@@ -9,8 +9,11 @@ import shutil
 import threading
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError
+from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, Literal, Protocol
+
+from pydantic import ValidationError
 
 from aletheia import __version__
 from aletheia.analysis.ghidra_session import GhidraAnalysis, GhidraAnalysisCache, publish_immutable
@@ -87,8 +90,11 @@ class NativeVerifier:
             return GhidraAnalysisCache(
                 self.runner(binary.binary_sha256), self.root / binary.binary_sha256 / "analysis"
             ).analyze(binary, Path(self.config.ghidra.analysis_options))
-        except RuntimeError as exc:
-            if "binary_too_large" in str(exc) or "2000" in str(exc):
+        except ValidationError as exc:
+            if any(
+                error["loc"] == ("functions",) and error["type"] == "too_long"
+                for error in exc.errors()
+            ):
                 raise McpError("binary_too_large", "Binary exceeds 2,000 functions") from exc
             raise
 
@@ -214,7 +220,9 @@ class VerifierSession:
         except Exception as exc:
             return {**failure(exc), "job_id": job_id, "job_status": "error"}
 
-    def confidence(self, claim: Claim, verdict: Verdict, config_id: str | None) -> dict[str, Any]:
+    def confidence(
+        self, claim: Claim, verdict: Verdict, config_id: str | None, parents: list[float]
+    ) -> dict[str, Any]:
         result: dict[str, Any] = {"confidence": claim.confidence, "calibration": "uncalibrated"}
         if config_id is None or self.config.mcp.calibration_maps is None:
             return result
@@ -258,11 +266,6 @@ class VerifierSession:
             method="+".join(methods) or "none",
             depends_on=claim.depends_on,
         )
-        with self.lock:
-            parents = [
-                float(self.verdicts[parent].get("c_adj", self.claims[parent].confidence))
-                for parent in claim.depends_on
-            ]
         adjusted = adjust(row, maps, table, parents)
         return {
             **result,
@@ -309,18 +312,50 @@ class VerifierSession:
                 def verify() -> dict[str, Any]:
                     verdicts = self.backend.verify(parsed, binary, analysis)
                     by_id = {c.claim_id: c for c in parsed}
-                    results: list[dict[str, Any]] = []
-                    for verdict in verdicts:
-                        claim = by_id[verdict.claim_id]
-                        result = response(
-                            verdict=verdict.model_dump(mode="json"),
-                            **self.confidence(claim, verdict, config_id),
+                    verdict_by_id = {v.claim_id: v for v in verdicts}
+                    if set(verdict_by_id) != set(by_id) or len(verdicts) != len(parsed):
+                        raise ValueError("backend returned an incomplete verification batch")
+                    try:
+                        order = list(
+                            TopologicalSorter(
+                                {c.claim_id: c.depends_on for c in parsed}
+                            ).static_order()
                         )
-                        with self.lock:
-                            self.claims[claim.claim_id] = claim
-                            self.verdicts[claim.claim_id] = result
-                        results.append(result)
-                    return response(results=results)
+                    except CycleError as exc:
+                        raise McpError("invalid_claim", "Cyclic reasoning dependency") from exc
+                    with self.lock:
+                        prior_claims, prior_results = dict(self.claims), dict(self.verdicts)
+                    staged: dict[str, dict[str, Any]] = {}
+                    for identity in order:
+                        if identity not in by_id:
+                            continue
+                        claim = by_id[identity]
+                        parents: list[float] = []
+                        for parent in claim.depends_on:
+                            parent_claim = by_id.get(parent) or prior_claims[parent]
+                            if parent_claim.run_id != claim.run_id:
+                                raise McpError(
+                                    "invalid_claim", "Reasoning parent belongs to another run"
+                                )
+                            parent_result = staged.get(parent) or prior_results[parent]
+                            parents.append(
+                                min(
+                                    0.98,
+                                    max(
+                                        0.02,
+                                        float(parent_result.get("c_adj", parent_claim.confidence)),
+                                    ),
+                                )
+                            )
+                        verdict = verdict_by_id[identity]
+                        staged[identity] = response(
+                            verdict=verdict.model_dump(mode="json"),
+                            **self.confidence(claim, verdict, config_id, parents),
+                        )
+                    with self.lock:
+                        self.claims.update(by_id)
+                        self.verdicts.update(staged)
+                    return response(results=[staged[v.claim_id] for v in verdicts])
 
             return self.schedule(
                 digest,

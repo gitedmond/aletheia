@@ -210,3 +210,89 @@ def test_adjusted_confidence_requires_matching_fitted_configuration(session):
 
 def test_excessive_batch_is_counted_before_parsing(session):
     assert session.verify_claims([{}] * 2001)["error_code"] == "budget_exceeded"
+
+
+def test_reversed_calibrated_dependency_batch_is_atomic(session, monkeypatch):
+    from aletheia.confidence import Block, CalibrationFit, CalibrationMap
+    from aletheia.schema.models import Claim
+
+    digest = load(session)["binary_sha256"]
+    mapping = CalibrationMap(
+        source_id="caller",
+        claim_type="algorithm_identity",
+        run_ids=["r_" + "2" * 16],
+        blocks=[Block(low=0.1, high=0.9, count=30, correct=24)],
+    )
+    path = session.root / "maps.json"
+    path.write_text(
+        CalibrationFit(run_ids=mapping.run_ids, maps=[mapping], unfitted=[]).model_dump_json()
+    )
+    session.config.mcp.calibration_maps = str(path)
+    parent = claim(digest)
+    parent["confidence"] = 1.0
+    parent["source"] = {"origin": "human", "source_id": "uncalibrated"}
+    parent_id = Claim.intake(ClaimSubmission.model_validate(parent)).claim_id
+    child = claim(digest, "0x00002000")
+    child["depends_on"] = [parent_id]
+    result = session.verify_claims([parent, child], "caller")
+    assert result["status"] == "ok"
+    assert result["results"][0]["calibration"] == "calibrated"
+    assert result["results"][0]["c_adj"] == pytest.approx(0.8)
+    before = dict(session.verdicts)
+
+    def fail(*args):
+        raise ValueError("unreadable map")
+
+    monkeypatch.setattr(session, "confidence", fail)
+    assert session.verify_claims([claim(digest, "0x00003000")], "caller")["status"] == "error"
+    assert session.verdicts == before and len(session.claims) == 2
+
+
+def test_native_function_limit_uses_structured_validation(session, monkeypatch):
+    from pydantic import ValidationError
+
+    from aletheia.mcp_server import McpError, NativeVerifier
+    from aletheia.sources.base import BinaryRef
+
+    error = ValidationError.from_exception_data(
+        "GhidraAnalysis",
+        [
+            {
+                "type": "too_long",
+                "loc": ("functions",),
+                "input": [],
+                "ctx": {"field_type": "List", "max_length": 2000, "actual_length": 2001},
+            }
+        ],
+    )
+
+    def analyze(*args):
+        raise error
+
+    monkeypatch.setattr("aletheia.mcp_server.GhidraAnalysisCache.analyze", analyze)
+    verifier = NativeVerifier(session.config, session.root)
+    with pytest.raises(McpError, match="2,000"):
+        verifier.analyze(
+            BinaryRef("b" * 64, session.root / "stripped" / ("b" * 64 + ".bin"), "mcp")
+        )
+
+    def unrelated(*args):
+        raise RuntimeError("unrelated output 2000")
+
+    monkeypatch.setattr("aletheia.mcp_server.GhidraAnalysisCache.analyze", unrelated)
+    with pytest.raises(RuntimeError, match="unrelated"):
+        verifier.analyze(
+            BinaryRef("b" * 64, session.root / "stripped" / ("b" * 64 + ".bin"), "mcp")
+        )
+
+
+def test_mcp_startup_errors_use_stderr(tmp_path):
+    from typer.testing import CliRunner
+
+    from aletheia.cli import app
+
+    result = CliRunner().invoke(
+        app, ["--config", str(tmp_path / "missing.toml"), "--split", "heldout", "serve-mcp"]
+    )
+    assert result.exit_code == 7 and not result.stdout
+    assert '"error_code": "private_path"' in result.stderr
