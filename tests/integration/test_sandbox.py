@@ -54,7 +54,8 @@ def image(tmp_path_factory):
     directory = tmp_path_factory.mktemp("sandbox-test-image")
     (directory / "test_worker.py").write_text(TEST_WORKER)
     # BuildKit resolves FROM as a named reference, not a Docker config image ID.
-    base = "aletheia-test-base:" + cfg.sandbox.image_analysis.removeprefix("sha256:")
+    suffix = cfg.sandbox.image_analysis.removeprefix("sha256:") + f"-{os.getpid()}"
+    base = "aletheia-test-base:" + suffix
     subprocess.run(["docker", "image", "tag", cfg.sandbox.image_analysis, base], check=True)
     assert (
         subprocess.check_output(
@@ -77,7 +78,7 @@ def image(tmp_path_factory):
         "PYTHONDONTWRITEBYTECODE=1\nUSER 1001:1001\nWORKDIR /scratch\n"
         'ENTRYPOINT ["python","/opt/test_worker.py"]\n'
     )
-    tag = "aletheia-test-worker:" + cfg.sandbox.image_analysis.removeprefix("sha256:")
+    tag = "aletheia-test-worker:" + suffix
     result = subprocess.run(
         ["docker", "build", "--quiet", "--pull=false", "--network=none", "-t", tag, str(directory)],
         capture_output=True,
