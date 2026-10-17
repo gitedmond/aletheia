@@ -111,3 +111,10 @@ def test_call_keys_include_callee_and_output_normalization_is_not_code_rewriting
             guard=PrivateGuard(tmp_path / "private", "heldout"),
             budgets=AgentBudgets(),
         )
+
+
+def test_malformed_finish_is_logged_and_counted_without_finishing(tmp_path):
+    p = proxy(tmp_path)
+    assert p.call("finish", {"unexpected": True})["reason"] == "invalid_claim"
+    assert not p.finished and p.harness_calls == 1
+    assert json.loads(p.trajectory.read_text())["tool_call_id"] == "tc-0001"
