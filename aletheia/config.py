@@ -74,6 +74,12 @@ class Metrics(StrictModel):
     )
 
 
+class Mcp(StrictModel):
+    binary_root: str | None = None
+    calibration_maps: str | None = None
+    likelihood_table: str | None = None
+
+
 class Config(StrictModel):
     _split: Literal["dev", "heldout"] = PrivateAttr(default="dev")
     paths: Paths = Field(default_factory=Paths)
@@ -84,6 +90,7 @@ class Config(StrictModel):
     llm: Llm = Field(default_factory=Llm)
     metrics: Metrics = Field(default_factory=Metrics)
     grading: Grading = Field(default_factory=Grading)
+    mcp: Mcp = Field(default_factory=Mcp)
 
     @property
     def guard(self):
