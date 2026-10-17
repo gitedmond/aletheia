@@ -1,0 +1,536 @@
+{
+  "algorithms_version": "2.0",
+  "binary_sha256": "d03a204794b100030d3720f579c52bd84b2bac0b7ea7481901cec42c12ae09c1",
+  "build_flags": "-std=c17 -O2 -g -march=x86-64 -mtune=generic -fPIE -pie -fno-stack-protector -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -fcf-protection=none -fno-ident -ffile-prefix-map=/corpus=. -DNDEBUG -Wl,--build-id=none",
+  "excluded_functions": [
+    {
+      "name": "_start",
+      "reason": "abi_unavailable"
+    }
+  ],
+  "functions": [
+    {
+      "abi_signature": null,
+      "acceptable_categories": [],
+      "address": "0x00001dc0",
+      "algorithm": {
+        "family": "none",
+        "variant": null
+      },
+      "callees": [
+        {
+          "kind": "direct",
+          "target": "import:__libc_start_main"
+        }
+      ],
+      "category": null,
+      "clone_of": null,
+      "exclusion_reason": "abi_unavailable",
+      "name": "_start",
+      "roles": [],
+      "scorable": false,
+      "size": 38,
+      "source_signature": null,
+      "source_types": null
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [
+          {
+            "class": "int",
+            "declared": null,
+            "width": 32
+          },
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          },
+          {
+            "class": "int",
+            "declared": null,
+            "width": 64
+          }
+        ],
+        "return": {
+          "class": "int",
+          "declared": null,
+          "width": 32
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "checksum.crc32"
+      ],
+      "address": "0x00001eb0",
+      "algorithm": {
+        "family": "crc32",
+        "variant": "ieee"
+      },
+      "callees": [],
+      "category": "checksum.crc32",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "crc32_update",
+      "roles": [],
+      "scorable": true,
+      "size": 126,
+      "source_signature": "uint32_t (uint32_t, const uint8_t *, size_t)",
+      "source_types": {
+        "params": [
+          "uint32_t",
+          "const uint8_t *",
+          "size_t"
+        ],
+        "return_type": "uint32_t",
+        "variadic": false
+      }
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          },
+          {
+            "class": "int",
+            "declared": null,
+            "width": 64
+          }
+        ],
+        "return": {
+          "class": "int",
+          "declared": null,
+          "width": 32
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "checksum.crc32"
+      ],
+      "address": "0x00001f30",
+      "algorithm": {
+        "family": "crc32",
+        "variant": "ieee"
+      },
+      "callees": [],
+      "category": "checksum.crc32",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "crc32_bitwise",
+      "roles": [],
+      "scorable": true,
+      "size": 209,
+      "source_signature": "uint32_t (const uint8_t *, size_t)",
+      "source_types": {
+        "params": [
+          "const uint8_t *",
+          "size_t"
+        ],
+        "return_type": "uint32_t",
+        "variadic": false
+      }
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          },
+          {
+            "class": "int",
+            "declared": null,
+            "width": 64
+          }
+        ],
+        "return": {
+          "class": "int",
+          "declared": null,
+          "width": 32
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "checksum.crc32"
+      ],
+      "address": "0x00002010",
+      "algorithm": {
+        "family": "crc32",
+        "variant": "jamcrc"
+      },
+      "callees": [],
+      "category": "checksum.crc32",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "jamcrc",
+      "roles": [],
+      "scorable": true,
+      "size": 204,
+      "source_signature": "uint32_t (const uint8_t *, size_t)",
+      "source_types": {
+        "params": [
+          "const uint8_t *",
+          "size_t"
+        ],
+        "return_type": "uint32_t",
+        "variadic": false
+      }
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [],
+        "return": {
+          "class": "void",
+          "declared": null,
+          "width": 0
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "util.init"
+      ],
+      "address": "0x000020e0",
+      "algorithm": {
+        "family": "none",
+        "variant": null
+      },
+      "callees": [],
+      "category": "util.init",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "crc32_table_init",
+      "roles": [],
+      "scorable": true,
+      "size": 287,
+      "source_signature": "void (void)",
+      "source_types": {
+        "params": [],
+        "return_type": "void",
+        "variadic": false
+      }
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [
+          {
+            "class": "int",
+            "declared": null,
+            "width": 32
+          },
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          },
+          {
+            "class": "int",
+            "declared": null,
+            "width": 64
+          }
+        ],
+        "return": {
+          "class": "int",
+          "declared": null,
+          "width": 32
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "checksum.crc32"
+      ],
+      "address": "0x00002200",
+      "algorithm": {
+        "family": "crc32",
+        "variant": "ieee"
+      },
+      "callees": [],
+      "category": "checksum.crc32",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "crc32_update_rt",
+      "roles": [],
+      "scorable": true,
+      "size": 126,
+      "source_signature": "uint32_t (uint32_t, const uint8_t *, size_t)",
+      "source_types": {
+        "params": [
+          "uint32_t",
+          "const uint8_t *",
+          "size_t"
+        ],
+        "return_type": "uint32_t",
+        "variadic": false
+      }
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [],
+        "return": {
+          "class": "int",
+          "declared": null,
+          "width": 32
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "util.other"
+      ],
+      "address": "0x00002280",
+      "algorithm": {
+        "family": "none",
+        "variant": null
+      },
+      "callees": [
+        {
+          "kind": "direct",
+          "target": "0x00001eb0"
+        }
+      ],
+      "category": "util.other",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "crc32_selftest",
+      "roles": [],
+      "scorable": true,
+      "size": 55,
+      "source_signature": "int (void)",
+      "source_types": {
+        "params": [],
+        "return_type": "int",
+        "variadic": false
+      }
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [
+          {
+            "class": "int",
+            "declared": null,
+            "width": 32
+          }
+        ],
+        "return": {
+          "class": "void",
+          "declared": null,
+          "width": 0
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "io.file.write"
+      ],
+      "address": "0x000022c0",
+      "algorithm": {
+        "family": "none",
+        "variant": null
+      },
+      "callees": [
+        {
+          "kind": "tail",
+          "target": "import:printf"
+        }
+      ],
+      "category": "io.file.write",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "hex_print32",
+      "roles": [],
+      "scorable": true,
+      "size": 16,
+      "source_signature": "void (uint32_t)",
+      "source_types": {
+        "params": [
+          "uint32_t"
+        ],
+        "return_type": "void",
+        "variadic": false
+      }
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          },
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          },
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          }
+        ],
+        "return": {
+          "class": "int",
+          "declared": null,
+          "width": 32
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "io.file.read"
+      ],
+      "address": "0x000022d0",
+      "algorithm": {
+        "family": "none",
+        "variant": null
+      },
+      "callees": [
+        {
+          "kind": "direct",
+          "target": "import:fclose"
+        },
+        {
+          "kind": "direct",
+          "target": "import:ferror"
+        },
+        {
+          "kind": "direct",
+          "target": "import:fgetc"
+        },
+        {
+          "kind": "direct",
+          "target": "import:fopen"
+        },
+        {
+          "kind": "direct",
+          "target": "import:free"
+        },
+        {
+          "kind": "direct",
+          "target": "import:malloc"
+        },
+        {
+          "kind": "direct",
+          "target": "import:realloc"
+        }
+      ],
+      "category": "io.file.read",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "read_input",
+      "roles": [],
+      "scorable": true,
+      "size": 335,
+      "source_signature": "int (const char *, uint8_t * *, size_t *)",
+      "source_types": {
+        "params": [
+          "const char *",
+          "uint8_t * *",
+          "size_t *"
+        ],
+        "return_type": "int",
+        "variadic": false
+      }
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [
+          {
+            "class": "int",
+            "declared": null,
+            "width": 32
+          },
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          }
+        ],
+        "return": {
+          "class": "int",
+          "declared": null,
+          "width": 32
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "control.main"
+      ],
+      "address": "0x00002420",
+      "algorithm": {
+        "family": "none",
+        "variant": null
+      },
+      "callees": [
+        {
+          "kind": "direct",
+          "target": "0x00001eb0"
+        },
+        {
+          "kind": "direct",
+          "target": "0x00001f30"
+        },
+        {
+          "kind": "direct",
+          "target": "0x00002010"
+        },
+        {
+          "kind": "direct",
+          "target": "0x000020e0"
+        },
+        {
+          "kind": "direct",
+          "target": "0x00002200"
+        },
+        {
+          "kind": "direct",
+          "target": "0x00002280"
+        },
+        {
+          "kind": "direct",
+          "target": "0x000022c0"
+        },
+        {
+          "kind": "direct",
+          "target": "0x000022d0"
+        },
+        {
+          "kind": "direct",
+          "target": "import:free"
+        },
+        {
+          "kind": "direct",
+          "target": "import:fwrite"
+        }
+      ],
+      "category": "control.main",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "main",
+      "roles": [],
+      "scorable": true,
+      "size": 240,
+      "source_signature": "int (int, char * *)",
+      "source_types": {
+        "params": [
+          "int",
+          "char * *"
+        ],
+        "return_type": "int",
+        "variadic": false
+      }
+    }
+  ],
+  "program_id": "tierA/crc32tool",
+  "schema_version": "2.0",
+  "variant_id": "clang23-O2-x64-pie-hardoff"
+}

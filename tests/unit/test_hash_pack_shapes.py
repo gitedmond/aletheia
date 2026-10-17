@@ -102,3 +102,25 @@ def test_faulted_hash_order_is_counted_and_other_order_can_verify(monkeypatch, t
         result.verdict,
     )
     assert proof.failure() == "fortify_fail"
+
+
+def test_boundary_generator_can_supply_the_entire_cohort():
+    from aletheia.verify.probes.pack import Inputs
+
+    inputs = Inputs(fixed=[], boundary_lengths=True, random={"count": 0, "max_len": 0, "seed": 17})
+    assert [len(data) for data in generate_inputs(inputs)] == [
+        0,
+        1,
+        55,
+        56,
+        57,
+        63,
+        64,
+        65,
+        119,
+        120,
+        127,
+        128,
+        129,
+        1000,
+    ]

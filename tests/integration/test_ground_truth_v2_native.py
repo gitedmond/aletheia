@@ -42,6 +42,12 @@ def test_native_v2_joins_categories_roles_and_ir_without_scoring_crt(tmp_path):
             "ALETHEIA_TARGET uint32_t crc32_update(",
         )
         path.write_text(text)
+    nested = source / "src/nested"
+    nested.mkdir()
+    # Nested sources use the same annotation scan as compilation and lint.
+    for path in sorted((source / "src").glob("*.c")):
+        if "crc32_update(" in path.read_text() and path.name != "main.c":
+            path.rename(nested / path.name)
     image = Config.read(Path("aletheia.toml")).sandbox.image_build
     build = build_program(source, Variant(image, tmp_path / "build", ground_truth_version="2.0"))
     truth = GroundTruth.model_validate_json((build.o0.parent / "ground_truth.json").read_bytes())

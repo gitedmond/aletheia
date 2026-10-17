@@ -1,0 +1,626 @@
+{
+  "algorithms_version": "2.0",
+  "binary_sha256": "374295259a9f8ae3767ab38803640e7b07111da534cd4b1c3f644f26ecf44ccf",
+  "build_flags": "-std=c17 -O2 -g -march=x86-64 -mtune=generic -fPIE -pie -fno-stack-protector -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -fcf-protection=none -fno-ident -ffile-prefix-map=/corpus=. -DNDEBUG -Wl,--build-id=none",
+  "excluded_functions": [
+    {
+      "name": "_start",
+      "reason": "abi_unavailable"
+    },
+    {
+      "name": "left",
+      "reason": "fully_inlined"
+    },
+    {
+      "name": "load_be",
+      "reason": "fully_inlined"
+    },
+    {
+      "name": "right",
+      "reason": "fully_inlined"
+    }
+  ],
+  "functions": [
+    {
+      "abi_signature": null,
+      "acceptable_categories": [],
+      "address": "0x00001b40",
+      "algorithm": {
+        "family": "none",
+        "variant": null
+      },
+      "callees": [
+        {
+          "kind": "direct",
+          "target": "import:__libc_start_main"
+        }
+      ],
+      "category": null,
+      "clone_of": null,
+      "exclusion_reason": "abi_unavailable",
+      "name": "_start",
+      "roles": [],
+      "scorable": false,
+      "size": 38,
+      "source_signature": null,
+      "source_types": null
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [
+          {
+            "class": "int",
+            "declared": null,
+            "width": 32
+          },
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          }
+        ],
+        "return": {
+          "class": "int",
+          "declared": null,
+          "width": 32
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "control.main"
+      ],
+      "address": "0x00001c30",
+      "algorithm": {
+        "family": "none",
+        "variant": null
+      },
+      "callees": [
+        {
+          "kind": "direct",
+          "target": "0x00002650"
+        },
+        {
+          "kind": "direct",
+          "target": "import:fclose"
+        },
+        {
+          "kind": "direct",
+          "target": "import:ferror"
+        },
+        {
+          "kind": "direct",
+          "target": "import:fgetc"
+        },
+        {
+          "kind": "direct",
+          "target": "import:fopen"
+        },
+        {
+          "kind": "direct",
+          "target": "import:fread"
+        },
+        {
+          "kind": "direct",
+          "target": "import:fwrite"
+        },
+        {
+          "kind": "direct",
+          "target": "import:printf"
+        }
+      ],
+      "category": "control.main",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "main",
+      "roles": [],
+      "scorable": true,
+      "size": 798,
+      "source_signature": "int (int, char * *)",
+      "source_types": {
+        "params": [
+          "int",
+          "char * *"
+        ],
+        "return_type": "int",
+        "variadic": false
+      }
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          },
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          }
+        ],
+        "return": {
+          "class": "void",
+          "declared": null,
+          "width": 0
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "crypto.hash.sha1.transform"
+      ],
+      "address": "0x00001f50",
+      "algorithm": {
+        "family": "none",
+        "variant": null
+      },
+      "callees": [],
+      "category": "crypto.hash.sha1.transform",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "sha1_transform",
+      "roles": [],
+      "scorable": true,
+      "size": 485,
+      "source_signature": "void (sha1_t *, const uint8_t *)",
+      "source_types": {
+        "params": [
+          "sha1_t *",
+          "const uint8_t *"
+        ],
+        "return_type": "void",
+        "variadic": false
+      }
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          }
+        ],
+        "return": {
+          "class": "void",
+          "declared": null,
+          "width": 0
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "crypto.hash.sha1.init"
+      ],
+      "address": "0x00002140",
+      "algorithm": {
+        "family": "sha1",
+        "variant": "std"
+      },
+      "callees": [],
+      "category": "crypto.hash.sha1.init",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "sha1_init",
+      "roles": [
+        "ctx"
+      ],
+      "scorable": true,
+      "size": 25,
+      "source_signature": "void (sha1_t *)",
+      "source_types": {
+        "params": [
+          "sha1_t *"
+        ],
+        "return_type": "void",
+        "variadic": false
+      }
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          },
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          },
+          {
+            "class": "int",
+            "declared": null,
+            "width": 64
+          }
+        ],
+        "return": {
+          "class": "void",
+          "declared": null,
+          "width": 0
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "crypto.hash.sha1.update"
+      ],
+      "address": "0x00002160",
+      "algorithm": {
+        "family": "sha1",
+        "variant": "std"
+      },
+      "callees": [
+        {
+          "kind": "direct",
+          "target": "0x00001f50"
+        }
+      ],
+      "category": "crypto.hash.sha1.update",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "sha1_update",
+      "roles": [
+        "ctx",
+        "buf",
+        "len"
+      ],
+      "scorable": true,
+      "size": 116,
+      "source_signature": "void (sha1_t *, const uint8_t *, size_t)",
+      "source_types": {
+        "params": [
+          "sha1_t *",
+          "const uint8_t *",
+          "size_t"
+        ],
+        "return_type": "void",
+        "variadic": false
+      }
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          },
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          }
+        ],
+        "return": {
+          "class": "void",
+          "declared": null,
+          "width": 0
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "crypto.hash.sha1.final"
+      ],
+      "address": "0x000021e0",
+      "algorithm": {
+        "family": "sha1",
+        "variant": "std"
+      },
+      "callees": [
+        {
+          "kind": "direct",
+          "target": "0x00002160"
+        }
+      ],
+      "category": "crypto.hash.sha1.final",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "sha1_final",
+      "roles": [
+        "ctx",
+        "out"
+      ],
+      "scorable": true,
+      "size": 194,
+      "source_signature": "void (sha1_t *, uint8_t *)",
+      "source_types": {
+        "params": [
+          "sha1_t *",
+          "uint8_t *"
+        ],
+        "return_type": "void",
+        "variadic": false
+      }
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          },
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          }
+        ],
+        "return": {
+          "class": "void",
+          "declared": null,
+          "width": 0
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "crypto.hash.sha256.transform"
+      ],
+      "address": "0x000022b0",
+      "algorithm": {
+        "family": "none",
+        "variant": null
+      },
+      "callees": [],
+      "category": "crypto.hash.sha256.transform",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "sha256_transform",
+      "roles": [],
+      "scorable": true,
+      "size": 559,
+      "source_signature": "void (sha256_t *, const uint8_t *)",
+      "source_types": {
+        "params": [
+          "sha256_t *",
+          "const uint8_t *"
+        ],
+        "return_type": "void",
+        "variadic": false
+      }
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          }
+        ],
+        "return": {
+          "class": "void",
+          "declared": null,
+          "width": 0
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "crypto.hash.sha256.init"
+      ],
+      "address": "0x000024e0",
+      "algorithm": {
+        "family": "sha256",
+        "variant": "std"
+      },
+      "callees": [],
+      "category": "crypto.hash.sha256.init",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "sha256_init",
+      "roles": [
+        "ctx"
+      ],
+      "scorable": true,
+      "size": 29,
+      "source_signature": "void (sha256_t *)",
+      "source_types": {
+        "params": [
+          "sha256_t *"
+        ],
+        "return_type": "void",
+        "variadic": false
+      }
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          },
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          },
+          {
+            "class": "int",
+            "declared": null,
+            "width": 64
+          }
+        ],
+        "return": {
+          "class": "void",
+          "declared": null,
+          "width": 0
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "crypto.hash.sha256.update"
+      ],
+      "address": "0x00002500",
+      "algorithm": {
+        "family": "sha256",
+        "variant": "std"
+      },
+      "callees": [
+        {
+          "kind": "direct",
+          "target": "0x000022b0"
+        }
+      ],
+      "category": "crypto.hash.sha256.update",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "sha256_update",
+      "roles": [
+        "ctx",
+        "buf",
+        "len"
+      ],
+      "scorable": true,
+      "size": 116,
+      "source_signature": "void (sha256_t *, const uint8_t *, size_t)",
+      "source_types": {
+        "params": [
+          "sha256_t *",
+          "const uint8_t *",
+          "size_t"
+        ],
+        "return_type": "void",
+        "variadic": false
+      }
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          },
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          }
+        ],
+        "return": {
+          "class": "void",
+          "declared": null,
+          "width": 0
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "crypto.hash.sha256.final"
+      ],
+      "address": "0x00002580",
+      "algorithm": {
+        "family": "sha256",
+        "variant": "std"
+      },
+      "callees": [
+        {
+          "kind": "direct",
+          "target": "0x00002500"
+        }
+      ],
+      "category": "crypto.hash.sha256.final",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "sha256_final",
+      "roles": [
+        "ctx",
+        "out"
+      ],
+      "scorable": true,
+      "size": 194,
+      "source_signature": "void (sha256_t *, uint8_t *)",
+      "source_types": {
+        "params": [
+          "sha256_t *",
+          "uint8_t *"
+        ],
+        "return_type": "void",
+        "variadic": false
+      }
+    },
+    {
+      "abi_signature": {
+        "abi_complex": false,
+        "params": [
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          },
+          {
+            "class": "int",
+            "declared": null,
+            "width": 64
+          },
+          {
+            "class": "ptr",
+            "declared": null,
+            "width": 64
+          }
+        ],
+        "return": {
+          "class": "void",
+          "declared": null,
+          "width": 0
+        },
+        "variadic": false
+      },
+      "acceptable_categories": [
+        "crypto.hash.sha256.oneshot"
+      ],
+      "address": "0x00002650",
+      "algorithm": {
+        "family": "sha256",
+        "variant": "std"
+      },
+      "callees": [
+        {
+          "kind": "direct",
+          "target": "0x000024e0"
+        },
+        {
+          "kind": "direct",
+          "target": "0x00002500"
+        },
+        {
+          "kind": "direct",
+          "target": "0x00002580"
+        }
+      ],
+      "category": "crypto.hash.sha256.oneshot",
+      "clone_of": null,
+      "exclusion_reason": null,
+      "name": "sha256_oneshot",
+      "roles": [
+        "buf",
+        "len",
+        "out"
+      ],
+      "scorable": true,
+      "size": 70,
+      "source_signature": "void (const uint8_t *, size_t, uint8_t *)",
+      "source_types": {
+        "params": [
+          "const uint8_t *",
+          "size_t",
+          "uint8_t *"
+        ],
+        "return_type": "void",
+        "variadic": false
+      }
+    }
+  ],
+  "program_id": "tierA/hashkit-sha",
+  "schema_version": "2.0",
+  "variant_id": "clang23-O2-x64-pie-hardoff"
+}

@@ -410,7 +410,9 @@ def extract(directory: Path, program: Path) -> GroundTruth:
         errors = lint_program(program, phase="1b")
         if errors:
             raise ValueError("invalid v2 annotations: " + "; ".join(e.rule for e in errors))
-        for path in sorted((program / "src").glob("*.c")):
+        for path in sorted((program / "src").rglob("*")):
+            if path.suffix not in (".c", ".h") or not path.is_file():
+                continue
             text = path.read_text()
             for function in source_functions(text, path):
                 block = annotation_lines(text, function.line)
