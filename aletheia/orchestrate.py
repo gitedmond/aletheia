@@ -327,6 +327,7 @@ class Benchmark:
             truth = GroundTruth.model_validate_json(
                 (directory / "private/ground_truth.json").read_bytes()
             )
+            manifest.algorithms_version = truth.algorithms_version
             manifest = manifest.model_copy(update={"algorithms_version": truth.algorithms_version})
             generated = generate(truth, manifest, manifest.seeds["scripted"])
             return [
@@ -367,7 +368,14 @@ class Benchmark:
             ),
         }
         run_manifest = RunManifest.create(
-            manifest.model_copy(update={"source_config": source_config})
+            manifest.model_copy(
+                update={
+                    "source_config": source_config,
+                    "algorithms_version": "2.0"
+                    if any(c.algorithms_version == "2.0" for c in claims)
+                    else manifest.algorithms_version,
+                }
+            )
         )
         rebound = [
             Claim.intake(
