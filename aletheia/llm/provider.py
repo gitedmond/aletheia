@@ -127,6 +127,14 @@ class ProviderUnavailable(RuntimeError):
     """Only retryable transport failures, without credentials or response content."""
 
 
+class ProviderRejected(RuntimeError):
+    """Permanent configuration/request failure; retrying cannot repair it."""
+
+    def __init__(self, reason: Literal["model_pin_mismatch", "provider_request_rejected"]):
+        self.reason = reason
+        super().__init__(reason)
+
+
 class FakeProvider:
     id = "fake"
 
@@ -231,7 +239,7 @@ class OpenAICompatibleProvider:
         except HTTPError as exc:
             if exc.code >= 500:
                 raise ProviderUnavailable(f"provider HTTP {exc.code}") from None
-            raise ValueError(f"provider HTTP {exc.code}") from None
+            raise ProviderRejected("provider_request_rejected") from None
         except (URLError, TimeoutError) as exc:
             raise ProviderUnavailable("provider transport unavailable") from exc
         if len(raw) > 32 * 1024 * 1024:

@@ -115,7 +115,7 @@ def test_prompt_is_frozen_appendix_with_public_inputs_only():
     from aletheia.agent.loop import build_messages
     from aletheia.schema.models import Targets
 
-    messages, digest = build_messages(
+    messages, digest, context_hash = build_messages(
         Path("prompts/agent-v1.md"),
         Targets(binary_sha256="a" * 64, variant_id="baseline", targets=[]),
     )
@@ -123,6 +123,9 @@ def test_prompt_is_frozen_appendix_with_public_inputs_only():
     assert "Algorithm registry" in messages[0].content
     assert "{taxonomy}" not in messages[0].content
     assert 'binary_name is "input"' in messages[1].content
+    import hashlib
+
+    assert hashlib.sha256(messages[1].content.encode()).hexdigest() == context_hash
 
 
 def test_missing_claim_field_is_reported_without_echoing_input(tmp_path):
@@ -131,3 +134,12 @@ def test_missing_claim_field_is_reported_without_echoing_input(tmp_path):
     assert output["reason"] == "invalid_claim"
     assert "type: missing" in output["message"]
     assert "private marker" not in output["message"]
+
+
+def test_permanent_provider_failure_stops_without_retry_or_malformed_count(tmp_path):
+    from aletheia.llm.provider import ProviderRejected
+
+    runner, sleeps = loop(tmp_path, [ProviderRejected("model_pin_mismatch")])
+    result = runner.run([])
+    assert result.reason == "model_pin_mismatch" and result.provider_requests == 1
+    assert result.malformed_calls == 0 and sleeps == []

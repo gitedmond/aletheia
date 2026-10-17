@@ -56,3 +56,46 @@ def test_bridge_transport_failure_is_countable_and_does_not_echo_request(monkeyp
     monkeypatch.setattr(subprocess, "run", run)
     with pytest.raises(ProviderUnavailable, match="local runtime transport unavailable"):
         WindowsLoopbackProvider(config).send(ChatRequest(model="fixture", messages=[]))
+
+
+@pytest.mark.parametrize(
+    "code,reason", [(3, "model_pin_mismatch"), (4, "provider_request_rejected")]
+)
+def test_permanent_bridge_failures_are_not_retryable(monkeypatch, code, reason):
+    from aletheia.llm.provider import ProviderRejected
+
+    config = AgentConfig(
+        config_id="local-a",
+        base_url="http://127.0.0.1:11434/v1",
+        model="fixture",
+        model_file_sha256="a" * 64,
+    )
+    monkeypatch.setattr(
+        subprocess, "run", lambda *args, **kwargs: subprocess.CompletedProcess(args, code, b"", b"")
+    )
+    with pytest.raises(ProviderRejected, match=reason):
+        WindowsLoopbackProvider(config).send(ChatRequest(model="fixture", messages=[]))
+
+
+def test_existing_run_metadata_is_preserved_before_any_provider_call(tmp_path):
+    from aletheia.agent.run import collect
+    from aletheia.config import Config
+    from aletheia.llm.provider import FakeProvider
+    from aletheia.schema.models import Targets
+    from aletheia.sources.base import BinaryRef
+
+    config = AgentConfig(
+        config_id="local-a",
+        base_url="http://127.0.0.1:11434/v1",
+        model="fixture",
+        model_file_sha256="a" * 64,
+    )
+    root = tmp_path / "run"
+    root.mkdir()
+    (root / "agent.json").write_text("original")
+    fake = FakeProvider([])
+    binary = BinaryRef("a" * 64, tmp_path / "stripped" / ("a" * 64 + ".bin"), "fixture")
+    targets = Targets(binary_sha256="a" * 64, variant_id="fixture", targets=[])
+    with pytest.raises(ValueError, match="run artifacts already exist"):
+        collect(Config(), config, fake, binary, targets, "r_" + "1" * 16, root)
+    assert (root / "agent.json").read_text() == "original" and fake.calls == 0

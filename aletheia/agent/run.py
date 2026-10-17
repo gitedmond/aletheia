@@ -1,6 +1,5 @@
 """Collect a local agent run from public stripped input; grade only afterward."""
 
-import hashlib
 from pathlib import Path
 
 from aletheia.agent.loop import AgentLoop, AgentResult, build_messages
@@ -33,6 +32,11 @@ def collect(
         if config.guard.split == "heldout"
         else config.guard.public_path(root)
     )
+    if any(
+        (root / name).exists()
+        for name in ("trajectory.jsonl", "agent.json", "claims-history.json", "claims.json")
+    ):
+        raise ValueError("run artifacts already exist")
     cached = CachedProvider(agent, provider, root / "responses", config.guard)
     upstream = GhidraUpstream(
         config.sandbox,
@@ -54,7 +58,7 @@ def collect(
         tools = upstream.tools()
         if sorted(tool.function.name for tool in tools) != proxy.allowlist.tools:
             raise ValueError("upstream tool schema drift")
-        messages, prompt_hash = build_messages(Path(agent.prompt), targets)
+        messages, prompt_hash, context_hash = build_messages(Path(agent.prompt), targets)
         loop = AgentLoop(agent, cached, proxy, tools, seed=seed)
         result = loop.run(messages)
         write_json(
@@ -64,9 +68,7 @@ def collect(
                 "config": agent.model_dump(mode="json"),
                 "provider_transport": provider.id,
                 "prompt_hash": prompt_hash,
-                "context_hash": hashlib.sha256(
-                    (Path(__file__).parents[2] / "prompts/context-v1.md").read_bytes()
-                ).hexdigest(),
+                "context_hash": context_hash,
                 "tool_schemas": [tool.model_dump(mode="json") for tool in tools],
                 "seed": seed,
                 "result": result.model_dump(mode="json"),

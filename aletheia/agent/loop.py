@@ -14,6 +14,7 @@ from aletheia.llm.provider import (
     ChatRequest,
     Message,
     Provider,
+    ProviderRejected,
     ProviderUnavailable,
     ToolSpec,
 )
@@ -22,7 +23,7 @@ from aletheia.schema.models import Strict, Targets
 from aletheia.schema.taxonomy import Taxonomy
 
 
-def build_messages(prompt: Path, targets: Targets) -> tuple[list[Message], str]:
+def build_messages(prompt: Path, targets: Targets) -> tuple[list[Message], str, str]:
     if any(p.is_symlink() for p in (prompt, *prompt.parents)):
         raise ValueError("agent prompt cannot be a symlink")
     raw = prompt.read_bytes()
@@ -34,11 +35,15 @@ def build_messages(prompt: Path, targets: Targets) -> tuple[list[Message], str]:
         "taxonomy": canonical_bytes(Taxonomy.bundled()).decode(),
     }.items():
         content = content.replace("{" + key + "}", value)
-    context = (Path(__file__).parents[2] / "prompts/context-v1.md").read_text()
-    return [
-        Message(role="system", content=content),
-        Message(role="user", content=context),
-    ], hashlib.sha256(raw).hexdigest()
+    context = (Path(__file__).parents[2] / "prompts/context-v1.md").read_bytes()
+    return (
+        [
+            Message(role="system", content=content),
+            Message(role="user", content=context.decode()),
+        ],
+        hashlib.sha256(raw).hexdigest(),
+        hashlib.sha256(context).hexdigest(),
+    )
 
 
 class AgentResult(Strict):
@@ -125,6 +130,8 @@ class AgentLoop:
                     requests += 1
                     response = self.provider.send(request)
                     break
+                except ProviderRejected as exc:
+                    return result("failed", exc.reason)
                 except ProviderUnavailable:
                     if attempt == 2:
                         return result("failed", "provider_unavailable")
