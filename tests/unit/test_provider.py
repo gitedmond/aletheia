@@ -73,6 +73,7 @@ def test_compatible_payload_tools_and_usage_are_preserved():
                         "tool_calls": [
                             {
                                 "id": "tool-1",
+                                "index": 0,
                                 "type": "function",
                                 "function": {"name": "finish", "arguments": "{}"},
                             }
@@ -109,9 +110,16 @@ def test_cost_guard_requires_three_dev_pilots_and_refuses_projected_overrun(tmp_
     paid = CostGuard(tmp_path / "paid.jsonl", cap_usd=10.0)
     with pytest.raises(ValueError, match="three dev pilots"):
         paid.project(hosted, [1.0, 1.0], 4)
-    assert paid.project(hosted, [1.0, 1.0, 1.0], 4)
+    pilots = ["r_" + f"{i:016x}" for i in range(3)]
+    for run in pilots:
+        paid.record(hosted, Usage(input_tokens=1_000_000, output_tokens=0), run)
+    assert paid.project(hosted, pilots, 4)
+    assert not paid.project(hosted, pilots, 100)
+    with pytest.raises(ValueError, match="projection"):
+        paid.authorize(hosted)
+    assert paid.project(hosted, pilots, 4)
     paid.record(hosted, Usage(input_tokens=8_000_000, output_tokens=0), "r_" + "1" * 16)
-    assert not paid.project(hosted, [1.0, 1.0, 1.0], 4)
+    assert not paid.project(hosted, pilots, 4)
     assert not guard.authorize(config())  # Local calls consume no hosted budget.
     assert json.loads((tmp_path / "paid.jsonl").read_text().splitlines()[-1])["allowed"] is False
 
