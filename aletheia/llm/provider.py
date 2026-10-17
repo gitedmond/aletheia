@@ -52,6 +52,7 @@ class ChatRequest(Strict):
     tools: list[ToolSpec] = Field(default_factory=list[ToolSpec])
     temperature: float | None = None
     seed: int | None = None
+    reasoning_effort: Literal["none", "low", "medium", "high"] | None = None
     max_output_tokens: int = Field(default=2048, gt=0)
 
 
@@ -91,6 +92,7 @@ class AgentConfig(Strict):
     prompt: str = "prompts/agent-v1.md"
     temperature: float | None = 0.0
     seed_supported: bool = True
+    reasoning_effort: Literal["none", "low", "medium", "high"] | None = None
     max_output_tokens: int = Field(default=2048, gt=0)
     budgets: AgentBudgets = Field(default_factory=AgentBudgets)
     price: Price = Field(default_factory=Price)
@@ -123,6 +125,14 @@ class Provider(Protocol):
 
 class ProviderUnavailable(RuntimeError):
     """Only retryable transport failures, without credentials or response content."""
+
+
+class ProviderRejected(RuntimeError):
+    """Permanent configuration/request failure; retrying cannot repair it."""
+
+    def __init__(self, reason: Literal["model_pin_mismatch", "provider_request_rejected"]):
+        self.reason = reason
+        super().__init__(reason)
 
 
 class FakeProvider:
@@ -174,6 +184,8 @@ class OpenAICompatibleProvider:
         }
         if req.tools:
             data["tools"] = [tool.model_dump(mode="json") for tool in req.tools]
+        if req.reasoning_effort is not None:
+            data["reasoning_effort"] = req.reasoning_effort
         if req.temperature is not None:
             data["temperature"] = req.temperature
         if req.seed is not None and self.config.seed_supported:
@@ -225,9 +237,9 @@ class OpenAICompatibleProvider:
             with build_opener(NoRedirect).open(request, timeout=120) as response:
                 raw = response.read(32 * 1024 * 1024 + 1)
         except HTTPError as exc:
-            if exc.code >= 500:
+            if exc.code >= 500 or exc.code in {408, 425, 429}:
                 raise ProviderUnavailable(f"provider HTTP {exc.code}") from None
-            raise ValueError(f"provider HTTP {exc.code}") from None
+            raise ProviderRejected("provider_request_rejected") from None
         except (URLError, TimeoutError) as exc:
             raise ProviderUnavailable("provider transport unavailable") from exc
         if len(raw) > 32 * 1024 * 1024:
