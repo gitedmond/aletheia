@@ -218,9 +218,13 @@ class HarnessProxy:
         if self.finished:
             result: dict[str, JsonValue] = {"status": "error", "reason": "run_finished"}
         elif name == "finish":
-            Finish.model_validate(arguments)
-            self.finished = True
-            result = {"status": "ok"}
+            self.harness_calls += 1
+            try:
+                Finish.model_validate(arguments)
+                self.finished = True
+                result = {"status": "ok"}
+            except ValueError:
+                result = {"status": "error", "reason": "invalid_claim"}
         elif name in {"report_claim", "revise_claim"}:
             if self.harness_calls >= self.budgets.harness_tool_calls:
                 result = {"status": "error", "reason": "budget_exhausted", "action": "call finish"}
