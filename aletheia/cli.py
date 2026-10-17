@@ -397,6 +397,8 @@ def claims_scripted(
 def verifiability(
     ctx: typer.Context,
     program: Annotated[str | None, typer.Option("--program")] = None,
+    variant: Annotated[str | None, typer.Option("--variant")] = None,
+    phase1b: Annotated[bool, typer.Option("--phase1b")] = False,
 ) -> None:
     """Show declared E2 coverage for built programs and currently installed packs."""
     import re
@@ -422,6 +424,10 @@ def verifiability(
         )
         if not paths:
             raise ValueError("program_missing: no built ground truth found")
+        if variant is not None:
+            paths = [path for path in paths if path.parents[1].name == variant]
+        if not paths:
+            raise ValueError("no built ground truth for selected variant")
         truths = [GroundTruth.model_validate_json(path.read_bytes()) for path in paths]
         if any(
             gt.program_id != "tierA/" + path.parents[2].name
@@ -429,7 +435,14 @@ def verifiability(
             for gt, path in zip(truths, paths, strict=True)
         ):
             raise ValueError("ground-truth program identity mismatch")
-        report = table(truths, [load_pack(path) for path in sorted(Path("packs").glob("*.yaml"))])
+        from aletheia.corpus.verifiability import table_v2
+
+        report = (table_v2 if phase1b else table)(
+            truths, [load_pack(path) for path in sorted(Path("packs").glob("*.yaml"))]
+        )
+        if config.guard.split == "heldout":
+            # Public coverage exposes counts, never per-program identities.
+            report["programs"] = []
         typer.echo(
             canonical_bytes(cast(JsonValue, report)).decode()
             if cfg.json_output
@@ -588,6 +601,8 @@ def report(
     runs: Annotated[str, typer.Option("--runs")],
     out: Annotated[Path, typer.Option("--out")],
     private: Annotated[bool, typer.Option("--private")] = False,
+    phase: Annotated[Literal["1a", "1b"], typer.Option("--phase")] = "1a",
+    fit_root: Annotated[Path | None, typer.Option("--fit-root")] = None,
 ) -> None:
     """Write benchmark metrics, counterexamples, misses and population disclosures."""
     from aletheia.report import collect, render
@@ -601,6 +616,15 @@ def report(
             guard.private_output(out)
         else:
             guard.access(out)
+        if phase == "1b":
+            from aletheia.report.phase1b import generate
+
+            if fit_root is None:
+                raise ValueError("Phase 1B report requires --fit-root for dev-only fits")
+            payload = json.dumps(generate(benchmark, runs.split(","), fit_root), sort_keys=True)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(payload + "\n")
+            return {"status": "ok", "out": str(out), "phase": "1b"}
         data = collect(benchmark, runs.split(","))
         if guard.split == "heldout" and not private:
             payload = (
