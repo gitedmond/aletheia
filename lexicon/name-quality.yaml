@@ -1,0 +1,22 @@
+version: '1.0'
+threshold: null
+abbreviations:
+  buf: buffer
+  calc: compute
+  cfg: configuration
+  chr: character
+  cmp: compare
+  ctx: context
+  dec: decode
+  enc: encode
+  init: initialize
+  len: length
+  msg: message
+  num: number
+  ptr: pointer
+  str: string
+synonyms:
+- [calculate, compute]
+- [fetch, get, read]
+- [initialize, setup]
+- [put, store, write]
