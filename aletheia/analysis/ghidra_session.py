@@ -11,6 +11,7 @@ from pydantic import Field, JsonValue, TypeAdapter, model_validator
 
 from aletheia.sandbox.runner import JobRunner
 from aletheia.schema.models import Address, Job, JobResult, Kind, Record, Sha256, Strict, Target
+from aletheia.schema.signature_facts import CallSignatureUse, SignatureFacts
 from aletheia.sources.base import BinaryRef
 
 
@@ -91,6 +92,9 @@ class BodyRange(Strict):
 
 
 class CallSite(Strict):
+    signature_use: CallSignatureUse | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     address: Address
     kind: Kind
     target: Target | None
@@ -106,6 +110,9 @@ class ConstantMatch(Strict):
 
 
 class FunctionInfo(Strict):
+    signature_facts: SignatureFacts | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     entry: Address
     body_ranges: list[BodyRange] = Field(min_length=1)
     is_thunk: bool

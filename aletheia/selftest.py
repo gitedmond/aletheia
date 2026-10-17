@@ -98,6 +98,15 @@ def build_fixture(
     fixture = Fixture.model_validate_json((source / "cases.json").read_bytes())
     if fixture.family != family:
         raise ValueError("calibration fixture family mismatch")
+    binary, symbols = compile_fixture(source, cfg, root, fixture.binary_sha256)
+    return binary, symbols, fixture
+
+
+def compile_fixture(
+    source: Path, cfg: Config, root: Path, expected_sha256: Sha256
+) -> tuple[BinaryRef, dict[str, Address]]:
+    check_no_symlinks(source)
+    family = source.name
     work = Path(tempfile.mkdtemp(prefix=family + "-", dir=root))
     inputs, outputs = work / "private/in", work / "private/out"
     (inputs / family).mkdir(parents=True)
@@ -133,7 +142,7 @@ subprocess.run(['llvm-strip','--strip-all',binary,'-o','/job/out/public.bin'],ch
         raise RuntimeError("selftest fixture compilation failed: " + result.stderr[-1500:])
     payload = (outputs / "public.bin").read_bytes()
     digest = hashlib.sha256(payload).hexdigest()
-    if digest != fixture.binary_sha256:
+    if digest != expected_sha256:
         raise ValueError(
             "calibration fixture differs from its reviewed reproducible hash: " + family
         )
@@ -141,7 +150,7 @@ subprocess.run(['llvm-strip','--strip-all',binary,'-o','/job/out/public.bin'],ch
     public.parent.mkdir()
     public.write_bytes(payload)
     symbols = TypeAdapter(dict[str, Address]).validate_json((outputs / "symbols.json").read_bytes())
-    return BinaryRef(digest, public, Variant(image=cfg.sandbox.image_build).id), symbols, fixture
+    return BinaryRef(digest, public, Variant(image=cfg.sandbox.image_build).id), symbols
 
 
 def _claim(binary: BinaryRef, address: Address, family: str, variant: str | None) -> Claim:

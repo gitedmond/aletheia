@@ -2,8 +2,7 @@
 
 from aletheia.analysis.ghidra_session import GhidraAnalysis
 from aletheia.schema.models import Address, Strict
-
-ARGUMENT_REGISTERS = ("rdi", "rsi", "rdx", "rcx", "r8", "r9")
+from aletheia.schema.signature_facts import ARGUMENT_REGISTERS as ARGUMENT_REGISTERS
 
 
 class Arity(Strict):
