@@ -145,3 +145,20 @@ def test_exposure_lines_only_for_hosted_heldout_and_limit_is_per_binary(tmp_path
         log.record(hosted, digest, "r_" + f"{30:016x}", split="heldout")
     assert log.count("d" * 64) == 0
     assert log.warning(digest)
+
+
+@pytest.mark.parametrize("status,retryable", [(400, False), (429, True), (503, True)])
+def test_http_rejections_and_transient_statuses_have_distinct_retry_policy(
+    monkeypatch, status, retryable
+):
+    from urllib.error import HTTPError
+
+    from aletheia.llm.provider import ProviderRejected
+
+    class Opener:
+        def open(self, *args, **kwargs):
+            raise HTTPError("http://127.0.0.1:11434/v1", status, "fixture", {}, None)
+
+    monkeypatch.setattr("aletheia.llm.provider.build_opener", lambda *args: Opener())
+    with pytest.raises(ProviderUnavailable if retryable else ProviderRejected):
+        OpenAICompatibleProvider(config()).send(request())

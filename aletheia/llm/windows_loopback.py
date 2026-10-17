@@ -40,6 +40,7 @@ $response = Invoke-WebRequest -UseBasicParsing @parameters
 } catch {
     if ($_.Exception.Response) {
         $statusCode = [int]$_.Exception.Response.StatusCode
+        if (@(408, 425, 429) -contains $statusCode) { exit 1 }
         if ($statusCode -ge 400 -and $statusCode -lt 500) { exit 4 }
     }
     exit 1

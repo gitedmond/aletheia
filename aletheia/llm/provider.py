@@ -237,7 +237,7 @@ class OpenAICompatibleProvider:
             with build_opener(NoRedirect).open(request, timeout=120) as response:
                 raw = response.read(32 * 1024 * 1024 + 1)
         except HTTPError as exc:
-            if exc.code >= 500:
+            if exc.code >= 500 or exc.code in {408, 425, 429}:
                 raise ProviderUnavailable(f"provider HTTP {exc.code}") from None
             raise ProviderRejected("provider_request_rejected") from None
         except (URLError, TimeoutError) as exc:
