@@ -1,0 +1,6 @@
+# Author-directed Phase 1B policy: only local providers, no hosted spending.
+phase_1b_usd: 0
+price:
+  local-a: {input_per_mtok: 0, output_per_mtok: 0}
+  local-b: {input_per_mtok: 0, output_per_mtok: 0}
+  local-c: {input_per_mtok: 0, output_per_mtok: 0}
