@@ -58,19 +58,33 @@ class CostGuard:
                 raise ValueError("hosted batch requires an approved three dev pilots projection")
         return True
 
-    def project(self, config: AgentConfig, dev_pilot_costs: list[float], runs: int) -> bool:
-        if len(dev_pilot_costs) != 3 or any(not math.isfinite(c) or c < 0 for c in dev_pilot_costs):
+    def project(self, config: AgentConfig, dev_pilot_run_ids: list[str], runs: int) -> bool:
+        if len(dev_pilot_run_ids) != 3 or len(set(dev_pilot_run_ids)) != 3:
             raise ValueError("projection requires exactly three dev pilots")
+        for run in dev_pilot_run_ids:
+            TypeAdapter(RunId).validate_python(run)
         if runs < 0:
             raise ValueError("invalid projected run count")
-        projected = sum((Decimal(str(c)) for c in dev_pilot_costs), Decimal(0)) / 3 * runs
         with ledger(self.path) as rows:
+            costs: list[Decimal] = []
+            for run in dev_pilot_run_ids:
+                usage = [
+                    row
+                    for row in rows
+                    if row["kind"] == "usage"
+                    and row["config_id"] == config.config_id
+                    and row["run_id"] == run
+                ]
+                if not usage or any(row["split"] != "dev" for row in usage):
+                    raise ValueError("projection requires recorded usage from three dev pilots")
+                costs.append(self.spent(usage))
+            projected = sum(costs, Decimal(0)) / 3 * runs
             allowed = self.spent(rows) + projected <= self.cap and self.spent(rows) < self.cap
             rows.append(
                 {
                     "kind": "projection",
                     "config_id": config.config_id,
-                    "pilot_costs": [float(c) for c in dev_pilot_costs],
+                    "pilot_run_ids": list(dev_pilot_run_ids),
                     "runs": runs,
                     "projected_usd": str(projected),
                     "allowed": allowed,
@@ -78,7 +92,14 @@ class CostGuard:
             )
         return allowed
 
-    def record(self, config: AgentConfig, usage: Usage, run_id: str) -> None:
+    def record(
+        self,
+        config: AgentConfig,
+        usage: Usage,
+        run_id: str,
+        *,
+        split: Literal["dev", "heldout"] = "dev",
+    ) -> None:
         if not config.hosted:
             return
         TypeAdapter(RunId).validate_python(run_id)
@@ -92,6 +113,7 @@ class CostGuard:
                     "kind": "usage",
                     "config_id": config.config_id,
                     "run_id": run_id,
+                    "split": split,
                     "usd": str(amount),
                     **usage.model_dump(mode="json"),
                 }
