@@ -18,7 +18,7 @@ from aletheia.llm.provider import (
     ToolSpec,
 )
 from aletheia.schema.canonical import canonical_bytes
-from aletheia.schema.models import ClaimSubmission, Strict, Targets
+from aletheia.schema.models import Strict, Targets
 from aletheia.schema.taxonomy import Taxonomy
 
 
@@ -34,7 +34,12 @@ def build_messages(prompt: Path, targets: Targets) -> tuple[list[Message], str]:
         "taxonomy": canonical_bytes(Taxonomy.bundled()).decode(),
     }.items():
         content = content.replace("{" + key + "}", value)
-    summary = canonical_bytes(ClaimSubmission.model_json_schema()).decode()
+    summary = (
+        "algorithm_identity: body {family, variant}; call_relation: body {callee, kind}; "
+        "function_signature: body {return_type, params: [{type}]}; "
+        "function_purpose: body {category}. Use canonical subject_address, confidence, "
+        "evidence_refs and depends_on. The advertised tools define the exact schemas."
+    )
     return [
         Message(role="system", content=content),
         Message(role="user", content="Analyze the listed targets. Claim schemas: " + summary),
