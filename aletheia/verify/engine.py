@@ -643,6 +643,8 @@ class Engine:
         self.purpose_mapping = PurposeMapping.read(self.purpose_mapping_path)
         self.harness: dict[str, JsonValue] = {
             "mode": mode,
+            "taxonomy_version": Taxonomy.bundled().version,
+            "purpose_packs_hash": self.purpose_mapping_hash,
             "verifier_version": __version__,
             "verifier_source_hash": verifier_source_hash(),
             "sandbox": cast(JsonValue, runner.config.model_dump(mode="json")),
