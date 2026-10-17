@@ -1,5 +1,6 @@
 config_id: local-c
 provider: openai-compatible
+transport: windows-loopback
 base_url: http://127.0.0.1:11434/v1
 api_key_env: null
 model: aletheia-qwen3-4b-p1b-32k

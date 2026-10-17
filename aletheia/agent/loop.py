@@ -82,7 +82,14 @@ class AgentLoop:
 
     def run(self, messages: list[Message]) -> AgentResult:
         self.messages = [message.model_copy(deep=True) for message in messages]
-        start = self.clock()
+        self.clock_trace: list[float] = []
+
+        def tick() -> float:
+            value = self.clock()
+            self.clock_trace.append(value)
+            return value
+
+        start = tick()
         inputs = outputs = malformed = streak = restarts = requests = 0
         final_turn = False
         exhaustion: str | None = None
@@ -102,7 +109,7 @@ class AgentLoop:
         if self.config.hosted:
             return result("budget_exhausted", "hosted_cost_cap")
         while not self.proxy.finished:
-            if self.clock() - start >= self.config.budgets.wall_minutes * 60:
+            if tick() - start >= self.config.budgets.wall_minutes * 60:
                 exhaustion = exhaustion or "wall_time"
             elif inputs >= self.config.budgets.input_tokens:
                 exhaustion = exhaustion or "input_tokens"
