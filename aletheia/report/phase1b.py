@@ -9,7 +9,7 @@ from typing import Any
 
 from aletheia.confidence import CalibrationFit, LikelihoodFit, Sample, adjust_graph, sample
 from aletheia.confidence.headline import Scored, headline
-from aletheia.metrics import Interval, percentile
+from aletheia.metrics import Interval, compute_metrics, percentile
 from aletheia.orchestrate import Benchmark, file_hash
 from aletheia.report import ReportData, collect
 from aletheia.schema.models import GroundFunctionV2, GroundTruth
@@ -138,7 +138,16 @@ def _coverage(
         key: {
             "eligible_functions": len(functions),
             "correct_functions": len(covered[key]),
-            "coverage": len(covered[key]) / len(functions) if functions else None,
+            "coverage": len(covered[key]) / len(functions)
+            if functions
+            and (
+                key[2] != "function_purpose"
+                or (
+                    benchmark.grading_context is not None
+                    and benchmark.grading_context.human_validated is True
+                )
+            )
+            else None,
         }
         for key, functions in eligible.items()
     }
@@ -182,6 +191,12 @@ def generate(benchmark: Benchmark, runs: list[str], fit_root: Path) -> dict[str,
             Scored(sample=row, confidence=adjusted[row.claim_id])
         )
     coverage = _coverage(benchmark, data, runs)
+    truths: dict[str, dict[str, GroundTruth]] = defaultdict(dict)
+    for info in run_info.values():
+        variant = info["variant_id"]
+        _, _, bundle = benchmark.bundle(info["program"], variant)
+        gt = GroundTruth.model_validate_json((bundle / "private/ground_truth.json").read_bytes())
+        truths[variant][gt.binary_sha256] = gt
     settings = benchmark.config.metrics
     populations: list[dict[str, Any]] = []
     for (source, variant, kind), selected in sorted(groups.items()):
@@ -197,12 +212,22 @@ def generate(benchmark: Benchmark, runs: list[str], fit_root: Path) -> dict[str,
             bootstrap_resamples=settings.bootstrap_resamples,
             bootstrap_seed=settings.bootstrap_seed,
         )
+        ids = {row.sample.claim_id for row in selected}
+        group = [(c, v, g) for c, v, g, _ in data.claims if c.claim_id in ids]
+        legacy = compute_metrics(
+            [g for _, _, g in group],
+            [c for c, _, _ in group],
+            [v for _, v, _ in group],
+            settings,
+            ground_truths=list(truths[variant].values()),
+        )
         # Whitelist aggregates: Headline also contains private program cluster identities.
         item: dict[str, Any] = {
             "source_id": source,
             "variant": variant,
             "claim_type": kind,
             **result,
+            "benchmark_metrics": legacy.sources[0].aggregate.model_dump(mode="json"),
             "headline": {
                 "metrics": head.metrics,
                 "counts": head.counts,
@@ -297,18 +322,9 @@ def generate(benchmark: Benchmark, runs: list[str], fit_root: Path) -> dict[str,
         },
         "failures": dict(failures),
         "sections": {
-            (
-                'RQ1": "Overconfidence gap, equal-mass ECE and three-arm CWR by '
-                "configuration and claim type; paired program-cluster CIs."
-            ),
-            (
-                'RQ5": "Baseline and hardened populations are reported '
-                "separately; shared clusters include zero-claim programs."
-            ),
-            (
-                'RQ9": "Purpose/signature coverage and aspect/method/strength '
-                "reliability; ungraded human-dependent purpose rows remain excluded."
-            ),
+            "RQ1": "Overconfidence gaps, ECE and three-arm CWR with program-cluster CIs.",
+            "RQ5": "Baseline/hardened populations, retaining zero-claim program clusters.",
+            "RQ9": "Purpose/signature coverage and aspect/method/strength reliability.",
         },
         "notes": [
             (
