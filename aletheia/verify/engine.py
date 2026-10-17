@@ -927,6 +927,42 @@ class Engine:
         analysis: GhidraAnalysis,
         no_cache: bool,
     ) -> dict[str, MethodResult]:
+        try:
+            return self._run_composite(family, claims, binary, analysis, no_cache)
+        except Exception as exc:
+            spec = MethodSpec(
+                "composite.hash@1",
+                "function_purpose",
+                "category_behavior",
+                "E2",
+                True,
+                True,
+                "emulation",
+            )
+            details: dict[str, JsonValue] = {
+                "family": family,
+                "members": cast(
+                    JsonValue, [member.model_dump(mode="json") for member in public_members(claims)]
+                ),
+            }
+            return {
+                claim.claim_id: replace(
+                    self._error(
+                        spec, claim, "internal", type(exc).__name__ + ": " + str(exc)[:240]
+                    ),
+                    details=details,
+                )
+                for claim in claims
+            }
+
+    def _run_composite(
+        self,
+        family: str,
+        claims: list[Claim],
+        binary: BinaryRef,
+        analysis: GhidraAnalysis,
+        no_cache: bool,
+    ) -> dict[str, MethodResult]:
         members = public_members(claims)
         identity = cast(JsonValue, [member.model_dump(mode="json") for member in members])
         details: dict[str, JsonValue] = {"family": family, "members": identity}
