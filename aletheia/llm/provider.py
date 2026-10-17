@@ -187,6 +187,11 @@ class OpenAICompatibleProvider:
             message = data["choices"][0]["message"]
             # Some compatible servers include informational assistant fields.
             message = {key: message[key] for key in Message.model_fields if key in message}
+            if isinstance(message.get("tool_calls"), list):
+                message["tool_calls"] = [
+                    {key: value for key, value in call.items() if key != "index"}
+                    for call in message["tool_calls"]
+                ]
             result = ChatResponse(
                 message=Message.model_validate(message),
                 usage=Usage(

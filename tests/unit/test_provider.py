@@ -73,6 +73,7 @@ def test_compatible_payload_tools_and_usage_are_preserved():
                         "tool_calls": [
                             {
                                 "id": "tool-1",
+                                "index": 0,
                                 "type": "function",
                                 "function": {"name": "finish", "arguments": "{}"},
                             }
