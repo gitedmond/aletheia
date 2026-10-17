@@ -1,0 +1,135 @@
+{
+  "schema_version": "1.0",
+  "binary_sha256": "7bd584266ec27217fbf4413cebaed6a67773a9cd58ae6f0289465a43f0bc8acb",
+  "cases": [
+    {
+      "name": "length_ref",
+      "family": "strlen",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "length_bound",
+      "family": "strlen",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "length_plus",
+      "family": "strlen",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "length_newline",
+      "family": "strlen",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "length_cap",
+      "family": "strlen",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "compare_ref",
+      "family": "strcmp",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "compare_signed",
+      "family": "strcmp",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "compare_length",
+      "family": "strcmp",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "compare_equal",
+      "family": "strcmp",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "copy_ref",
+      "family": "memcpy",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "copy_short",
+      "family": "memcpy",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "copy_reverse",
+      "family": "memcpy",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "copy_nul",
+      "family": "memcpy",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "hex_lower",
+      "family": "hex",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "hex_upper",
+      "family": "hex",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "hex_swapped",
+      "family": "hex",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "hex_unpadded",
+      "family": "hex",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "hex_mixed",
+      "family": "hex",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "parse_signed32",
+      "family": "parse-int",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "parse_signed64",
+      "family": "parse-int",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "parse_unsigned32",
+      "family": "parse-int",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "parse_unsigned64",
+      "family": "parse-int",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "parse_ignore_sign",
+      "family": "parse-int",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "parse_hex",
+      "family": "parse-int",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "parse_nine",
+      "family": "parse-int",
+      "expected": "CONTRADICTED"
+    }
+  ],
+  "notes": [
+    "ignore-sign is a valid unsigned parser and must VERIFY the coarse parse.int purpose; signed-only near-miss mismatch is checked separately.",
+    "Reverse-copy near miss reverses byte order, not the semantically valid direction of copying."
+  ]
+}
