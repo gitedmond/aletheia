@@ -1,0 +1,122 @@
+map:
+  checksum.adler32:
+    pack: adler32
+    variants:
+    - zlib
+  checksum.crc32:
+    pack: crc32
+    variants:
+    - ieee
+    - jamcrc
+    - bzip2
+  checksum.crc32c:
+    pack: crc32
+    variants:
+    - crc32c
+  checksum.fletcher16:
+    pack: fletcher16
+    variants:
+    - std
+  crypto.hash.md5.final:
+    composite: true
+    pack: md5
+    variants:
+    - std
+  crypto.hash.md5.init:
+    composite: true
+    pack: md5
+    variants:
+    - std
+  crypto.hash.md5.oneshot:
+    pack: md5
+    variants:
+    - std
+  crypto.hash.md5.update:
+    composite: true
+    pack: md5
+    variants:
+    - std
+  crypto.hash.sha1.final:
+    composite: true
+    pack: sha1
+    variants:
+    - std
+  crypto.hash.sha1.init:
+    composite: true
+    pack: sha1
+    variants:
+    - std
+  crypto.hash.sha1.oneshot:
+    pack: sha1
+    variants:
+    - std
+  crypto.hash.sha1.update:
+    composite: true
+    pack: sha1
+    variants:
+    - std
+  crypto.hash.sha256.final:
+    composite: true
+    pack: sha256
+    variants:
+    - std
+  crypto.hash.sha256.init:
+    composite: true
+    pack: sha256
+    variants:
+    - std
+  crypto.hash.sha256.oneshot:
+    pack: sha256
+    variants:
+    - std
+  crypto.hash.sha256.update:
+    composite: true
+    pack: sha256
+    variants:
+    - std
+  encoding.base64.decode:
+    pack: base64
+    variants:
+    - std-padded-decode
+  encoding.base64.encode:
+    pack: base64
+    variants:
+    - std-padded
+    - url-nopad
+  encoding.hex.encode:
+    pack: hex
+    variants:
+    - lower
+    - upper
+  hash.noncrypto.djb2:
+    pack: djb2
+    variants:
+    - add
+    - xor
+  hash.noncrypto.fnv1:
+    pack: fnv
+    variants:
+    - fnv1-32
+  hash.noncrypto.fnv1a:
+    pack: fnv
+    variants:
+    - fnv1a-32
+  memory.copy:
+    pack: memcpy
+    variants:
+    - std
+  parse.int:
+    pack: parse-int
+    variants:
+    - decimal-signed
+    - decimal-unsigned
+  string.compare:
+    pack: strcmp
+    variants:
+    - std
+  string.length:
+    pack: strlen
+    variants:
+    - std
+taxonomy_version: '1.0'
+version: '1.0'
