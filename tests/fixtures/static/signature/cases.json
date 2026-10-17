@@ -1,0 +1,271 @@
+{
+  "schema_version": "1.0",
+  "binary_sha256": "2dd18cf2116d6d6ed0f98ede6681d2a33dc45fc04b0f19bb92d7b777f3b83b6a",
+  "cases": [
+    {
+      "name": "sig_ret32",
+      "body": {
+        "return_type": "uint32_t",
+        "params": [
+          {
+            "type": "uint32_t"
+          }
+        ]
+      },
+      "expected": {
+        "arity": "VERIFIED",
+        "return_width": "VERIFIED",
+        "param_widths": "VERIFIED",
+        "param_types": "INCONCLUSIVE"
+      }
+    },
+    {
+      "name": "sig_ret64",
+      "body": {
+        "return_type": "uint64_t",
+        "params": [
+          {
+            "type": "uint64_t"
+          }
+        ]
+      },
+      "expected": {
+        "arity": "VERIFIED",
+        "return_width": "VERIFIED",
+        "param_widths": "VERIFIED",
+        "param_types": "INCONCLUSIVE"
+      }
+    },
+    {
+      "name": "sig_retptr",
+      "body": {
+        "return_type": "const unsigned char *",
+        "params": [
+          {
+            "type": "const unsigned char *"
+          }
+        ]
+      },
+      "expected": {
+        "arity": "VERIFIED",
+        "return_width": "VERIFIED",
+        "param_widths": "VERIFIED",
+        "param_types": "INCONCLUSIVE"
+      }
+    },
+    {
+      "name": "sig_retfloat",
+      "body": {
+        "return_type": "float",
+        "params": [
+          {
+            "type": "float"
+          }
+        ]
+      },
+      "expected": {
+        "arity": "INCONCLUSIVE",
+        "return_width": "VERIFIED",
+        "param_widths": "VERIFIED",
+        "param_types": "INCONCLUSIVE"
+      }
+    },
+    {
+      "name": "sig_retdouble",
+      "body": {
+        "return_type": "double",
+        "params": [
+          {
+            "type": "double"
+          }
+        ]
+      },
+      "expected": {
+        "arity": "INCONCLUSIVE",
+        "return_width": "VERIFIED",
+        "param_widths": "VERIFIED",
+        "param_types": "INCONCLUSIVE"
+      }
+    },
+    {
+      "name": "sig_ret8",
+      "body": {
+        "return_type": "uint8_t",
+        "params": [
+          {
+            "type": "uint8_t"
+          }
+        ]
+      },
+      "expected": {
+        "arity": "VERIFIED",
+        "return_width": "VERIFIED",
+        "param_widths": "INCONCLUSIVE",
+        "param_types": "INCONCLUSIVE"
+      }
+    },
+    {
+      "name": "sig_ret16",
+      "body": {
+        "return_type": "uint16_t",
+        "params": [
+          {
+            "type": "uint16_t"
+          }
+        ]
+      },
+      "expected": {
+        "arity": "VERIFIED",
+        "return_width": "VERIFIED",
+        "param_widths": "INCONCLUSIVE",
+        "param_types": "INCONCLUSIVE"
+      }
+    },
+    {
+      "name": "sig_write32_read64",
+      "body": {
+        "return_type": "uint64_t",
+        "params": [
+          {
+            "type": "uint32_t"
+          }
+        ]
+      },
+      "expected": {
+        "arity": "VERIFIED",
+        "return_width": "INCONCLUSIVE",
+        "param_widths": "VERIFIED",
+        "param_types": "INCONCLUSIVE"
+      }
+    },
+    {
+      "name": "sig_write64_read32",
+      "body": {
+        "return_type": "uint32_t",
+        "params": [
+          {
+            "type": "uint64_t"
+          }
+        ]
+      },
+      "expected": {
+        "arity": "VERIFIED",
+        "return_width": "INCONCLUSIVE",
+        "param_widths": "VERIFIED",
+        "param_types": "INCONCLUSIVE"
+      }
+    },
+    {
+      "name": "sig_void_written",
+      "body": {
+        "return_type": "void",
+        "params": []
+      },
+      "expected": {
+        "arity": "INCONCLUSIVE",
+        "return_width": "CONTRADICTED",
+        "param_widths": "VERIFIED",
+        "param_types": "INCONCLUSIVE"
+      }
+    },
+    {
+      "name": "sig_no_write",
+      "body": {
+        "return_type": "uint32_t",
+        "params": []
+      },
+      "expected": {
+        "arity": "INCONCLUSIVE",
+        "return_width": "CONTRADICTED",
+        "param_widths": "VERIFIED",
+        "param_types": "INCONCLUSIVE"
+      }
+    },
+    {
+      "name": "sig_tail",
+      "body": {
+        "return_type": "uint32_t",
+        "params": [
+          {
+            "type": "uint32_t"
+          }
+        ]
+      },
+      "expected": {
+        "arity": "VERIFIED",
+        "return_width": "INCONCLUSIVE",
+        "param_widths": "INCONCLUSIVE",
+        "param_types": "INCONCLUSIVE"
+      }
+    },
+    {
+      "name": "sig_mixed",
+      "body": {
+        "return_type": "uint32_t",
+        "params": [
+          {
+            "type": "uint32_t"
+          }
+        ]
+      },
+      "expected": {
+        "arity": "VERIFIED",
+        "return_width": "INCONCLUSIVE",
+        "param_widths": "VERIFIED",
+        "param_types": "INCONCLUSIVE"
+      }
+    },
+    {
+      "name": "sig_unread",
+      "body": {
+        "return_type": "uint32_t",
+        "params": [
+          {
+            "type": "uint32_t"
+          }
+        ]
+      },
+      "expected": {
+        "arity": "VERIFIED",
+        "return_width": "INCONCLUSIVE",
+        "param_widths": "VERIFIED",
+        "param_types": "INCONCLUSIVE"
+      }
+    },
+    {
+      "name": "sig_pointer",
+      "body": {
+        "return_type": "uint32_t",
+        "params": [
+          {
+            "type": "const uint32_t *"
+          }
+        ]
+      },
+      "expected": {
+        "arity": "VERIFIED",
+        "return_width": "VERIFIED",
+        "param_widths": "VERIFIED",
+        "param_types": "INCONCLUSIVE"
+      }
+    },
+    {
+      "name": "sig_integer_address",
+      "body": {
+        "return_type": "uint32_t",
+        "params": [
+          {
+            "type": "uintptr_t"
+          }
+        ]
+      },
+      "expected": {
+        "arity": "VERIFIED",
+        "return_width": "VERIFIED",
+        "param_widths": "INCONCLUSIVE",
+        "param_types": "INCONCLUSIVE"
+      }
+    }
+  ],
+  "review_basis": "Independent C/SysV declarations and explicit assembly register widths; no human review is claimed. An additional integer-address diagnostic pins the limit of pointer-use inference: address-compatible integer and pointer types cannot be distinguished from memory use."
+}
