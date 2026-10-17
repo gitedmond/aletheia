@@ -259,6 +259,20 @@ def test_installed_hook_blocks_a_real_commit_and_preserves_existing_hooks(tmp_pa
         capture_output=True,
         env=environment,
     )
+    worktree = tmp_path / "other-worktree"
+    subprocess.run(
+        ["git", "-C", str(repo), "worktree", "add", "-qb", "other", str(worktree)],
+        check=True,
+    )
+    (worktree / "notes.txt").write_text("secret-program")
+    subprocess.run(["git", "-C", str(worktree), "add", "notes.txt"], check=True)
+    blocked_other = subprocess.run(
+        ["git", "-C", str(worktree), "commit", "-m", "must also be blocked"],
+        capture_output=True,
+        env=environment,
+    )
+    assert blocked_other.returncode != 0
+    assert b"heldout_content" in blocked_other.stderr
     hook.write_text("#!/bin/sh\necho existing-user-hook\n")
     with pytest.raises(ValueError, match="preserving existing"):
         install(repo, private)
@@ -295,3 +309,20 @@ def test_hook_scans_deleted_and_rename_source_metadata(tmp_path, operation):
     command = ["rm", old] if operation == "delete" else ["mv", old, "safe.txt"]
     subprocess.run(["git", "-C", str(repo), *command], check=True, capture_output=True)
     assert scan_staged(repo, private) == [{"path": old, "reason": "heldout_content"}]
+
+
+def test_private_function_names_match_whole_identifiers(tmp_path):
+    repo, private = tmp_path / "repo", tmp_path / "private"
+    repo.mkdir()
+    private.mkdir()
+    subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
+    (private / "leakage-index.json").write_text(
+        json.dumps({"program_ids": [], "function_names": ["hidden_helper"], "binary_sha256": []})
+    )
+    source = repo / "public.c"
+    source.write_text("int fixture_hidden_helper(void) { return 0; }")
+    subprocess.run(["git", "-C", str(repo), "add", "public.c"], check=True)
+    assert scan_staged(repo, private) == []
+    source.write_text("int hidden_helper(void) { return 0; }")
+    subprocess.run(["git", "-C", str(repo), "add", "public.c"], check=True)
+    assert scan_staged(repo, private) == [{"path": "public.c", "reason": "heldout_content"}]

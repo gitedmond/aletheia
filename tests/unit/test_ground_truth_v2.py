@@ -75,3 +75,19 @@ def test_v1_does_not_acquire_v2_default_fields():
         del payload["functions"][0][field]
     record = GroundTruth.model_validate(payload)
     assert "category" not in record.model_dump()["functions"][0]
+
+
+def test_export_matches_runtime_for_null_scorable_fields_and_legacy_default(tmp_path):
+    export_schemas(tmp_path)
+    schema = json.loads((tmp_path / "ground-truth.json").read_bytes())
+    for field in ["category", "abi_signature"]:
+        payload = value()
+        payload["functions"][0][field] = None
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(payload, schema)
+    payload = value()
+    del payload["schema_version"]
+    for field in ["category", "acceptable_categories", "abi_signature", "roles", "source_types"]:
+        del payload["functions"][0][field]
+    GroundTruth.model_validate(payload)
+    jsonschema.validate(payload, schema)
