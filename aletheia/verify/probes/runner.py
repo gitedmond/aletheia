@@ -19,6 +19,7 @@ from aletheia.schema.models import (
     Counterexample,
     Digest,
     Evidence,
+    FunctionPurpose,
     Outcome,
     Verdict,
 )
@@ -28,10 +29,11 @@ from aletheia.verify.emulate.core import (
     Emulator,
     InitializationBudgetExhausted,
 )
-from aletheia.verify.probes.inputs import generate_inputs, inputs_for_shape, inputs_for_variant
+from aletheia.verify.probes.inputs import generate_inputs, inputs_for_call
 from aletheia.verify.probes.minimize import minimize_counterexample
-from aletheia.verify.probes.oracles import OracleResult, evaluate
+from aletheia.verify.probes.oracles import OracleResult, evaluate, string_pair
 from aletheia.verify.probes.pack import CallShape, Pack, VariantProbe
+from aletheia.verify.probes.purpose import PurposeMapping
 from aletheia.verify.static.arity import infer_arity
 
 
@@ -64,7 +66,10 @@ def expected_hex(expected: OracleResult, shape: CallShape) -> str:
     if shape.comparison == "output":
         return (expected.output or b"").hex()
     return (
-        expected.return_value.to_bytes(shape.return_width // 8, "little") + (expected.output or b"")
+        (expected.return_value & ((1 << shape.return_width) - 1)).to_bytes(
+            shape.return_width // 8, "little"
+        )
+        + (expected.output or b"")
     ).hex()
 
 
@@ -72,27 +77,35 @@ def run_input(
     emu: Emulator, entry: int, shape: CallShape, variant: str, probe: VariantProbe, data: bytes
 ) -> Trial:
     args: list[int | Buffer] = []
+    pair = string_pair(data) if "cstr_b" in shape.roles else None
     for role in shape.roles:
         if role == "seed":
             args.append(probe.bind["seed"])
         elif role == "len":
-            args.append(len(data))
+            args.append(1 << 20 if shape.id == "strlen_bound" else len(data))
         elif role == "buf":
             args.append(Buffer(data))
-        elif role == "cstr":
-            args.append(Buffer(data + b"\0"))
+        elif role in {"cstr", "cstr_b"}:
+            value = pair[0 if role == "cstr" else 1] if pair else data
+            args.append(Buffer(value + b"\0"))
         else:
-            args.append(Buffer(b"", shape.output_size(len(data))))
-    expected = expected_hex(evaluate(probe.oracle, data, **probe.bind), shape)
+            size = shape.output_size(len(data))
+            args.append(Buffer(b"\xa5" * size if shape.id == "memcpy" else b"", size))
+    oracle = evaluate(probe.oracle, data, **probe.bind)
+    expected = expected_hex(oracle, shape)
     result = emu.call(entry, args, shape.return_width)
     actual = b"" if result.ret is None else result.ret.to_bytes(shape.return_width // 8, "little")
     if shape.comparison == "output":
         actual = b""
+    elif shape.comparison == "sign" and result.ret is not None:
+        signed = result.ret if result.ret < 1 << 31 else result.ret - (1 << 32)
+        actual = (((signed > 0) - (signed < 0)) & 0xFFFFFFFF).to_bytes(4, "little")
     if result.ret is not None and "out" in shape.roles:
         index = sum(
-            role in {"buf", "cstr", "out"} for role in shape.roles[: shape.roles.index("out")]
+            role in {"buf", "cstr", "cstr_b", "out"}
+            for role in shape.roles[: shape.roles.index("out")]
         )
-        length = shape.output_size(len(data)) if shape.comparison == "output" else result.ret
+        length = len(oracle.output or b"") if shape.comparison == "output" else result.ret
         actual += result.out_buffers[index][:length]
     if result.uninitialized_state_reads:
         status = "state_dependent"
@@ -126,19 +139,35 @@ def verify_algorithm(
     binary: Path,
     budgets: Budgets,
     env_digest: Digest,
+    purpose_mapping: PurposeMapping | None = None,
 ) -> ProbeOutcome:
-    if not isinstance(claim.body, Algorithm):
-        raise ValueError("probe requires algorithm_identity")
-    algorithm = claim.body
+    if not isinstance(claim.body, (Algorithm, FunctionPurpose)):
+        raise ValueError("probe requires algorithm_identity or function_purpose")
+    purpose = isinstance(claim.body, FunctionPurpose)
+    aspect = "category_behavior" if purpose else "output_match"
+    requested = None
+    if isinstance(claim.body, FunctionPurpose):
+        if purpose_mapping is None:
+            raise ValueError("purpose probe requires its pinned public mapping")
+        requested = purpose_mapping.map.get(claim.body.category)
+        if requested is not None and requested.composite:
+            raise ValueError("composite purposes require a composite job")
+        family = requested.pack if requested else "purpose"
+        claimed_variant = None
+    else:
+        family = claim.body.family
+        claimed_variant = claim.body.variant
     if claim.binary_sha256 != analysis.binary_sha256 or binary.stem != claim.binary_sha256:
         raise ValueError("probe binary/analysis identity mismatch")
-    family = algorithm.family
     if pack is not None and pack.family != family:
         raise ValueError("probe pack family mismatch")
     method = f"probe.{family}@{pack.version if pack else 1}"
     variants = sorted(pack.variants) if pack else []
-    unsupported = sorted(set(REGISTRY[family]) - set(variants))
-    scope = [algorithm.variant] if algorithm.variant is not None else variants
+    allowed = requested.variants if requested else REGISTRY.get(family, ())
+    unsupported = sorted(set(allowed) - set(variants))
+    scope = (
+        [claimed_variant] if claimed_variant is not None else sorted(set(allowed) & set(variants))
+    )
     observations: list[Trial] = []
     minimization: list[Trial] = []
     skipped: list[dict[str, JsonValue]] = []
@@ -159,14 +188,23 @@ def verify_algorithm(
                 "binary_sha256": claim.binary_sha256,
                 "subject": claim.subject.address,
                 "family": family,
-                "claimed_variant": algorithm.variant,
+                "claimed_variant": claimed_variant,
+                **(
+                    {"category": claim.body.category}
+                    if isinstance(claim.body, FunctionPurpose)
+                    else {}
+                ),
                 "supported_variants": variants,
                 "unsupported_variants": unsupported,
                 "arity": arity.model_dump(mode="json") if arity is not None else None,
                 "initial_state": initial_state,
                 "observations": [trial.record() for trial in observations],
                 "minimization": [trial.record() for trial in minimization],
-                **({"skipped_inputs": skipped} if family in {"md5", "sha1", "sha256"} else {}),
+                **(
+                    {"skipped_inputs": skipped}
+                    if purpose or family in {"md5", "sha1", "sha256"}
+                    else {}
+                ),
             },
         )
         digest = "sha256:" + content_hash(payload)
@@ -176,7 +214,7 @@ def verify_algorithm(
             claim_id=claim.claim_id,
             intrinsic_verdict=outcome,
             strength=strength,
-            aspects={"output_match": Aspect(verdict=outcome, strength=strength, method=method)},
+            aspects={aspect: Aspect(verdict=outcome, strength=strength, method=method)},
             methods_run=[method],
             reason=reason,
             harness=harness,
@@ -195,7 +233,11 @@ def verify_algorithm(
         )
         return ProbeOutcome(verdict, {digest: payload})
 
-    if pack is None or (algorithm.variant is not None and algorithm.variant not in variants):
+    if (
+        pack is None
+        or not scope
+        or (claimed_variant is not None and claimed_variant not in variants)
+    ):
         return finish("UNVERIFIABLE", "no_pack")
     if not any(fn.entry == claim.subject.address for fn in analysis.functions):
         return finish("ERROR", "subject_not_found")
@@ -216,7 +258,7 @@ def verify_algorithm(
             probe = pack.variants[variant]
             if probe.call_shapes is not None and shape.id not in probe.call_shapes:
                 continue
-            inputs = inputs_for_shape(inputs_for_variant(values, probe), shape.roles)
+            inputs = inputs_for_call(values, probe, shape)
             for index, data in enumerate(inputs):
                 trial = run_input(emu, entry, shape, variant, probe, data)
                 observations.append(trial)
@@ -235,10 +277,10 @@ def verify_algorithm(
 
     def harness(shape: CallShape, variant: str, ending: str) -> str:
         probe = pack.variants[variant]
-        inputs = inputs_for_shape(inputs_for_variant(values, probe), shape.roles)
+        inputs = inputs_for_call(values, probe, shape)
         fixed_values = [value.encode() for value in pack.inputs.fixed]
         fixed_values += [bytes.fromhex(value) for value in pack.inputs.fixed_hex]
-        fixed = len(inputs_for_shape(inputs_for_variant(fixed_values, probe), shape.roles))
+        fixed = len(inputs_for_call(fixed_values, probe, shape))
         return (
             f"Function-level emulation of {claim.subject.address}; shape {shape.id} "
             f"({', '.join(shape.roles)}); stubs S1; initial state: {initial_state}; "
@@ -271,7 +313,7 @@ def verify_algorithm(
         if pack.variants[variant].call_shapes is None
         or shape.id in (pack.variants[variant].call_shapes or [])
     )
-    complete_scope = algorithm.variant is not None or not unsupported
+    complete_scope = claimed_variant is not None or not unsupported
     if arity.decisive and shapes and clean and every_pair and complete_scope:
         selected = min(
             mismatches,
@@ -357,11 +399,17 @@ def verify_algorithm(
                 or (probe.call_shapes is not None and selected.shape.id not in probe.call_shapes)
             ):
                 continue
-            if same_shape and all(
-                trial.actual
-                == expected_hex(evaluate(probe.oracle, trial.data, **probe.bind), selected.shape)
-                for trial in same_shape
-            ):
+            try:
+                matched = same_shape and all(
+                    trial.actual
+                    == expected_hex(
+                        evaluate(probe.oracle, trial.data, **probe.bind), selected.shape
+                    )
+                    for trial in same_shape
+                )
+            except ValueError:
+                matched = False
+            if matched:
                 matches_variant = other
                 break
         counterexample = Counterexample(

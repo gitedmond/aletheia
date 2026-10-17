@@ -234,6 +234,91 @@ def static_cases(cfg: Config, root: Path, cache: GhidraAnalysisCache) -> list[di
     return rows
 
 
+def purpose_cases(
+    cfg: Config,
+    root: Path,
+    runner: JobRunner,
+    cache: GhidraAnalysisCache,
+    families: set[str],
+) -> list[dict[str, JsonValue]]:
+    from aletheia.verify.probes.purpose import PurposeMapping
+
+    if not families:
+        return []
+    source = Path("tests/fixtures/purpose/calibration")
+    fixture = json.loads((source / "cases.json").read_bytes())
+    binary, symbols = compile_fixture(source, cfg, root, fixture["binary_sha256"])
+    cases = [case for case in fixture["cases"] if case["family"] in families]
+    for family in sorted(families):
+        pack = load_pack(Path("packs") / (family + ".yaml"))
+        expected_near = [
+            case["name"]
+            for case in cases
+            if case["family"] == family and case["expected"] == "CONTRADICTED"
+        ]
+        if pack.near_miss != expected_near:
+            raise ValueError("purpose near-miss fixture/pack coverage mismatch")
+    analysis = cache.analyze(
+        binary,
+        Path(cfg.ghidra.analysis_options),
+        subjects=[symbols[case["name"]] for case in cases],
+    )
+    mapping_path = Path("mappings/purpose_packs.yaml")
+    mapping = PurposeMapping.read(mapping_path)
+    categories = {
+        scope.pack: category
+        for category, scope in mapping.map.items()
+        if scope.pack in families and not scope.composite
+    }
+    client = ProbeClient(runner)
+    rows: list[dict[str, JsonValue]] = []
+    for case in cases:
+        claim = Claim.intake(
+            ClaimSubmission.model_validate(
+                {
+                    "run_id": "r_" + "a" * 16,
+                    "source": {"origin": "human", "source_id": "human:synthetic-calibration"},
+                    "binary_sha256": binary.binary_sha256,
+                    "subject": {"address": symbols[case["name"]]},
+                    "type": "function_purpose",
+                    "body": {"category": categories[case["family"]]},
+                    "confidence": 1.0,
+                    "confidence_source": "stated",
+                }
+            )
+        )
+        verdict = client.probe(
+            binary,
+            claim,
+            analysis,
+            Path("packs") / (case["family"] + ".yaml"),
+            cfg.budgets,
+            "sha256:"
+            + content_hash(
+                {
+                    "image": cfg.sandbox.image_analysis,
+                    "budgets": cfg.budgets.model_dump(mode="json"),
+                    "mapping": hashlib.sha256(mapping_path.read_bytes()).hexdigest(),
+                }
+            ),
+            mapping_path,
+        )
+        rows.append(
+            {
+                "name": case["name"],
+                "family": case["family"],
+                "expected": case["expected"],
+                "actual": verdict.intrinsic_verdict,
+                "reason": verdict.reason,
+                "passed": verdict.intrinsic_verdict == case["expected"],
+                "counterexample": verdict.counterexample.model_dump(mode="json")
+                if verdict.counterexample
+                else None,
+            }
+        )
+    return rows
+
+
 def run_selftest(cfg: Config, family: str | None = None) -> dict[str, JsonValue]:
     packs = {path.stem: load_pack(path) for path in sorted(Path("packs").glob("*.yaml"))}
     if family is not None and family not in packs:
@@ -248,8 +333,14 @@ def run_selftest(cfg: Config, family: str | None = None) -> dict[str, JsonValue]
     runner = JobRunner(cfg.sandbox, root / "public", root / "jobs", artifacts)
     cache = GhidraAnalysisCache(runner, root / "analysis-cache")
     client = ProbeClient(runner)
-    rows: list[dict[str, JsonValue]] = []
+    from aletheia.verify.probes.oracles import PURPOSE_VARIANTS
+
+    rows: list[dict[str, JsonValue]] = purpose_cases(
+        cfg, root, runner, cache, set(selected) & set(PURPOSE_VARIANTS)
+    )
     for current in selected:
+        if current in PURPOSE_VARIANTS:
+            continue
         pack: Pack = packs[current]
         binary, symbols, fixture = build_fixture(current, cfg, root, version=pack.version)
         if {ref.variant for ref in fixture.references} != set(pack.variants):

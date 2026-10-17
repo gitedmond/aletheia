@@ -9,6 +9,7 @@ from aletheia.analysis.ghidra_session import GhidraAnalysis
 from aletheia.schema.models import Job, JobResult
 from aletheia.verify.probes.client import ProbeRequest
 from aletheia.verify.probes.pack import load_pack
+from aletheia.verify.probes.purpose import PurposeMapping
 from aletheia.verify.probes.runner import verify_algorithm
 from aletheia.worker.containment import require_job_sandbox
 from aletheia.worker.main import guarded_input
@@ -18,7 +19,12 @@ def verify_probe(directory: Path, job: Job) -> JobResult:
     require_job_sandbox(directory)
     if (
         set(job.inputs)
-        not in ({"binary", "analysis", "request"}, {"binary", "analysis", "request", "pack"})
+        not in (
+            {"binary", "analysis", "request"},
+            {"binary", "analysis", "request", "pack"},
+            {"binary", "analysis", "request", "purpose_mapping"},
+            {"binary", "analysis", "request", "pack", "purpose_mapping"},
+        )
         or job.params
     ):
         raise ValueError(
@@ -27,6 +33,8 @@ def verify_probe(directory: Path, job: Job) -> JobResult:
     request = ProbeRequest.model_validate_json(
         guarded_input(directory, job.inputs["request"]).read_bytes()
     )
+    if ("purpose_mapping" in job.inputs) != (request.claim.type == "function_purpose"):
+        raise ValueError("purpose mapping is required only for function_purpose probes")
     analysis = GhidraAnalysis.model_validate_json(
         guarded_input(directory, job.inputs["analysis"]).read_bytes()
     )
@@ -38,6 +46,9 @@ def verify_probe(directory: Path, job: Job) -> JobResult:
         guarded_input(directory, job.inputs["binary"]),
         request.budgets,
         request.env_digest,
+        PurposeMapping.read(guarded_input(directory, job.inputs["purpose_mapping"]))
+        if "purpose_mapping" in job.inputs
+        else None,
     )
     return JobResult(
         job_id=job.job_id,

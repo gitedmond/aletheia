@@ -1,0 +1,35 @@
+version: 1
+near_miss:
+- parse_hex
+- parse_nine
+inputs:
+  fixed:
+  - '-123'
+  - '0'
+  - '2147483647'
+  - '-2147483648'
+  - '4294967295'
+  - '9223372036854775807'
+  - '-9223372036854775808'
+  - '18446744073709551615'
+  random:
+    count: 32
+    max_len: 8
+    seed: 20261013
+family: parse-int
+call_shapes:
+- id: parse_int32
+  roles:
+  - cstr
+  return_width: 32
+- id: parse_int64
+  roles:
+  - cstr
+  return_width: 64
+variants:
+  decimal-signed:
+    oracle: parse_int_signed
+    input_encoding: decimal_signed
+  decimal-unsigned:
+    oracle: parse_int_unsigned
+    input_encoding: decimal_unsigned
