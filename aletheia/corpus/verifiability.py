@@ -156,7 +156,14 @@ def table_v2(truths: list[GroundTruth], packs: list[Pack]) -> Table:
                 p.family == fn.algorithm.family and fn.algorithm.variant in p.variants
                 for p in packs
             )
-            purpose_ready = scope is not None and scope.pack in installed and composite_ready
+            purpose_ready = (
+                scope is not None
+                and scope.pack in installed
+                and composite_ready
+                and any(
+                    p.family == scope.pack and set(scope.variants) & set(p.variants) for p in packs
+                )
+            )
             ready = algorithm_ready or purpose_ready
             covered += ready
             key = fn.category or "none"
