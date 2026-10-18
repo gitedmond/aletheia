@@ -120,6 +120,8 @@ class NameFit(Strict):
 
 
 def fit_threshold(labels: NameLabels, lexicon: Lexicon) -> NameFit:
+    if labels.method == "unlabeled":
+        raise ValueError("name threshold requires a labeling method")
     if len(labels.pairs) < 200 or any(pair.match is None for pair in labels.pairs):
         raise ValueError("name threshold requires at least 200 labeled dev pairs")
     scores = [score(pair.proposed_name, pair.true_name, lexicon) for pair in labels.pairs]

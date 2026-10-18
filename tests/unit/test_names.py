@@ -32,6 +32,8 @@ def test_threshold_uses_200_actual_labels_and_ties_choose_highest():
     fit = fit_threshold(labels, lexicon)
     assert fit.threshold == 1 and fit.agreement == 1 and fit.kappa == 1
     assert fit.secondary_only and not fit.human_validated
+    with pytest.raises(ValueError, match="labeling method"):
+        fit_threshold(labels.model_copy(update={"method": "unlabeled"}), lexicon)
     assert NameFit.model_validate_json(fit.model_dump_json()) == fit
     with pytest.raises(ValueError, match="200 labeled"):
         fit_threshold(labels.model_copy(update={"pairs": pairs[:199]}), lexicon)
