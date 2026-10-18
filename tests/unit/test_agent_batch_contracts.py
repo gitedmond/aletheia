@@ -97,3 +97,42 @@ def test_agent_cli_returns_completed_samples_on_later_error(tmp_path, monkeypatc
     data = json.loads(result.stdout)
     assert data["status"] == "error" and data["error"] == "interrupted sample"
     assert data["runs"] == [{"run_id": "r_" + "a" * 16, "status": "completed", "reason": None}]
+
+
+@pytest.mark.parametrize("missing", ["grade", "verdict"])
+def test_fit_rejects_incomplete_run_with_run_identity(tmp_path, missing):
+    manifest = RunManifest.create(
+        ManifestInput(
+            source_config={"source_id": "agent:fixture", "split": "dev"},
+            binaries=["a" * 64],
+            versions={},
+            image_digests={},
+            analysis_options_hash="b" * 64,
+            pack_hashes={},
+            mapping_hashes={},
+            verifier_version="1",
+            grader_version="1",
+            seeds={},
+        )
+    )
+    run = manifest.run_id
+    write_json(tmp_path / run / "manifest.json", manifest)
+    write_json(tmp_path / run / "run.json", {"program": "example"})
+
+    def absent(_):
+        raise KeyError(missing)
+
+    store = SimpleNamespace(
+        connection=SimpleNamespace(execute=lambda *_: SimpleNamespace(fetchone=lambda: ("dev",))),
+        get_grade=absent if missing == "grade" else lambda _: None,
+        get_verdict=absent,
+    )
+    benchmark = SimpleNamespace(
+        config=SimpleNamespace(guard=SimpleNamespace(split="dev")),
+        root=tmp_path,
+        directory=lambda run: tmp_path / run,
+        store=lambda: nullcontext(store),
+        claims=lambda *_: [SimpleNamespace(claim_id="missing", binary_sha256="a" * 64)],
+    )
+    with pytest.raises(ValueError, match=run + " is incomplete"):
+        fit_dev(benchmark, [run])
