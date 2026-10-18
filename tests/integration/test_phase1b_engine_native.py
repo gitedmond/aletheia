@@ -186,6 +186,7 @@ def test_benchmark_uses_one_shared_composite_job(tmp_path):
     (bundle / "targets.json").write_bytes(canonical_bytes(targets))
     manifest = RunManifest.create(
         ManifestInput(
+            algorithms_version="2.0",
             source_config={
                 "origin": "human",
                 "source_id": "human:synthetic-first",

@@ -802,7 +802,9 @@ def names_label(
                     f"Match {pair.proposed_name!r} to {pair.true_name!r}?", default=False
                 )
             pair.match = memo[key]
-        labels.method, labels.annotator_id, labels.human_validated = "human", annotator, True
+        if labels.method == "unlabeled":
+            labels.method = "human"
+        labels.annotator_id, labels.human_validated = annotator, True
         write_json(target, labels)
         return {"status": "ok", "pairs": len(labels.pairs), "out": str(target)}
 
