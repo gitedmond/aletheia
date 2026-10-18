@@ -27,7 +27,17 @@ def pin_differences(benchmark: Benchmark, manifest: RunManifest) -> list[str]:
     current = benchmark.manifest_input(
         program, source, variant=variant if isinstance(variant, str) else None
     )
-    current.algorithms_version = manifest.algorithms_version
+    if source == "scripted":
+        _, _, bundle = benchmark.bundle(program, variant if isinstance(variant, str) else None)
+        current.algorithms_version = GroundTruth.model_validate_json(
+            (bundle / "private/ground_truth.json").read_bytes()
+        ).algorithms_version
+    elif source == "agent":
+        current.algorithms_version = "2.0"
+    elif source in {"capa", "findcrypt"}:
+        with benchmark.store() as store:
+            if any(c.algorithms_version == "2.0" for c in benchmark.claims(store, manifest.run_id)):
+                current.algorithms_version = "2.0"
     if source == "agent":
         current.seeds["agent"] = manifest.seeds["agent"]
         config = manifest.source_config["agent_config"]

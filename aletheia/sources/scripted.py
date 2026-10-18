@@ -116,6 +116,7 @@ def generate(gt: GroundTruth, manifest: ManifestInput, seed: int = 20261013) -> 
         )
 
     no_candidate = 0
+    no_purpose_candidate = 0
     for function in functions:
         algorithm = function.algorithm
         if function.scorable:
@@ -142,7 +143,14 @@ def generate(gt: GroundTruth, manifest: ManifestInput, seed: int = 20261013) -> 
                 alternatives = [
                     leaf for leaf in leaves if leaf not in function.acceptable_categories
                 ]
-                add("mutated", function.address, FunctionPurpose(category=rng.choice(alternatives)))
+                if alternatives:
+                    add(
+                        "mutated",
+                        function.address,
+                        FunctionPurpose(category=rng.choice(alternatives)),
+                    )
+                if not alternatives:
+                    no_purpose_candidate += 1
                 if function.category.endswith(
                     (".init", ".update", ".final")
                 ) and function.category.startswith("crypto.hash."):
@@ -216,6 +224,8 @@ def generate(gt: GroundTruth, manifest: ManifestInput, seed: int = 20261013) -> 
             ]
             cases.append(ScriptedCase(run, claims))
     exclusions = {"no_wrong_callee_candidate": no_candidate} if no_candidate else {}
+    if no_purpose_candidate:
+        exclusions["no_wrong_purpose_candidate"] = no_purpose_candidate
     return ScriptedResult(cases, exclusions)
 
 

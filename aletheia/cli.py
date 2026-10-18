@@ -708,24 +708,32 @@ def agents_run(
     from aletheia.llm.provider import AgentConfig
     from aletheia.orchestrate import Benchmark
 
-    cfg = read_config(ctx)
-    cfg.guard.access(config)
-    agent = AgentConfig.model_validate(yaml.safe_load(config.read_bytes()))
-    if agent.hosted:
-        typer.echo(json.dumps({"status": "skipped", "reason": "hosted_cost_cap"}))
-        raise typer.Exit(8)
-    build_variant = Variant(
-        cfg.sandbox.image_build, hardening="hardoff" if variant == "baseline" else "hardened"
-    ).id
-    benchmark = Benchmark(cfg, variant=build_variant, algorithms_version="2.0")
-    programs = [program] if program else benchmark.programs()
-    provider = provider_for(agent)
     runs: list[dict[str, str | None]] = []
-    for selected in programs:
-        for index in range(samples):
-            run, result = run_agent(benchmark, agent, provider, selected, index)
-            runs.append({"run_id": run, "status": result.status, "reason": result.reason})
-    typer.echo(json.dumps({"status": "ok", "runs": runs}, sort_keys=True))
+    try:
+        cfg = read_config(ctx)
+        cfg.guard.access(config)
+        agent = AgentConfig.model_validate(yaml.safe_load(config.read_bytes()))
+        if agent.hosted:
+            typer.echo(json.dumps({"status": "skipped", "reason": "hosted_cost_cap"}))
+            raise typer.Exit(8)
+        build_variant = Variant(
+            cfg.sandbox.image_build, hardening="hardoff" if variant == "baseline" else "hardened"
+        ).id
+        benchmark = Benchmark(cfg, variant=build_variant, algorithms_version="2.0")
+        programs = [program] if program else benchmark.programs()
+        provider = provider_for(agent)
+        for selected in programs:
+            for index in range(samples):
+                run, result = run_agent(benchmark, agent, provider, selected, index)
+                runs.append({"run_id": run, "status": result.status, "reason": result.reason})
+        typer.echo(json.dumps({"status": "ok", "runs": runs}, sort_keys=True))
+    except typer.Exit:
+        raise
+    except (OSError, ValueError, RuntimeError, KeyError) as error:
+        typer.echo(
+            json.dumps({"status": "error", "error": str(error), "runs": runs}, sort_keys=True)
+        )
+        raise typer.Exit(7 if isinstance(error, PrivateAccessError) else 1) from None
 
 
 calibrate_app = typer.Typer(help="Confidence fitting from dev claims only.")

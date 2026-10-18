@@ -87,14 +87,27 @@ def test_real_collector_cassette_replays_retry_and_claims_without_provider(tmp_p
             response("finish", {}),
         ]
     )
-    monkeypatch.setattr("aletheia.agent.loop.time.sleep", lambda _: None)
     root = tmp_path / "original"
-    result, claims = collect(Config(), config, fake, binary, targets, "r_" + "4" * 16, root)
+    result, claims = collect(
+        Config(), config, fake, binary, targets, "r_" + "4" * 16, root, sleep=lambda _: None
+    )
     assert result.status == "completed" and len(claims) == 1
     replayed = replay_agent(root, tmp_path / "replayed", PrivateGuard(None))
     assert replayed["status"] == "passed", replayed
     assert replayed["provider_cache_hits"] == 2 and replayed["provider_errors_replayed"] == 1
     assert fake.calls == 3
+
+    path = root / "agent.json"
+    original = path.read_bytes()
+    record = json.loads(original)
+    record["provider_events"][0]["request_hash"] = "0" * 64
+    path.write_text(json.dumps(record))
+    drift = replay_agent(root, tmp_path / "drift", PrivateGuard(None))
+    assert drift["status"] == "failed" and drift["differences"] == [
+        "agent replay drift: ReplayDrift"
+    ]
+    assert drift["provider_errors_replayed"] == 0
+    path.write_bytes(original)
 
     next((root / "responses").glob("*.json")).unlink()
     missing = replay_agent(root, tmp_path / "missing-cache", PrivateGuard(None))
