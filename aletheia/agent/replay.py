@@ -25,6 +25,10 @@ from aletheia.llm.provider import (
 from aletheia.schema.canonical import canonical_bytes, content_hash
 
 
+class ReplayDrift(RuntimeError):
+    """A missing or divergent cassette is not a malformed model response."""
+
+
 class RecordingProvider:
     id = "recording"
 
@@ -58,17 +62,17 @@ class ReplayProvider:
 
     def send(self, req: ChatRequest) -> ChatResponse:
         if self.position >= len(self.events):
-            raise ValueError("agent_replay_script_exhausted")
+            raise ReplayDrift("agent_replay_script_exhausted")
         event = self.events[self.position]
         self.position += 1
         if event["request_hash"] != content_hash(req):
-            raise ValueError("agent_replay_request_drift")
+            raise ReplayDrift("agent_replay_request_drift")
         if event["outcome"] == "response":
             try:
                 response = self.cached.send(req)
-            except ValueError:
+            except ValueError as exc:
                 self.misses += 1
-                raise
+                raise ReplayDrift("provider_cache_miss") from exc
             self.hits += 1
             return response
         self.errors += 1

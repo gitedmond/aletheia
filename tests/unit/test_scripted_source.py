@@ -241,3 +241,33 @@ def test_v2_scripted_population_covers_all_claim_types_and_compiler_abi():
     ) == canonical_bytes(
         [case.manifest.model_dump(mode="json") for case in generate(gt, selected).cases]
     )
+
+
+def test_v2_purpose_population_with_no_false_category_does_not_invent_mutations():
+    from aletheia.schema.taxonomy import Taxonomy
+
+    gt = GroundTruth.model_validate_json(
+        Path("tests/golden/ground-truth-v2/crc32tool.json").read_bytes()
+    )
+    leaves = sorted(Taxonomy.bundled().leaves)
+    gt = gt.model_copy(
+        update={
+            "functions": [
+                f.model_copy(update={"acceptable_categories": leaves}) for f in gt.functions
+            ]
+        }
+    )
+    selected = manifest().model_copy(
+        update={"binaries": [gt.binary_sha256], "algorithms_version": "2.0"}
+    )
+    generated = generate(gt, selected)
+    mutated = [
+        c
+        for case in generated.cases
+        if case.manifest.source_config["scenario"] == "mutated"
+        for c in case.claims
+    ]
+    assert not any(c.type == "function_purpose" for c in mutated)
+    assert generated.exclusions["no_wrong_purpose_candidate"] == sum(
+        f.scorable for f in gt.functions
+    )
