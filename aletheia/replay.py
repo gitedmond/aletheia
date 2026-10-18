@@ -27,7 +27,7 @@ def pin_differences(benchmark: Benchmark, manifest: RunManifest) -> list[str]:
     current = benchmark.manifest_input(
         program, source, variant=variant if isinstance(variant, str) else None
     )
-    if source == "scripted":
+    if source == "scripted" and current.algorithms_version != manifest.algorithms_version:
         _, _, bundle = benchmark.bundle(program, variant if isinstance(variant, str) else None)
         current.algorithms_version = GroundTruth.model_validate_json(
             (bundle / "private/ground_truth.json").read_bytes()
