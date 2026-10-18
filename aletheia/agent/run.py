@@ -1,5 +1,7 @@
 """Collect a local agent run from public stripped input; grade only afterward."""
 
+import time
+from collections.abc import Callable
 from pathlib import Path
 
 from aletheia.agent.loop import AgentLoop, AgentResult, build_messages
@@ -23,6 +25,7 @@ def collect(
     root: Path,
     *,
     seed: int = 20261013,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> tuple[AgentResult, list[Claim]]:
     if agent.hosted:
         raise ValueError("hosted_cost_cap")
@@ -61,7 +64,7 @@ def collect(
             raise ValueError("upstream tool schema drift")
         messages, prompt_hash, context_hash = build_messages(Path(agent.prompt), targets)
         recording = RecordingProvider(cached)
-        loop = AgentLoop(agent, recording, proxy, tools, seed=seed)
+        loop = AgentLoop(agent, recording, proxy, tools, seed=seed, sleep=sleep)
         result = loop.run(messages)
         write_json(
             root / "agent.json",

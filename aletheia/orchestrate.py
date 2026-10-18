@@ -256,6 +256,10 @@ class Benchmark:
             claim.source.source_id != source_id or claim.source.origin != origin for claim in claims
         ):
             raise ValueError("claim/source identity mismatch")
+        if manifest.algorithms_version == "1.0" and any(
+            c.algorithms_version == "2.0" for c in claims
+        ):
+            raise ValueError("claim algorithm version exceeds manifest algorithm version")
         keys = [
             (c.subject.address, c.type, c.body.callee if isinstance(c.body, Call) else "")
             for c in claims
@@ -328,7 +332,6 @@ class Benchmark:
                 (directory / "private/ground_truth.json").read_bytes()
             )
             manifest.algorithms_version = truth.algorithms_version
-            manifest = manifest.model_copy(update={"algorithms_version": truth.algorithms_version})
             generated = generate(truth, manifest, manifest.seeds["scripted"])
             return [
                 self.ingest(program, case.manifest, case.claims, exclusions=generated.exclusions)
