@@ -1,3 +1,4 @@
+#Requires -Version 7.3
 param([string]$Repository = 'gitedmond/aletheia')
 $ErrorActionPreference = 'Stop'
 $raw = & gh pr list --repo $Repository --state open --limit 100 --json number,title,headRefOid,statusCheckRollup

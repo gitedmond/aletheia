@@ -73,7 +73,7 @@ def evaluate(benchmark: Benchmark) -> dict[str, Any]:
         try:
             passed, details = function()
             criteria[key] = {"passed": bool(passed), "details": details}
-        except (OSError, ValueError, KeyError, TypeError, ET.ParseError):
+        except (OSError, ValueError, KeyError, TypeError, AttributeError, ET.ParseError):
             criteria[key] = {
                 "passed": False,
                 "details": "Missing, stale or invalid required evidence",
@@ -208,10 +208,26 @@ def evaluate(benchmark: Benchmark) -> dict[str, Any]:
         ), {"slots": len(rows), "expected": expected, "configurations": configs}
 
     def replays():
-        planned = {run for row in receipt("plan")["slots"] for run in row.get("runs", [])}
+        slots = receipt("plan")["slots"]
+        planned = {run for row in slots for run in row.get("runs", [])}
+        agent_runs = {
+            run
+            for row in slots
+            if row["source"].startswith("agent:")
+            for run in row.get("runs", [])
+        }
         rows = receipt("replays")["runs"]
         return bool(planned) and set(rows) == planned and all(
-            row["exit_code"] == 0 and row.get("agent_replay", True) for row in rows.values()
+            row["exit_code"] == 0
+            and (
+                run not in agent_runs
+                or row.get("agent_replay") is True
+                or (
+                    isinstance(row.get("agent_replay"), dict)
+                    and row["agent_replay"].get("status") == "passed"
+                )
+            )
+            for run, row in rows.items()
         ), {"planned_runs": len(planned), "replayed_runs": len(rows)}
 
     def fit():

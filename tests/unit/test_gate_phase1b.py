@@ -3,6 +3,8 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from aletheia.gate_phase1b import _package_hash, evaluate
 from aletheia.orchestrate import file_hash, write_json
 
@@ -47,3 +49,48 @@ def test_empty_test_suites_and_escaped_receipts_do_not_pass(tmp_path):
     result = evaluate(SimpleNamespace(root=tmp_path))
     assert not result["criteria"]["X11"]["passed"]
     assert not result["criteria"]["X7"]["passed"]
+
+
+@pytest.mark.parametrize(
+    "value, passed",
+    [
+        (None, False),
+        (False, False),
+        ({"status": "failed"}, False),
+        (True, True),
+        ({"status": "passed"}, True),
+    ],
+)
+def test_agent_replay_requires_explicit_success(tmp_path, value, passed):
+    root = tmp_path / "phase1b"
+    root.mkdir()
+    receipts = {
+        "plan": {
+            "slots": [
+                {"source": "agent:local", "runs": ["agent"]},
+                {"source": "scripted", "runs": ["tool"]},
+            ]
+        },
+        "replays": {"runs": {"agent": {"exit_code": 0}, "tool": {"exit_code": 0}}},
+    }
+    if value is not None:
+        receipts["replays"]["runs"]["agent"]["agent_replay"] = value
+    evidence = {"package_source_hash": _package_hash(), "receipts": {}}
+    for name, data in receipts.items():
+        write_json(root / (name + ".json"), data)
+        evidence["receipts"][name] = {
+            "path": name + ".json",
+            "sha256": file_hash(root / (name + ".json")),
+        }
+    write_json(root / "evidence.json", evidence)
+    result = evaluate(SimpleNamespace(root=tmp_path))
+    assert result["criteria"]["X9"]["passed"] is passed
+
+
+def test_malformed_receipt_container_still_writes_gate(tmp_path):
+    root = tmp_path / "phase1b"
+    write_json(root / "evidence.json", {"package_source_hash": _package_hash(), "receipts": []})
+    result = evaluate(SimpleNamespace(root=tmp_path))
+    assert len(result["criteria"]) == 14
+    assert all(not row["passed"] for row in result["criteria"].values())
+    assert (root / "gate.json").exists()
