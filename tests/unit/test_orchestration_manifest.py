@@ -85,6 +85,32 @@ def test_explicit_variant_and_heldout_metadata_are_preserved(tmp_path):
     from aletheia.schema.models import RunManifest
 
     run = benchmark.ingest("example", RunManifest.create(manifest_input), [])
+    from aletheia.replay import pin_differences
+
+    changed = Benchmark(cfg, variant="baseline", algorithms_version="1.0")
+    assert "algorithms_version" in pin_differences(changed, RunManifest.create(manifest_input))
+    from aletheia.schema.models import Claim, ClaimSubmission
+
+    legacy = RunManifest.create(manifest_input.model_copy(update={"algorithms_version": "1.0"}))
+    claim = Claim.intake(
+        ClaimSubmission.model_validate(
+            {
+                "run_id": legacy.run_id,
+                "source": {"origin": "human", "source_id": "fixture"},
+                "binary_sha256": digests["baseline"],
+                "subject": {"address": "0x00001000"},
+                "type": "algorithm_identity",
+                "body": {"family": "md5", "variant": "std"},
+                "algorithms_version": "2.0",
+                "confidence": 0.8,
+                "confidence_source": "stated",
+            }
+        )
+    )
+    with pytest.raises(ValueError, match="exceeds manifest"):
+        benchmark.ingest("example", legacy, [claim])
+    assert not (benchmark.directory(legacy.run_id) / "manifest.json").exists()
+
     with benchmark.store() as store:
         assert store.connection.execute("SELECT split FROM binaries").fetchone()[0] == "heldout"
     import json

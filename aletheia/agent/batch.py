@@ -101,6 +101,11 @@ def fit_dev(benchmark: Benchmark, runs: list[str] | None = None) -> dict[str, An
                 "mappings": manifest.mapping_hashes,
                 "versions": manifest.versions,
                 "images": manifest.image_digests,
+                "analysis_options": manifest.analysis_options_hash,
+                "packs": manifest.pack_hashes,
+                "verifier": manifest.verifier_version,
+                "grader": manifest.grader_version,
+                "run_config": manifest.source_config.get("run_config"),
             }
             scope = content_hash(scope_data)
             if source_id in source_scopes and source_scopes[source_id] != scope:
