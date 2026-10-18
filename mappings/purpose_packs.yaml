@@ -17,6 +17,18 @@ map:
     pack: fletcher16
     variants:
     - std
+  crypto.cipher.rc4:
+    composite: true
+    composite_categories:
+    - crypto.cipher.rc4
+    - crypto.cipher.rc4
+    pack: rc4
+    variants:
+    - std
+  crypto.cipher.xor:
+    pack: xor
+    variants:
+    - std
   crypto.hash.md5.final:
     composite: true
     pack: md5
@@ -50,6 +62,10 @@ map:
     pack: sha1
     variants:
     - std
+  crypto.hash.sha1.transform:
+    pack: sha1_transform
+    variants:
+    - std
   crypto.hash.sha1.update:
     composite: true
     pack: sha1
@@ -67,6 +83,10 @@ map:
     - std
   crypto.hash.sha256.oneshot:
     pack: sha256
+    variants:
+    - std
+  crypto.hash.sha256.transform:
+    pack: sha256_transform
     variants:
     - std
   crypto.hash.sha256.update:
@@ -101,8 +121,25 @@ map:
     pack: fnv
     variants:
     - fnv1a-32
+  io.file.read:
+    pack: file-read
+    variants:
+    - std
+  io.file.write:
+    pack: print
+    variants:
+    - bytes
+    - hex32
   memory.copy:
     pack: memcpy
+    variants:
+    - std
+  memory.compare:
+    pack: memcmp
+    variants:
+    - std
+  memory.set:
+    pack: memset
     variants:
     - std
   parse.int:

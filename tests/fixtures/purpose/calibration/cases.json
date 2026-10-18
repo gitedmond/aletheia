@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "binary_sha256": "42b798d36fa515270cf7ca2c30a13a9c35fb08e5ad8e897d07b0b85b395d507e",
+  "binary_sha256": "be507192c0e21661be5169b88480d0243b60b668d0d18e76cd879165fe1359dd",
   "cases": [
     {
       "name": "length_ref",
@@ -126,11 +126,165 @@
       "name": "parse_nine",
       "family": "parse-int",
       "expected": "CONTRADICTED"
+    },
+    {
+      "name": "set_ref",
+      "family": "memset",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "set_short",
+      "family": "memset",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "set_wrong_byte",
+      "family": "memset",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "set_off_by_one",
+      "family": "memset",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "memcmp_ref",
+      "family": "memcmp",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "memcmp_signed",
+      "family": "memcmp",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "memcmp_equal",
+      "family": "memcmp",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "memcmp_first",
+      "family": "memcmp",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "xor_ref",
+      "family": "xor",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "xor_prefix_only",
+      "family": "xor",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "xor_shifted_key",
+      "family": "xor",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "xor_skip_zero",
+      "family": "xor",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "sha1_block_ref",
+      "family": "sha1_transform",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "sha1_transform_few_rounds",
+      "family": "sha1_transform",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "sha1_transform_le_words",
+      "family": "sha1_transform",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "sha256_block_ref",
+      "family": "sha256_transform",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "sha256_transform_few_rounds",
+      "family": "sha256_transform",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "sha256_transform_le_words",
+      "family": "sha256_transform",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "read_impl",
+      "family": "file-read",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "read_truncated_last_byte",
+      "family": "file-read",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "read_extra_byte",
+      "family": "file-read",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "read_length_off_by_one",
+      "family": "file-read",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "read_always_minus_one",
+      "family": "file-read",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "read_ignores_length_slot",
+      "family": "file-read",
+      "expected": "INCONCLUSIVE"
+    },
+    {
+      "name": "print_impl",
+      "family": "print",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "hex32_impl",
+      "family": "print",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "print_uppercase_digits",
+      "family": "print",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "print_missing_newline",
+      "family": "print",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "hex32_uppercase",
+      "family": "print",
+      "expected": "CONTRADICTED"
+    },
+    {
+      "name": "hex32_min_width",
+      "family": "print",
+      "expected": "CONTRADICTED"
     }
   ],
   "notes": [
     "ignore-sign is a valid unsigned parser and must VERIFY the coarse parse.int purpose; signed-only near-miss mismatch is checked separately.",
-    "Reverse-copy near miss reverses byte order, not the semantically valid direction of copying."
+    "Reverse-copy near miss reverses byte order, not the semantically valid direction of copying.",
+    "Byte-pair families (memcmp, xor) carry length-prefixed raw payloads; NUL bytes are ordinary data, and keys of length zero make xor a no-op.",
+    "Hash transform families carry a native little-endian state word block followed by one 64-byte big-endian message block.",
+    "file-read calibration reads the emulator's bounded virtual file probe.dat; the reference writes a NUL terminator and the length out-parameter.",
+    "print calibration captures the emulator's bounded stdout; hex32 shapes print one 8-digit hex line for the little-endian first four input bytes."
   ],
   "variant_checks": [
     {
@@ -334,6 +488,216 @@
       "family": "parse-int",
       "shape": "parse_int64",
       "variant": "decimal-signed",
+      "matches": false
+    },
+    {
+      "name": "set_ref",
+      "family": "memset",
+      "shape": "memset",
+      "variant": "std",
+      "matches": true
+    },
+    {
+      "name": "set_short",
+      "family": "memset",
+      "shape": "memset",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "set_wrong_byte",
+      "family": "memset",
+      "shape": "memset",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "set_off_by_one",
+      "family": "memset",
+      "shape": "memset",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "memcmp_ref",
+      "family": "memcmp",
+      "shape": "memcmp",
+      "variant": "std",
+      "matches": true
+    },
+    {
+      "name": "memcmp_signed",
+      "family": "memcmp",
+      "shape": "memcmp",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "memcmp_equal",
+      "family": "memcmp",
+      "shape": "memcmp",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "memcmp_first",
+      "family": "memcmp",
+      "shape": "memcmp",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "xor_ref",
+      "family": "xor",
+      "shape": "xor",
+      "variant": "std",
+      "matches": true
+    },
+    {
+      "name": "xor_prefix_only",
+      "family": "xor",
+      "shape": "xor",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "xor_shifted_key",
+      "family": "xor",
+      "shape": "xor",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "xor_skip_zero",
+      "family": "xor",
+      "shape": "xor",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "sha1_block_ref",
+      "family": "sha1_transform",
+      "shape": "sha1_transform",
+      "variant": "std",
+      "matches": true
+    },
+    {
+      "name": "sha1_transform_few_rounds",
+      "family": "sha1_transform",
+      "shape": "sha1_transform",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "sha1_transform_le_words",
+      "family": "sha1_transform",
+      "shape": "sha1_transform",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "sha256_block_ref",
+      "family": "sha256_transform",
+      "shape": "sha256_transform",
+      "variant": "std",
+      "matches": true
+    },
+    {
+      "name": "sha256_transform_few_rounds",
+      "family": "sha256_transform",
+      "shape": "sha256_transform",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "sha256_transform_le_words",
+      "family": "sha256_transform",
+      "shape": "sha256_transform",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "read_impl",
+      "family": "file-read",
+      "shape": "path_out_len",
+      "variant": "std",
+      "matches": true
+    },
+    {
+      "name": "read_truncated_last_byte",
+      "family": "file-read",
+      "shape": "path_out_len",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "read_extra_byte",
+      "family": "file-read",
+      "shape": "path_out_len",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "read_length_off_by_one",
+      "family": "file-read",
+      "shape": "path_out_len",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "read_always_minus_one",
+      "family": "file-read",
+      "shape": "path_out_len",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "read_ignores_length_slot",
+      "family": "file-read",
+      "shape": "path_out_len",
+      "variant": "std",
+      "matches": false
+    },
+    {
+      "name": "print_impl",
+      "family": "print",
+      "shape": "print_bytes",
+      "variant": "bytes",
+      "matches": true
+    },
+    {
+      "name": "hex32_impl",
+      "family": "print",
+      "shape": "hex_print32",
+      "variant": "hex32",
+      "matches": true
+    },
+    {
+      "name": "print_uppercase_digits",
+      "family": "print",
+      "shape": "print_bytes",
+      "variant": "bytes",
+      "matches": false
+    },
+    {
+      "name": "print_missing_newline",
+      "family": "print",
+      "shape": "print_bytes",
+      "variant": "bytes",
+      "matches": false
+    },
+    {
+      "name": "hex32_uppercase",
+      "family": "print",
+      "shape": "hex_print32",
+      "variant": "hex32",
+      "matches": false
+    },
+    {
+      "name": "hex32_min_width",
+      "family": "print",
+      "shape": "hex_print32",
+      "variant": "hex32",
       "matches": false
     }
   ]

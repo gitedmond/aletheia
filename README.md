@@ -15,7 +15,8 @@ uv run pytest -m "not slow and not integration"
 ```
 
 Global `--config PATH` and `--json` flags precede the command.
-LLM runs are disabled, with hosted spend capped at zero. No provider is installed.
+Agent runs require an explicit provider configuration. Hosted benchmark spending
+defaults to zero; there is no automatic paid fallback.
 
 MIT covers original Aletheia code and dev corpus; dependencies retain their licenses.
 Images and binary artifacts are built locally, not distributed by this repository.
@@ -54,3 +55,23 @@ Individual runs use `alth run --source scripted|capa|findcrypt --program PROGRAM
 `alth report --runs ID1,ID2 --out report.md` support the same persisted run lifecycle.
 FindCrypt is labeled as a shared backend and excluded from independent scripted reliability.
 Results cover five dev programs; their cluster intervals are not held-out generalization evidence.
+
+
+Phase 1B extends this foundation with compiler-derived ABI signatures, purpose
+claims, hardened builds, a private held-out split, three local agent configurations,
+dev-only confidence fitting, and a stdio verifier MCP server. `alth gate 1b` checks
+existing hash-bound receipts; it does not launch experiments. Engineering tests
+alone do not establish empirical acceptance or human validation.
+
+The 22 installed pack files include memory operations, repeating-key XOR, RC4
+composites, SHA-1/SHA-256 block transforms, and bounded read/print behavior. I/O
+probes use only emulator-owned virtual input files and captured stdout; unsupported
+ABIs, imports, and formatting abstain. Host files and real descriptors are not
+available. Potential coverage requires a compatible compiler ABI and complete
+composite scope; measured decisiveness is reported separately.
+
+`tools/phase1b-matrix.py --help` describes the current PC-local coordinator. It uses
+explicit WSL storage paths, freezes its inputs, runs local models serially, and
+keeps mixed ledgers and raw held-out evidence private. AI-assisted annotations
+retain their provenance; independent human labels and review dispositions must
+never be fabricated to satisfy the gate.

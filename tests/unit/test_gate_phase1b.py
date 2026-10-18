@@ -94,3 +94,34 @@ def test_malformed_receipt_container_still_writes_gate(tmp_path):
     assert len(result["criteria"]) == 14
     assert all(not row["passed"] for row in result["criteria"].values())
     assert (root / "gate.json").exists()
+
+
+def test_algorithm_false_alarm_rate_cannot_be_diluted_with_purpose_fixtures(tmp_path):
+    root = tmp_path / "phase1b"
+    scripted = {"correct_e2_algorithm_identity": {"total": 1, "contradicted": 1}}
+    rows = [
+        {
+            "name": "crc32:reference:known",
+            "family": "crc32",
+            "expected": "VERIFIED",
+            "actual": "VERIFIED",
+        }
+    ]
+    rows += [
+        {
+            "name": f"print:reference:{i}",
+            "family": "print",
+            "expected": "VERIFIED",
+            "actual": "VERIFIED",
+        }
+        for i in range(1000)
+    ]
+    evidence = {"package_source_hash": _package_hash(), "receipts": {}}
+    for name, payload in (("scripted", scripted), ("selftest", {"cases": rows})):
+        path = root / f"{name}.json"
+        write_json(path, payload)
+        evidence["receipts"][name] = {"path": path.name, "sha256": file_hash(path)}
+    write_json(root / "evidence.json", evidence)
+    result = evaluate(SimpleNamespace(root=tmp_path))
+    assert result["criteria"]["X4"]["details"]["correct_e2"] == 2
+    assert not result["criteria"]["X4"]["passed"]

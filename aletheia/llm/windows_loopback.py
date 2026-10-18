@@ -1,7 +1,9 @@
 """WSL transport to the existing Windows-only local runtime; no listener changes."""
 
 import base64
+import shutil
 import subprocess
+from pathlib import Path
 
 from aletheia.llm.provider import (
     ChatRequest,
@@ -49,6 +51,12 @@ $response = Invoke-WebRequest -UseBasicParsing @parameters
 """
 
 
+def windows_working_directory() -> Path | None:
+    # Windows may not be able to resolve another WSL user's Linux working directory.
+    executable = shutil.which("powershell.exe")
+    return Path(executable).parent if executable else None
+
+
 class WindowsLoopbackProvider(OpenAICompatibleProvider):
     id = "openai-compatible-windows-loopback"
 
@@ -74,6 +82,7 @@ class WindowsLoopbackProvider(OpenAICompatibleProvider):
                     }
                 ),
                 capture_output=True,
+                cwd=windows_working_directory(),
                 timeout=120,
                 check=False,
             )

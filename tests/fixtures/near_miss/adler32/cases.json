@@ -39,8 +39,8 @@
       "name": "fletcher32_impl",
       "family": "fletcher16",
       "variant": "std",
-      "expected": "UNVERIFIABLE",
-      "reason": "no_pack"
+      "expected": "INCONCLUSIVE",
+      "reason": "no_matching_call_shape"
     }
   ]
 }

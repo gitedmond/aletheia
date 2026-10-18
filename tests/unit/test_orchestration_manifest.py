@@ -38,14 +38,22 @@ def test_manifest_pins_and_pack_coverage_do_not_depend_on_working_directory(tmp_
         "djb2",
         "base64",
         "fletcher16",
+        "file-read",
         "md5",
         "sha1",
+        "sha1_transform",
         "sha256",
+        "sha256_transform",
         "strlen",
         "strcmp",
         "memcpy",
+        "memset",
+        "memcmp",
+        "xor",
         "hex",
         "parse-int",
+        "print",
+        "rc4",
     }
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()

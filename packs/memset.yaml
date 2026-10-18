@@ -1,0 +1,32 @@
+version: 1
+near_miss:
+- set_short
+- set_wrong_byte
+- set_off_by_one
+inputs:
+  fixed: []
+  random:
+    count: 64
+    max_len: 4096
+    seed: 20261013
+  fixed_hex:
+  - ''
+  - '01'
+  - '00'
+  - 'ab'
+  - 'ff00ff'
+  - '0505050505'
+  - '0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101'
+family: memset
+call_shapes:
+- id: memset
+  roles:
+  - out
+  - byte
+  - len
+  return_width: 64
+  comparison: output
+  out_size: memset
+variants:
+  std:
+    oracle: memset_std

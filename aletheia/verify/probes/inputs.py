@@ -10,10 +10,12 @@ from aletheia.verify.probes.pack import CallShape, Inputs, Role, VariantProbe
 
 def generate_inputs(spec: Inputs) -> list[bytes]:
     rng = random.Random(spec.random.seed)
-    if spec.string_pairs:
+    if spec.string_pairs or spec.byte_pairs:
         pairs = [(bytes.fromhex(a), bytes.fromhex(b)) for a, b in spec.fixed_pairs]
         for index in range(spec.random.count):
-            left = rng.randbytes(rng.randrange(spec.random.max_len + 1)).replace(b"\0", b"\1")
+            left = rng.randbytes(rng.randrange(spec.random.max_len + 1))
+            if spec.string_pairs:
+                left = left.replace(b"\0", b"\1")
             right = (
                 left
                 if index % 4 == 0
@@ -24,8 +26,13 @@ def generate_inputs(spec: Inputs) -> list[bytes]:
                 else b"\1" + left
             )
             pairs.append((left, right))
-        if any(len(a) > 65535 or b"\0" in a or b"\0" in b for a, b in pairs):
-            raise ValueError("invalid C-string pair")
+        if any(
+            len(a) > 65535 or (spec.string_pairs and (b"\0" in a or b"\0" in b))
+            for a, b in pairs
+        ):
+            raise ValueError(
+                "invalid C-string pair" if spec.string_pairs else "invalid byte pair"
+            )
         return [len(a).to_bytes(2, "little") + a + b for a, b in pairs]
     values = [value.encode("utf-8") for value in spec.fixed]
     values.extend(bytes.fromhex(value) for value in spec.fixed_hex)
@@ -35,7 +42,12 @@ def generate_inputs(spec: Inputs) -> list[bytes]:
             rng.randbytes(n) for n in (0, 1, 55, 56, 57, 63, 64, 65, 119, 120, 127, 128, 129, 1000)
         )
     for _ in range(spec.random.count):
-        values.append(rng.randbytes(rng.randrange(spec.random.max_len + 1)))
+        length = (
+            spec.random.exact_len
+            if spec.random.exact_len is not None
+            else rng.randrange(spec.random.max_len + 1)
+        )
+        values.append(rng.randbytes(length))
     return (
         values[:fixed_count] + [value.replace(b"\0", b"\1") for value in values[fixed_count:]]
         if spec.string_data

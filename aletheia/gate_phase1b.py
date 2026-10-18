@@ -9,7 +9,7 @@ from typing import Any, cast
 from aletheia.grade.context import GradingContext
 from aletheia.orchestrate import Benchmark, file_hash, write_json
 from aletheia.schema.canonical import content_hash
-from aletheia.schema.models import RunManifest
+from aletheia.schema.models import REGISTRY, RunManifest
 from aletheia.verify.engine import DEFAULT_PACK_DIRECTORY
 
 # Human labels are evidence, not an engineering review that delegation can replace.
@@ -42,6 +42,75 @@ def _package_hash() -> str:
     return content_hash(
         {p.relative_to(package).as_posix(): file_hash(p) for p in sorted(package.rglob("*.py"))}
     )
+
+
+def package_hash() -> str:
+    return _package_hash()
+
+
+def validate_plan(rows: list[dict[str, Any]]) -> dict[str, Counter[str]]:
+    """Validate the Cartesian experiment, not just its cardinality."""
+    programs: dict[str, set[str]] = {"dev": set(), "heldout": set()}
+    configs: dict[str, Counter[str]] = {}
+    identities: set[tuple[str, str, str, str, int]] = set()
+    runs: set[str] = set()
+    for row in rows:
+        split, program, variant, source, sample = (
+            row[key] for key in ("split", "program", "variant", "source", "sample")
+        )
+        if split not in programs or not isinstance(program, str) or not program:
+            raise ValueError("invalid split or program")
+        if variant not in {"baseline", "hardened"} or type(sample) is not int:
+            raise ValueError("invalid variant or sample")
+        identity = (split, program, variant, source, sample)
+        if identity in identities:
+            raise ValueError("duplicate experiment slot")
+        identities.add(identity)
+        programs[split].add(program)
+        if row["status"] == "skipped":
+            if not row.get("reason") or row.get("runs"):
+                raise ValueError("skipped slot needs a reason and no acquired runs")
+        elif row["status"] != "executed" or not row.get("runs"):
+            raise ValueError("slot must be executed with runs or explicitly skipped")
+        for run in row.get("runs", []):
+            if not isinstance(run, str) or not run or run in runs:
+                raise ValueError("run identity reused across experiment slots")
+            runs.add(run)
+        if source.startswith("agent:"):
+            counts = configs.setdefault(source, Counter())
+            counts["planned"] += 1
+            counts["infrastructure_failures"] += row.get("reason") in {
+                "provider_unavailable",
+                "ghidra_crash",
+                "sandbox_error",
+                "internal",
+            }
+            counts["model_protocol"] += row.get("reason") == "model_protocol"
+    if (
+        len(programs["dev"]) != 12
+        or len(programs["heldout"]) != 8
+        or programs["dev"] & programs["heldout"]
+        or len(configs) != 3
+    ):
+        raise ValueError("wrong program split or agent configuration cohort")
+    expected: set[tuple[str, str, str, str, int]] = set()
+    for split, names in programs.items():
+        for program in names:
+            for variant in ("baseline", "hardened"):
+                expected.update(
+                    (split, program, variant, source, 0)
+                    for source in ("scripted", "capa", "findcrypt")
+                )
+                expected.update(
+                    (split, program, variant, source, sample)
+                    for source in configs
+                    for sample in range(3 if variant == "baseline" else 1)
+                )
+    if identities != expected:
+        raise ValueError("experiment slots differ from the required Cartesian cohort")
+    if any(c["infrastructure_failures"] / c["planned"] >= 0.05 for c in configs.values()):
+        raise ValueError("infrastructure failure rate reaches 5 percent")
+    return configs
 
 
 def evaluate(benchmark: Benchmark) -> dict[str, Any]:
@@ -124,7 +193,9 @@ def evaluate(benchmark: Benchmark) -> dict[str, Any]:
         rows = [
             row
             for row in receipt("selftest")["cases"]
-            if ":reference:" in row["name"] and row["expected"] == "VERIFIED"
+            if ":reference:" in row["name"]
+            and row["expected"] == "VERIFIED"
+            and row["family"] in REGISTRY
         ]
         n = correct["total"] + len(rows)
         false = correct["contradicted"] + sum(row["actual"] == "CONTRADICTED" for row in rows)
@@ -179,33 +250,8 @@ def evaluate(benchmark: Benchmark) -> dict[str, Any]:
 
     def plan():
         rows = receipt("plan")["slots"]
-        identities = {
-            content_hash({k: r[k] for k in ("split", "program", "variant", "source", "sample")})
-            for r in rows
-        }
-        configs: dict[str, Counter[str]] = {}
-        for row in rows:
-            if row["status"] == "skipped":
-                if not row.get("reason"):
-                    raise ValueError("skip requires reason")
-            elif not row.get("runs"):
-                raise ValueError("executed slot requires run IDs")
-            if row["source"].startswith("agent:"):
-                counts = configs.setdefault(row["source"], Counter())
-                counts["planned"] += 1
-                counts["infrastructure_failures"] += row.get("reason") in {
-                    "provider_unavailable",
-                    "ghidra_crash",
-                    "sandbox_error",
-                    "internal",
-                }
-                counts["model_protocol"] += row.get("reason") == "model_protocol"
-        # 20 programs x (3 local configs x (3 baseline + 1 hardened) + 3 other sources x 2).
-        expected = 20 * (3 * 4 + 3 * 2)
-        return len(rows) == len(identities) == expected and len(configs) == 3 and all(
-            c["planned"] == 80 and c["infrastructure_failures"] / c["planned"] < 0.05
-            for c in configs.values()
-        ), {"slots": len(rows), "expected": expected, "configurations": configs}
+        configs = validate_plan(rows)
+        return True, {"slots": len(rows), "expected": 360, "configurations": configs}
 
     def replays():
         slots = receipt("plan")["slots"]

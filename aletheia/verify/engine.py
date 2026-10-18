@@ -934,7 +934,7 @@ class Engine:
             return self._run_composite(family, claims, binary, analysis, no_cache)
         except Exception as exc:
             spec = MethodSpec(
-                "composite.hash@1",
+                "composite.cipher@1" if family == "rc4" else "composite.hash@1",
                 "function_purpose",
                 "category_behavior",
                 "E2",
@@ -970,7 +970,7 @@ class Engine:
         identity = cast(JsonValue, [member.model_dump(mode="json") for member in members])
         details: dict[str, JsonValue] = {"family": family, "members": identity}
         spec = MethodSpec(
-            "composite.hash@1",
+            "composite.cipher@1" if family == "rc4" else "composite.hash@1",
             "function_purpose",
             "category_behavior",
             "E2",
@@ -994,7 +994,8 @@ class Engine:
         first = None if no_cache else self.store.cached_verdict(cache_key, claims[0].claim_id)
         if first is None:
             if (
-                sorted(member.role for member in members) != ["final", "init", "update"]
+                sorted(member.role for member in members)
+                != (["crypt", "init"] if family == "rc4" else ["final", "init", "update"])
                 or pack is None
             ):
                 payload = cast(
@@ -1018,19 +1019,23 @@ class Engine:
                     env_digest=self.env_digest,
                 )
             else:
+                purpose_claims = {
+                    claim.subject.address: claim
+                    for claim in claims
+                    if isinstance(claim.body, FunctionPurpose)
+                }
                 request = CompositeRequest(
                     binary_sha256=binary.binary_sha256,
-                    family=cast(Literal["md5", "sha1", "sha256"], family),
+                    family=cast(Literal["md5", "sha1", "sha256", "rc4"], family),
                     members=[
                         CompositeMember.model_validate(
                             {
-                                "claim_id": claim.claim_id,
-                                "subject": claim.subject.address,
-                                "role": claim.body.category.rsplit(".", 1)[1],
+                                "claim_id": purpose_claims[member.subject].claim_id,
+                                "subject": member.subject,
+                                "role": member.role,
                             }
                         )
-                        for claim in claims
-                        if isinstance(claim.body, FunctionPurpose)
+                        for member in members
                     ],
                     budgets=self.budgets,
                     env_digest=self.env_digest,

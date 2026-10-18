@@ -83,6 +83,7 @@ for entry,args,width in calls:
  args=[Buffer(bytes.fromhex(arg)) if isinstance(arg,str) else arg for arg in args]
  result=dataclasses.asdict(emulator.call(entry,args,width))
  result['out_buffers']=[value.hex() for value in result['out_buffers']]
+ result['stdout']=result['stdout'].hex()
  results.append(result)
 print(json.dumps({'calls':results,'data_imports':emulator.data_imports}))
 """.replace("CALLS", repr(calls))

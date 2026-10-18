@@ -93,4 +93,123 @@ def emulate_import(emu: "Emulator", name: str) -> int | None:
         return 0
     if name == "__stack_chk_fail":
         raise MemoryFault("stack canary check failed")
+    if name == "fopen":
+        path = _cstring(emu, a)
+        if _cstring(emu, b) not in {b"r", b"rb"}:
+            raise MemoryFault("unsupported virtual-file mode")
+        if path not in emu.virtual_files:
+            return 0
+        handle = emu.allocate(16)
+        if not handle:
+            raise MemoryFault("file handle allocation failed")
+        emu.file_handles[handle] = (path, [0])
+        return handle
+    if name == "fgetc":
+        entry = emu.file_handles.get(a)
+        emu.charge_work(1)
+        if entry is None:
+            return -1
+        content = emu.virtual_files[entry[0]]
+        position = entry[1][0]
+        if position >= len(content):
+            return -1
+        entry[1][0] = position + 1
+        return int(content[position])
+    if name == "ferror":
+        return 0
+    if name == "fclose":
+        emu.file_handles.pop(a, None)
+        return 0
+    if name in ("putchar", "putc", "_IO_putc"):
+        emu.stdout.append(a & 0xFF)
+        return a & 0xFF
+    if name in {"printf", "__printf_chk"}:
+        emu.charge_work(1)
+        return _printf(emu, b if name == "__printf_chk" else a, name == "__printf_chk")
     return None
+
+
+def _cstring(emu: "Emulator", address: int) -> bytes:
+    output = bytearray()
+    while True:
+        emu.charge_work(1)
+        value = emu.read_memory(address + len(output), 1)
+        if value == b"\0":
+            return bytes(output)
+        output.extend(value)
+
+
+# shortcut: printf handles the literal/%x/%X/%d/%u/%c/%s subset with 0 flags and
+# widths the corpus writers use; extend only when a pack needs more.
+def _printf(emu: "Emulator", format_address: int, fortified: bool = False) -> int:
+    registers = emu.registers
+    arguments = [
+        int(emu.uc.reg_read(register))
+        for register in (
+            registers.UC_X86_REG_RSI,
+            registers.UC_X86_REG_RDX,
+            registers.UC_X86_REG_RCX,
+            registers.UC_X86_REG_R8,
+            registers.UC_X86_REG_R9,
+        )[1 if fortified else 0 :]
+    ]
+    fmt = _cstring(emu, format_address)
+    output = bytearray()
+    index = 0
+    position = 0
+    while position < len(fmt):
+        character = fmt[position]
+        if character != 0x25:
+            output.append(character)
+            position += 1
+            continue
+        position += 1
+        if position < len(fmt) and fmt[position] == 0x25:
+            output.append(0x25)
+            position += 1
+            continue
+        zero = position < len(fmt) and fmt[position] == 0x30
+        width = 0
+        while position < len(fmt) and 0x30 <= fmt[position] <= 0x39:
+            width = width * 10 + (fmt[position] - 0x30)
+            position += 1
+        if position >= len(fmt) or fmt[position] not in b"xXducs":
+            raise MemoryFault("unsupported printf conversion")
+        conversion = chr(fmt[position])
+        if zero and conversion in "sc":
+            raise MemoryFault("unsupported printf flag")
+        emu.charge_work(width)
+        position += 1
+        if conversion == "s":
+            if index >= len(arguments):
+                raise MemoryFault("printf varargs exceed registers")
+            rendered = _cstring(emu, arguments[index])
+            index += 1
+        else:
+            if index >= len(arguments):
+                raise MemoryFault("printf varargs exceed registers")
+            value = arguments[index]
+            index += 1
+            if conversion == "c":
+                rendered = bytes([value & 0xFF])
+            elif conversion in "xX":
+                digits = format(value & 0xFFFFFFFF, "x")
+                rendered = (digits if conversion == "x" else digits.upper()).encode("ascii")
+            elif conversion == "u":
+                rendered = str(value & 0xFFFFFFFF).encode("ascii")
+            else:
+                signed = value & 0xFFFFFFFF
+                if signed >= 2**31:
+                    signed -= 2**32
+                rendered = str(signed).encode("ascii")
+        if width > len(rendered):
+            filler = b"0" if zero and conversion != "s" else b" "
+            padding = filler * (width - len(rendered))
+            rendered = (
+                b"-" + padding + rendered[1:]
+                if zero and rendered.startswith(b"-")
+                else padding + rendered
+            )
+        output.extend(rendered)
+    emu.stdout.extend(output)
+    return len(output)

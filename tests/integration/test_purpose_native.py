@@ -23,9 +23,20 @@ def test_purpose_calibration_in_production_worker(tmp_path):
         tmp_path,
         runner,
         GhidraAnalysisCache(runner, tmp_path / "cache"),
-        {"strlen", "strcmp", "memcpy", "hex", "parse-int"},
+        {
+            "strlen",
+            "strcmp",
+            "memcpy",
+            "memset",
+            "memcmp",
+            "xor",
+            "hex",
+            "parse-int",
+            "sha1_transform",
+            "sha256_transform",
+        },
     )
-    assert len(rows) == 25
+    assert len(rows) == 43
     assert all(row["passed"] for row in rows), [row for row in rows if not row["passed"]]
 
 

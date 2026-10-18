@@ -252,7 +252,7 @@ def test_every_supported_family_declares_its_scope(family, variants, shapes):
 def test_json_schema_rejects_structural_errors():
     from jsonschema import ValidationError as SchemaError
 
-    for field, value in [("version", "1"), ("call_shapes", []), ("unexpected", True)]:
+    for field, value in [("version", "1"), ("variants", {}), ("unexpected", True)]:
         raw = crc_pack()
         raw[field] = value
         with pytest.raises(SchemaError):

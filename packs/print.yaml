@@ -1,0 +1,24 @@
+family: print
+version: 1
+call_shapes:
+- id: print_bytes
+  roles: [buf, len]
+  return_width: 64
+  comparison: output
+- id: hex_print32
+  roles: [u32]
+  return_width: 64
+  comparison: output
+variants:
+  bytes:
+    oracle: print_bytes_std
+  hex32:
+    oracle: hex_print32_std
+inputs:
+  fixed: ['', A, ab]
+  fixed_hex: ['00', '0a', '00ff10', 'deadbeef', '00ff00ff', '0000ff00']
+  random:
+    count: 64
+    max_len: 4096
+    seed: 20261018
+near_miss: [print_uppercase_digits, print_missing_newline, hex32_uppercase, hex32_min_width]

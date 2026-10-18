@@ -1,7 +1,9 @@
 """Windows loopback bridge boundary without a runtime or network."""
 
 import json
+import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -23,7 +25,10 @@ def test_bridge_encodes_request_as_data_and_preserves_compatible_settings(monkey
         reasoning_effort="none",
     )
 
+    monkeypatch.setattr(shutil, "which", lambda name: "/windows/System32/powershell.exe")
+
     def run(argv, **kwargs):
+        assert kwargs.get("cwd") == Path("/windows/System32")
         assert argv[0] == "powershell.exe" and "Hidden" in argv
         envelope = json.loads(kwargs["input"])
         assert envelope["request"]["messages"][0]["content"] == "$(must not execute)"

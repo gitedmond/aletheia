@@ -230,27 +230,44 @@ PROBE_IMPORTS = {
     "__ctype_tolower_loc",
     "__ctype_toupper_loc",
     "__errno_location",
+    "fopen",
+    "fgetc",
+    "ferror",
+    "fclose",
+    "printf",
+    "__printf_chk",
+    "putchar",
+    "putc",
+    "_IO_putc",
 }
-PURPOSE_PROBES = {
-    "checksum.crc32",
-    "checksum.crc32c",
-    "checksum.adler32",
-    "checksum.fletcher16",
-    "hash.noncrypto.fnv1a",
-    "hash.noncrypto.fnv1",
-    "hash.noncrypto.djb2",
-    "encoding.base64.encode",
-    "encoding.base64.decode",
-    "encoding.hex.encode",
-    "string.length",
-    "string.compare",
-    "memory.copy",
-    "parse.int",
-} | {
-    f"crypto.hash.{family}.{role}"
-    for family in ("md5", "sha1", "sha256")
-    for role in ("init", "update", "final", "oneshot")
-}
+PURPOSE_PROBES = (
+    {
+        "checksum.crc32",
+        "checksum.crc32c",
+        "checksum.adler32",
+        "checksum.fletcher16",
+        "hash.noncrypto.fnv1a",
+        "hash.noncrypto.fnv1",
+        "hash.noncrypto.djb2",
+        "encoding.base64.encode",
+        "encoding.base64.decode",
+        "encoding.hex.encode",
+        "string.length",
+        "string.compare",
+        "memory.copy",
+        "memory.set",
+        "memory.compare",
+        "crypto.cipher.xor",
+        "crypto.cipher.rc4",
+        "parse.int",
+    }
+    | {
+        f"crypto.hash.{family}.{role}"
+        for family in ("md5", "sha1", "sha256")
+        for role in ("init", "update", "final", "oneshot")
+    }
+    | {f"crypto.hash.{family}.transform" for family in ("sha1", "sha256")}
+)
 
 
 def validate_probe_imports(
@@ -259,6 +276,7 @@ def validate_probe_imports(
     original: dict[str, tuple[int, int, bytes]],
     engine: Any,
     annotated: dict[str, tuple[GroundAlgorithm, list[str]]],
+    abi: dict[str, Any] | None = None,
 ) -> None:
     """Reject unsupported imports reachable from behavioral targets using O0 ELF facts."""
     targets: set[str] = set()
@@ -278,8 +296,18 @@ def validate_probe_imports(
                 for line in block
                 if line.startswith("// @category ")
             ]
-            if annotated[function.name][0].family != "none" or (
-                categories and categories[0] in PURPOSE_PROBES
+            # The bounded I/O amendment covers read/print ABIs, not all I/O dispatchers.
+            signature = (abi or {}).get(function.name, {})
+            kinds = [param["class"] for param in signature.get("params", [])]
+            io_shapes = {
+                "io.file.read": [["ptr", "ptr", "ptr"]],
+                "io.file.write": [["ptr", "int"], ["int"]],
+            }
+            bounded_io = bool(categories) and kinds in io_shapes.get(categories[0], [])
+            if (
+                annotated[function.name][0].family != "none"
+                or bounded_io
+                or (categories and categories[0] in PURPOSE_PROBES)
             ):
                 targets.add(function.name)
     if not targets:
@@ -450,7 +478,7 @@ def extract(directory: Path, program: Path) -> GroundTruth:
         verify_crt(o0_binary, annotated)
         current, original = symbols(binary), symbols(o0_binary)
         engine = disassembler()
-        validate_probe_imports(program, o0_binary, original, engine, annotated)
+        validate_probe_imports(program, o0_binary, original, engine, annotated, abi)
         slots, stubs = imports(binary, engine)
         signature = signatures(binary)
         # Stable collapse of linker aliases; two authored aliases are ambiguous.

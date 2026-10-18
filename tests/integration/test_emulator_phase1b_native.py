@@ -74,6 +74,7 @@ emu=Emulator(Path('/job/in/NAME'),Budgets())
 def record(result):
  value=dataclasses.asdict(result)
  value['out_buffers']=[b.hex() for b in result.out_buffers]
+ value['stdout']=result.stdout.hex()
  return value
 copies=[]
 for fn in ['copy_checked','move_checked','set_checked','string_checked']:

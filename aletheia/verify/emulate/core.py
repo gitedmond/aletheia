@@ -80,6 +80,7 @@ class CallResult:
     fault: str | None
     uninitialized_state_reads: bool
     imports_called: list[str]
+    stdout: bytes = b""
 
 
 @dataclass
@@ -96,7 +97,9 @@ class InitializationBudgetExhausted(ValueError):
 
 
 class Emulator:
-    def __init__(self, stripped: Path, budget: Budgets):
+    def __init__(
+        self, stripped: Path, budget: Budgets, virtual_files: dict[bytes, bytes] | None = None
+    ):
         require_job_sandbox(Path("/job"))
         path = guarded_input(Path("/job"), "in/" + stripped.name)
         if path != stripped:
@@ -121,6 +124,13 @@ class Emulator:
         self.uninitialized = False
         self.called: list[str] = []
         self.unsupported = False
+        # shortcut: emulator-only virtual files satisfy fopen/fgetc; never host FS.
+        # Upgrade only via the B17 review if real descriptor semantics are ever needed.
+        self.virtual_files = {
+            name: bytes(content) for name, content in (virtual_files or {}).items()
+        }
+        self.file_handles: dict[int, tuple[bytes, list[int]]] = {}
+        self.stdout = bytearray()
         parser = cast(Any, importlib.import_module("elftools.elf.elffile"))
         errors = cast(Any, importlib.import_module("elftools.common.exceptions"))
         try:
@@ -467,6 +477,8 @@ class Emulator:
 
     def _invoke(self, entry: int, args: list[int | Buffer], ret_width: int) -> CallResult:
         self.instructions, self.fault, self.uninitialized, self.called = 0, None, False, []
+        self.file_handles.clear()
+        self.stdout = bytearray()
         self.uc.mem_write(TLS + 0x80, b"\0" * 4)
         if self.unsupported:
             self.fault = "unsupported_relocation"
@@ -526,6 +538,7 @@ class Emulator:
             self.fault,
             self.uninitialized,
             sorted(set(self.called)),
+            bytes(self.stdout),
         )
 
     def _restore(self) -> None:

@@ -81,3 +81,64 @@ def test_public_sha_corpus_composites(hardening, tmp_path):
     for family in ["sha1", "sha256"]:
         group = {role: addresses[family + "_" + role] for role in ["init", "update", "final"]}
         verify(cfg, tmp_path / family, binary, family, [(group, "VERIFIED")])
+
+
+def cipher_verify(cfg, tmp_path, binary, groups, subjects):
+    artifacts = ArtifactStore(tmp_path / "artifacts")
+    runner = JobRunner(cfg.sandbox, tmp_path / "public", tmp_path / "jobs", artifacts)
+    cache = GhidraAnalysisCache(runner, tmp_path / "analysis-cache")
+    analysis = cache.analyze(binary, Path(cfg.ghidra.analysis_options), subjects=subjects)
+    for members, expected in groups:
+        request = CompositeRequest(
+            binary_sha256=binary.binary_sha256,
+            family="rc4",
+            members=[
+                CompositeMember(claim_id="c_" + str(i) * 24, subject=members[role], role=role)
+                for i, role in enumerate(["init", "crypt"], 1)
+            ],
+            budgets=cfg.budgets,
+            env_digest="sha256:" + "d" * 64,
+        )
+        result = CompositeClient(runner).verify(
+            binary, analysis, Path("packs/rc4.yaml"), request
+        )
+        assert len(result.verdicts) == 2
+        assert all(
+            v.intrinsic_verdict == expected and v.strength == "E2" for v in result.verdicts
+        ), result
+        if expected == "CONTRADICTED":
+            assert all(v.counterexample is not None for v in result.verdicts)
+
+
+def test_composite_rc4_reference_and_wrong_crypt(tmp_path):
+    cfg = Config.read(Path("aletheia.toml"))
+    root = tmp_path / "calibration"
+    root.mkdir()
+    binary, symbols, fixture = build_fixture("rc4", cfg, root, fixture_set="composite")
+    groups = [
+        (
+            {role: symbols[getattr(case, role)] for role in ["init", "crypt"]},
+            case.expected,
+        )
+        for case in fixture.composite_cases
+    ]
+    cipher_verify(
+        cfg,
+        tmp_path,
+        binary,
+        groups,
+        sorted({address for members, _ in groups for address in members.values()}),
+    )
+
+
+def test_public_rc4_corpus_composite(tmp_path):
+    cfg = Config.read(Path("aletheia.toml"))
+    built = build_program(
+        Path("corpus/tierA/xorcrypt"),
+        Variant(cfg.sandbox.image_build, tmp_path / "build", ground_truth_version="2.0"),
+    )
+    truth = json.loads((built.metadata.parent / "private/ground_truth.json").read_bytes())
+    addresses = {fn["name"]: fn["address"] for fn in truth["functions"]}
+    binary = BinaryRef(built.binary_sha256, built.stripped, built.variant_id)
+    group = {"init": addresses["rc4_init"], "crypt": addresses["rc4_crypt"]}
+    cipher_verify(cfg, tmp_path, binary, [(group, "VERIFIED")], sorted(group.values()))

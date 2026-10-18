@@ -68,8 +68,9 @@ class ConservativeCase(Strict):
 class CompositeCase(Strict):
     name: Identifier
     init: Identifier
-    update: Identifier
-    final: Identifier
+    update: Identifier | None = None
+    final: Identifier | None = None
+    crypt: Identifier | None = None
     expected: Literal["VERIFIED", "CONTRADICTED"]
 
 
@@ -77,8 +78,8 @@ class Fixture(Record):
     family: str
     binary_sha256: Sha256
     composite_cases: list[CompositeCase] = Field(default_factory=lambda: list[CompositeCase]())
-    references: list[Reference] = Field(min_length=1)
-    near_miss: list[NearMiss] = Field(min_length=1)
+    references: list[Reference] = Field(default_factory=lambda: list[Reference]())
+    near_miss: list[NearMiss] = Field(default_factory=lambda: list[NearMiss]())
     conservative_cases: list[ConservativeCase] = Field(
         default_factory=lambda: list[ConservativeCase]()
     )
@@ -326,30 +327,39 @@ def composite_cases(
     from aletheia.verify.composite_client import CompositeClient
 
     rows: list[dict[str, JsonValue]] = []
-    for family in sorted(families & {"md5", "sha1", "sha256"}):
+    for family in sorted(families & {"md5", "sha1", "sha256", "rc4"}):
         binary, symbols, fixture = build_fixture(family, cfg, root, fixture_set="composite")
         if not fixture.composite_cases or {c.expected for c in fixture.composite_cases} != {
             "VERIFIED",
             "CONTRADICTED",
         }:
             raise ValueError("composite calibration requires references and near misses")
+        roles = ("init", "crypt") if family == "rc4" else ("init", "update", "final")
         subjects = sorted(
             {
-                symbols[getattr(case, role)]
+                symbols[cast(str, getattr(case, role))]
                 for case in fixture.composite_cases
-                for role in ("init", "update", "final")
+                for role in roles
             }
         )
         analysis = cache.analyze(binary, Path(cfg.ghidra.analysis_options), subjects=subjects)
         for case in fixture.composite_cases:
+            for role in roles:
+                if getattr(case, role) is None:
+                    raise ValueError("composite case missing role: " + role)
+            for role in set(("init", "update", "final", "crypt")) - set(roles):
+                if getattr(case, role) is not None:
+                    raise ValueError("composite case has unexpected role: " + role)
             request = CompositeRequest(
                 binary_sha256=binary.binary_sha256,
-                family=cast(Literal["md5", "sha1", "sha256"], family),
+                family=cast(Literal["md5", "sha1", "sha256", "rc4"], family),
                 members=[
                     CompositeMember(
-                        claim_id="c_" + str(i) * 24, subject=symbols[getattr(case, role)], role=role
+                        claim_id="c_" + str(i) * 24,
+                        subject=symbols[cast(str, getattr(case, role))],
+                        role=role,
                     )
-                    for i, role in enumerate(("init", "update", "final"), 1)
+                    for i, role in enumerate(roles, 1)
                 ],
                 budgets=cfg.budgets,
                 env_digest="sha256:"
