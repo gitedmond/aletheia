@@ -95,14 +95,14 @@ def test_all_tools_and_purge_ownership(session):
     assert session.get_job(loaded["job_id"])["error_code"] == "invalid_claim"
 
 
-def test_batch_preserves_backend_verification_order(session):
+def test_batch_preserves_submission_order(session):
     digest = load(session)["binary_sha256"]
     result = session.verify_claims([claim(digest), claim(digest, "0x00002000")])
     assert result["status"] == "ok"
     addresses = [
         session.claims[r["verdict"]["claim_id"]].subject.address for r in result["results"]
     ]
-    assert addresses == ["0x00002000", "0x00001000"]
+    assert addresses == ["0x00001000", "0x00002000"]
 
 
 def test_validation_and_unknown_identity_errors(session):
@@ -236,8 +236,8 @@ def test_reversed_calibrated_dependency_batch_is_atomic(session, monkeypatch):
     child["depends_on"] = [parent_id]
     result = session.verify_claims([parent, child], "caller")
     assert result["status"] == "ok"
-    assert result["results"][0]["calibration"] == "calibrated"
-    assert result["results"][0]["c_adj"] == pytest.approx(0.8)
+    assert result["results"][1]["calibration"] == "calibrated"
+    assert result["results"][1]["c_adj"] == pytest.approx(0.8)
     before = dict(session.verdicts)
 
     def fail(*args):
@@ -296,3 +296,44 @@ def test_mcp_startup_errors_use_stderr(tmp_path):
     )
     assert result.exit_code == 7 and not result.stdout
     assert '"error_code": "private_path"' in result.stderr
+
+
+def test_invalid_and_unknown_evidence_are_client_errors(session):
+    load(session)
+    for artifact in ("bad", "sha256:xx", "sha256:" + "f" * 64):
+        assert session.get_evidence(artifact)["error_code"] == "invalid_claim"
+
+
+def test_waiting_verification_does_not_block_stdio_tool_dispatch(session):
+    import asyncio
+
+    from aletheia.mcp_server import make_server
+
+    digest = load(session)["binary_sha256"]
+    started, release = threading.Event(), threading.Event()
+    original = session.backend.verify
+
+    def blocked(*args):
+        started.set()
+        assert release.wait(5)
+        return original(*args)
+
+    session.backend.verify = blocked
+    server = make_server(session)
+
+    async def exercise():
+        tools = await server.list_tools()
+        schema = next(t.inputSchema for t in tools if t.name == "verify_claims")
+        assert "claims" in schema["properties"] and "config_id" in schema["properties"]
+        pending = asyncio.create_task(
+            server.call_tool("verify_claims", {"claims": [claim(digest)]})
+        )
+        try:
+            assert await asyncio.to_thread(started.wait, 2)
+            result = await asyncio.wait_for(server.call_tool("list_supported", {}), timeout=0.5)
+            assert result is not None
+        finally:
+            release.set()
+            await pending
+
+    asyncio.run(exercise())

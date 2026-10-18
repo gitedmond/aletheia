@@ -1,10 +1,12 @@
 """Per-client stdio verifier. Only the sandbox reads executable structure."""
 
+import asyncio
 import base64
 import binascii
 import hashlib
 import json
 import logging
+import re
 import shutil
 import threading
 from collections.abc import Callable
@@ -355,7 +357,7 @@ class VerifierSession:
                     with self.lock:
                         self.claims.update(by_id)
                         self.verdicts.update(staged)
-                    return response(results=[staged[v.claim_id] for v in verdicts])
+                    return response(results=[staged[c.claim_id] for c in parsed])
 
             return self.schedule(
                 digest,
@@ -368,6 +370,8 @@ class VerifierSession:
 
     def get_evidence(self, artifact: str):
         try:
+            if re.fullmatch(r"sha256:[0-9a-f]{64}", artifact) is None:
+                raise McpError("invalid_claim", "Malformed evidence artifact ID")
             with self.lock:
                 digests = sorted(self.binaries)
             for digest in digests:
@@ -438,22 +442,34 @@ class VerifierSession:
             return response(binary_sha256=binary_sha256)
 
 
-def serve(config: Config) -> None:
+def make_server(session: VerifierSession):
     from mcp.server.fastmcp import FastMCP
 
-    session = VerifierSession(config, Path(config.paths.runs) / "mcp")
     server = FastMCP("aletheia-verifier")
     for name in (
         "load_binary",
         "get_job",
-        "verify_claim",
-        "verify_claims",
         "get_evidence",
         "list_supported",
         "explain_verdict",
         "purge",
     ):
         server.add_tool(getattr(session, name), name=name)
+
+    @server.tool(name="verify_claim")
+    async def verify_claim(claim: dict[str, Any], config_id: str | None = None):
+        return await asyncio.to_thread(session.verify_claim, claim, config_id)
+
+    @server.tool(name="verify_claims")
+    async def verify_claims(claims: list[dict[str, Any]], config_id: str | None = None):
+        return await asyncio.to_thread(session.verify_claims, claims, config_id)
+
+    return server
+
+
+def serve(config: Config) -> None:
+    session = VerifierSession(config, Path(config.paths.runs) / "mcp")
+    server = make_server(session)
     try:
         server.run(transport="stdio")
     finally:
