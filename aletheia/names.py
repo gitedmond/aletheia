@@ -48,7 +48,9 @@ class Lexicon(Strict):
 
         if any(p.is_symlink() for p in (path, *path.parents)):
             raise ValueError("lexicon cannot be a symlink")
-        return cls.model_validate(yaml.safe_load(path.read_bytes()))
+        from aletheia.verify.probes.pack import UniqueLoader
+
+        return cls.model_validate(yaml.load(path.read_bytes(), Loader=UniqueLoader))
 
 
 def tokens(name: str) -> list[str]:
@@ -88,7 +90,9 @@ class NameLabels(Strict):
 
     @model_validator(mode="after")
     def provenance(self) -> Self:
-        if (self.method == "human") != self.human_validated:
+        if (self.method == "human" and not self.human_validated) or (
+            self.method == "unlabeled" and self.human_validated
+        ):
             raise ValueError("label provenance and human validation disagree")
         if len({pair.pair_id for pair in self.pairs}) != len(self.pairs) or self.available < len(
             self.pairs

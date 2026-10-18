@@ -147,14 +147,15 @@ class VerifierSession:
             if job_id not in self.jobs:
                 self.jobs[job_id] = (digest, self.executor.submit(work))
             future = self.jobs[job_id][1]
-        if wait:
-            try:
-                return future.result(timeout=self.wait_seconds)
-            except TimeoutError:
-                pass
-            except Exception as exc:
-                return failure(exc)
-        return response("pending", job_id=job_id)
+        return self.wait_job(job_id, future) if wait else response("pending", job_id=job_id)
+
+    def wait_job(self, job_id: str, future: Future[dict[str, Any]]):
+        try:
+            return future.result(timeout=self.wait_seconds)
+        except TimeoutError:
+            return response("pending", job_id=job_id)
+        except Exception as exc:
+            return failure(exc)
 
     def load_binary(self, bytes_b64: str | None = None, path: str | None = None):
         try:
@@ -359,12 +360,14 @@ class VerifierSession:
                         self.verdicts.update(staged)
                     return response(results=[staged[c.claim_id] for c in parsed])
 
-            return self.schedule(
-                digest,
-                {"claims": [c.model_dump(mode="json") for c in parsed], "config_id": config_id},
-                verify,
-                True,
-            )
+                job = self.schedule(
+                    digest,
+                    {"claims": [c.model_dump(mode="json") for c in parsed], "config_id": config_id},
+                    verify,
+                    False,
+                )
+                future = self.jobs[job["job_id"]][1]
+            return self.wait_job(job["job_id"], future)
         except ValueError as exc:
             return failure(exc)
 
