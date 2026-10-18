@@ -78,5 +78,19 @@ def test_label_tool_requires_actual_review_of_assisted_labels(tmp_path):
     )
     assert result.exit_code == 0, result.output
     reviewed = NameLabels.model_validate_json(target.read_bytes())
-    assert reviewed.human_validated and reviewed.method == "human"
+    assert reviewed.human_validated and reviewed.method == "ai-assisted"
     assert [p.match for p in reviewed.pairs] == [False, True]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        'version: "1.0"\nabbreviations: {buf: buffer, buf: byte}\nsynonyms: []\n',
+        'version: "1.0"\nabbreviations: {}\nsynonyms: []\nsynonyms: [[read, get]]\n',
+    ],
+)
+def test_lexicon_rejects_duplicate_keys(tmp_path, text):
+    path = tmp_path / "lexicon.yaml"
+    path.write_text(text)
+    with pytest.raises(ValueError, match="duplicate YAML key"):
+        Lexicon.read(path)

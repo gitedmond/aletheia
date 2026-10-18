@@ -337,3 +337,42 @@ def test_waiting_verification_does_not_block_stdio_tool_dispatch(session):
             await pending
 
     asyncio.run(exercise())
+
+
+def test_verification_submission_is_atomic_with_binary_validation(session, monkeypatch):
+    digest = load(session)["binary_sha256"]
+    original = session.schedule
+
+    def submit(*args):
+        # A different thread cannot purge between validation and job registration.
+        available = []
+
+        def try_lock():
+            acquired = session.lock.acquire(blocking=False)
+            available.append(acquired)
+            if acquired:
+                session.lock.release()
+
+        probe = threading.Thread(target=try_lock)
+        probe.start()
+        probe.join(timeout=2)
+        assert available == [False]
+        return original(*args)
+
+    monkeypatch.setattr(session, "schedule", submit)
+    assert session.verify_claim(claim(digest))["status"] == "ok"
+    assert session.purge(digest)["status"] == "ok"
+
+
+def test_completed_verification_keeps_future_when_purged_before_wait(session, monkeypatch):
+    digest = load(session)["binary_sha256"]
+    wait = session.wait_job
+
+    def purge_before_wait(job_id, future):
+        future.result(timeout=2)
+        assert session.purge(digest)["status"] == "ok"
+        return wait(job_id, future)
+
+    monkeypatch.setattr(session, "wait_job", purge_before_wait)
+    assert session.verify_claim(claim(digest))["status"] == "ok"
+    assert digest not in session.binaries and not (session.root / digest).exists()
