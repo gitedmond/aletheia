@@ -34,7 +34,7 @@ def test_v2_signature_and_purpose_scoring_replay_with_pinned_agreement(tmp_path)
         Path("corpus/tierA/crc32tool"),
         Variant(cfg.sandbox.image_build, Path(cfg.paths.build), ground_truth_version="2.0"),
     )
-    benchmark = Benchmark(cfg)
+    benchmark = Benchmark(cfg, algorithms_version="2.0")
     binary, _, bundle = benchmark.bundle("crc32tool")
     truth = GroundTruth.model_validate_json((bundle / "private/ground_truth.json").read_bytes())
     function = next(f for f in truth.functions if f.name == "crc32_update")

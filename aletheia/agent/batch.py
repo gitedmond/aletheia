@@ -118,11 +118,18 @@ def fit_dev(benchmark: Benchmark, runs: list[str] | None = None) -> dict[str, An
                 ).fetchone()
                 if binary is None or binary[0] != "dev":
                     raise ValueError("non-dev binary cannot enter fitting")
+                try:
+                    grade = store.get_grade(claim.claim_id)
+                    verdict = store.get_verdict(claim.claim_id)
+                except KeyError as exc:
+                    raise ValueError(
+                        f"run {run} is incomplete; verify and score before fitting"
+                    ) from exc
                 rows.append(
                     sample(
                         claim,
-                        store.get_grade(claim.claim_id),
-                        store.get_verdict(claim.claim_id),
+                        grade,
+                        verdict,
                         program=metadata["program"],
                         split="dev",
                     )
