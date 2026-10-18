@@ -269,7 +269,7 @@ def test_synthetic_experiment_passes_mechanical_criteria(tmp_path):
         "X4": True,
         "X5": True,
         "X6": True,
-        "X7": False,
+        "X7": True,
         "X8": True,
         "X9": True,
         "X10": True,

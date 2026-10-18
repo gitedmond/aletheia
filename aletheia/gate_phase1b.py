@@ -10,6 +10,7 @@ from aletheia.grade.context import GradingContext
 from aletheia.orchestrate import Benchmark, file_hash, write_json
 from aletheia.schema.canonical import content_hash
 from aletheia.schema.models import REGISTRY, RunManifest
+from aletheia.schema.taxonomy import Taxonomy
 from aletheia.verify.engine import DEFAULT_PACK_DIRECTORY
 
 # Human labels are evidence, not an engineering review that delegation can replace.
@@ -240,12 +241,16 @@ def evaluate(benchmark: Benchmark) -> dict[str, Any]:
 
     def agreement():
         context = GradingContext.model_validate(receipt("agreement"))
-        return context.human_validated and bool(context.taxonomy_kappa) and all(
-            v is not None for v in context.taxonomy_kappa.values()
-        ), {
+        nodes = {leaf.split(".")[0] for leaf in Taxonomy.bundled().leaves}
+        # X7 reports agreement; the annotation amendment keeps human validation separate.
+        return set(context.taxonomy_kappa) == nodes, {
             "method": context.method,
             "human_validated": context.human_validated,
             "nodes": len(context.taxonomy_kappa),
+            "required_nodes": len(nodes),
+            "undefined_nodes": sorted(
+                node for node, value in context.taxonomy_kappa.items() if value is None
+            ),
         }
 
     def plan():

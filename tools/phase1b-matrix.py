@@ -51,7 +51,7 @@ if stage == "all" and os.environ.get("ALETHEIA_MATRIX_ALL") != "1":
     parser.error("all launches the full matrix; set ALETHEIA_MATRIX_ALL=1")
 
 private = Path("/home/edmond/src/aletheia-private")
-state_root = private / "phase1b-execution-codex-v2"
+state_root = private / "phase1b-execution-codex-v3"
 state_root.mkdir(exist_ok=True)
 lock = (state_root / "matrix.lock").open("a")
 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -60,12 +60,12 @@ runtime_version = str(read_lock(Path("versions.lock.md"))["host"]["ollama"])
 config.grading.agreement = "configs/grading-phase1b.json"
 config.paths.private_root = str(private)
 config.paths.build = "/home/edmond/src/aletheia-phase1b-data/build"
-config.paths.runs = "/home/edmond/src/aletheia-phase1b-data/runs-phase1b-v2"
-config.paths.artifacts = "/home/edmond/src/aletheia-phase1b-data/artifacts-phase1b-v2"
+config.paths.runs = "/home/edmond/src/aletheia-phase1b-data/runs-phase1b-v3"
+config.paths.artifacts = "/home/edmond/src/aletheia-phase1b-data/artifacts-phase1b-v3"
 held = config.for_split("heldout")
 # Distinct experiment namespaces: dev results stay public, held-out results private.
-held.paths.runs = str(private / "runs-phase1b-v2")
-held.paths.artifacts = str(private / "artifacts-phase1b-v2")
+held.paths.runs = str(private / "runs-phase1b-v3")
+held.paths.artifacts = str(private / "artifacts-phase1b-v3")
 configs = {
     key: AgentConfig.model_validate(yaml.safe_load(Path(f"configs/agents/{key}.yaml").read_bytes()))
     for key in ("local-a", "local-b", "local-c")

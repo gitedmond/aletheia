@@ -4,7 +4,7 @@ runs = "runs"
 artifacts = "artifacts"
 [sandbox]
 image_build = "sha256:11f52a49adbc79c8224386bbc76139b4d4f2df66f61582ce059c08dd774b3731"
-image_analysis = "sha256:6f37a700f69046d0f61b5609f058b401d4df4271680adebd5b9df4f84bb43983"
+image_analysis = "sha256:67260f6d0b91ea07bc691c330b9be713476da1390288ef4d7023c5408745c1bb"
 concurrency = 1
 memory_gb = 6
 wall_timeout_s = 60

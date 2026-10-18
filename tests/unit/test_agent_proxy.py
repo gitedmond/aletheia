@@ -113,6 +113,20 @@ def test_call_keys_include_callee_and_output_normalization_is_not_code_rewriting
         )
 
 
+def test_unknown_algorithm_family_feedback_is_actionable_without_echoing_input(tmp_path):
+    p = proxy(tmp_path)
+    result = p.call(
+        "report_claim",
+        arguments(
+            type="algorithm_identity",
+            body={"family": "private-family-marker", "variant": None},
+        ),
+    )
+    assert result["reason"] == "invalid_claim"
+    assert "unknown_family; registered families:" in result["message"]
+    assert "private-family-marker" not in result["message"]
+
+
 def test_malformed_finish_is_logged_and_counted_without_finishing(tmp_path):
     p = proxy(tmp_path)
     assert p.call("finish", {"unexpected": True})["reason"] == "invalid_claim"

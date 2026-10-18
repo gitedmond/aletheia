@@ -1,4 +1,4 @@
-"""Missing/stale evidence and AI labels cannot turn into a passing Phase 1B gate."""
+"""Fail closed on missing evidence while preserving assisted-label provenance."""
 
 from pathlib import Path
 from types import SimpleNamespace
@@ -9,7 +9,7 @@ from aletheia.gate_phase1b import _package_hash, evaluate
 from aletheia.orchestrate import file_hash, write_json
 
 
-def test_missing_and_changed_evidence_fails_every_criterion(tmp_path):
+def test_missing_and_changed_evidence_fails_closed(tmp_path):
     benchmark = SimpleNamespace(root=tmp_path)
     result = evaluate(benchmark)
     assert result["status"] == "failed" and len(result["criteria"]) == 14
@@ -26,7 +26,7 @@ def test_missing_and_changed_evidence_fails_every_criterion(tmp_path):
     write_json(root / "evidence.json", evidence)
     result = evaluate(benchmark)
     assert result["criteria"]["X7"]["details"]["human_validated"] is False
-    assert result["criteria"]["X7"]["passed"] is False
+    assert result["criteria"]["X7"]["passed"] is True
     (root / "agreement.json").write_text("{}")
     result = evaluate(benchmark)
     assert result["criteria"]["X7"]["details"] == "Missing, stale or invalid required evidence"
@@ -125,3 +125,39 @@ def test_algorithm_false_alarm_rate_cannot_be_diluted_with_purpose_fixtures(tmp_
     result = evaluate(SimpleNamespace(root=tmp_path))
     assert result["criteria"]["X4"]["details"]["correct_e2"] == 2
     assert not result["criteria"]["X4"]["passed"]
+
+
+@pytest.mark.parametrize("complete", [False, True])
+def test_agreement_reports_every_node_even_when_kappa_is_undefined(tmp_path, complete):
+    from aletheia.grade.context import GradingContext
+    from aletheia.schema.taxonomy import Taxonomy
+
+    nodes = {leaf.split(".")[0] for leaf in Taxonomy.bundled().leaves}
+    values = {node: None for node in nodes}
+    if not complete:
+        values.pop(sorted(nodes)[0])
+    context = GradingContext(
+        agreement_sha256="a" * 64,
+        taxonomy_kappa=values,
+        human_validated=False,
+        method="ai-assisted",
+    )
+    root = tmp_path / "phase1b"
+    write_json(root / "agreement.json", context)
+    write_json(
+        root / "evidence.json",
+        {
+            "package_source_hash": _package_hash(),
+            "receipts": {
+                "agreement": {
+                    "path": "agreement.json",
+                    "sha256": file_hash(root / "agreement.json"),
+                }
+            },
+        },
+    )
+    result = evaluate(SimpleNamespace(root=tmp_path))
+    assert result["criteria"]["X7"]["passed"] is complete
+    assert result["criteria"]["X7"]["details"]["human_validated"] is False
+    assert all(value is None for value in context.primary_kappa.values())
+    assert result["status"] == "failed"

@@ -70,5 +70,77 @@
     "upstream_restarts": 0
   },
   "smoke_run_id": "r_ed815a28b3bcad93",
-  "transport": "openai-compatible-windows-loopback"
+  "transport": "openai-compatible-windows-loopback",
+  "follow_up_diagnostic_smokes": {
+    "runtime": "Ollama",
+    "runtime_version": "0.40.5",
+    "context_window": 32768,
+    "note": "One-shot public-dev diagnostics outside the planned cohort; raw claims and trajectories remain in local cache. Local-a stayed the best-supported candidate by claim count, but no current-runtime smoke had a clean protocol finish.",
+    "smokes": [
+      {
+        "config_id": "local-a",
+        "program": "xorcrypt",
+        "sample_index": 10004,
+        "analysis_image": "sha256:898a7365ccaf454e7705eef0b9b00748ab6f2dab2db0fc9514023d334b0821c2",
+        "package_source_hash": "0b7aa9ed1efe9cae867b91e8e164d1b42b8d8e02aef5d59c77c1251906921583",
+        "status": "failed",
+        "reason": "model_protocol",
+        "schema_valid_claims": 5,
+        "malformed_calls": 3,
+        "provider_requests": 2,
+        "upstream_restarts": 0,
+        "benchmark_replay_exit_code": 0,
+        "cache_replay_status": "passed",
+        "elapsed_seconds": 61.823
+      },
+      {
+        "config_id": "local-b",
+        "program": "xorcrypt",
+        "sample_index": 10005,
+        "analysis_image": "sha256:898a7365ccaf454e7705eef0b9b00748ab6f2dab2db0fc9514023d334b0821c2",
+        "package_source_hash": "0b7aa9ed1efe9cae867b91e8e164d1b42b8d8e02aef5d59c77c1251906921583",
+        "status": "failed",
+        "reason": "model_protocol",
+        "schema_valid_claims": 0,
+        "malformed_calls": 3,
+        "provider_requests": 3,
+        "upstream_restarts": 0,
+        "benchmark_replay_exit_code": 0,
+        "cache_replay_status": "passed",
+        "elapsed_seconds": 27.012
+      },
+      {
+        "config_id": "local-c",
+        "program": "xorcrypt",
+        "sample_index": 10006,
+        "analysis_image": "sha256:898a7365ccaf454e7705eef0b9b00748ab6f2dab2db0fc9514023d334b0821c2",
+        "package_source_hash": "0b7aa9ed1efe9cae867b91e8e164d1b42b8d8e02aef5d59c77c1251906921583",
+        "status": "failed",
+        "reason": "model_protocol",
+        "schema_valid_claims": 0,
+        "malformed_calls": 3,
+        "provider_requests": 3,
+        "upstream_restarts": 0,
+        "benchmark_replay_exit_code": 0,
+        "cache_replay_status": "passed",
+        "elapsed_seconds": 46.148
+      },
+      {
+        "config_id": "local-a",
+        "program": "xorcrypt",
+        "sample_index": 10007,
+        "analysis_image": "sha256:67260f6d0b91ea07bc691c330b9be713476da1390288ef4d7023c5408745c1bb",
+        "package_source_hash": "6a90d32b58eef4d373d942570ae5f3378754bdbe4e237498a1ce4a2c45cd9144",
+        "status": "failed",
+        "reason": "model_protocol",
+        "schema_valid_claims": 5,
+        "malformed_calls": 3,
+        "provider_requests": 2,
+        "upstream_restarts": 0,
+        "benchmark_replay_exit_code": 0,
+        "cache_replay_status": "passed",
+        "elapsed_seconds": 65.981
+      }
+    ]
+  }
 }
