@@ -376,17 +376,16 @@ class VerifierSession:
             if re.fullmatch(r"sha256:[0-9a-f]{64}", artifact) is None:
                 raise McpError("invalid_claim", "Malformed evidence artifact ID")
             with self.lock:
-                digests = sorted(self.binaries)
-            for digest in digests:
-                try:
-                    data = ArtifactStore(self.root / digest / "artifacts").get(artifact)
-                except FileNotFoundError:
-                    continue
-                if len(data) > 512 * 1024:
-                    raise McpError(
-                        "budget_exceeded", "Evidence exceeds the 512 KiB response budget"
-                    )
-                return response(artifact=artifact, evidence=json.loads(data))
+                for digest in sorted(self.binaries):
+                    try:
+                        data = ArtifactStore(self.root / digest / "artifacts").get(artifact)
+                    except FileNotFoundError:
+                        continue
+                    if len(data) > 512 * 1024:
+                        raise McpError(
+                            "budget_exceeded", "Evidence exceeds the 512 KiB response budget"
+                        )
+                    return response(artifact=artifact, evidence=json.loads(data))
             raise McpError("invalid_claim", "Unknown evidence artifact")
         except (ValueError, OSError) as exc:
             return failure(exc)

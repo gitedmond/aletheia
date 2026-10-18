@@ -376,3 +376,29 @@ def test_completed_verification_keeps_future_when_purged_before_wait(session, mo
     monkeypatch.setattr(session, "wait_job", purge_before_wait)
     assert session.verify_claim(claim(digest))["status"] == "ok"
     assert digest not in session.binaries and not (session.root / digest).exists()
+
+
+def test_evidence_read_cannot_recreate_purged_storage(session, monkeypatch):
+    digest = load(session)["binary_sha256"]
+    artifact = ArtifactStore(session.root / digest / "artifacts").put(b"{}")
+
+    def open_artifacts(path):
+        available = []
+
+        def try_lock():
+            acquired = session.lock.acquire(blocking=False)
+            available.append(acquired)
+            if acquired:
+                session.lock.release()
+
+        probe = threading.Thread(target=try_lock)
+        probe.start()
+        probe.join(timeout=2)
+        assert available == [False]
+        return ArtifactStore(path)
+
+    monkeypatch.setattr("aletheia.mcp_server.ArtifactStore", open_artifacts)
+    assert session.get_evidence(artifact)["status"] == "ok"
+    assert session.purge(digest)["status"] == "ok"
+    assert session.get_evidence(artifact)["error_code"] == "invalid_claim"
+    assert not (session.root / digest).exists()
