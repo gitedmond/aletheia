@@ -415,6 +415,8 @@ def verifiability(
     try:
         if program is not None and re.fullmatch(r"[a-z][a-z0-9-]*", program) is None:
             raise ValueError("invalid program name")
+        if phase1b and variant is None:
+            raise ValueError("--phase1b requires --variant to select one coverage population")
         config = read_config(ctx)
         root = Path(config.paths.build)
         paths = sorted(
@@ -811,7 +813,9 @@ def names_label(
                     f"Match {pair.proposed_name!r} to {pair.true_name!r}?", default=False
                 )
             pair.match = memo[key]
-        labels.method, labels.annotator_id, labels.human_validated = "human", annotator, True
+        if labels.method == "unlabeled":
+            labels.method = "human"
+        labels.annotator_id, labels.human_validated = annotator, True
         write_json(target, labels)
         return {"status": "ok", "pairs": len(labels.pairs), "out": str(target)}
 
