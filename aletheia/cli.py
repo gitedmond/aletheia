@@ -415,6 +415,8 @@ def verifiability(
     try:
         if program is not None and re.fullmatch(r"[a-z][a-z0-9-]*", program) is None:
             raise ValueError("invalid program name")
+        if phase1b and variant is None:
+            raise ValueError("--phase1b requires --variant to select one coverage population")
         config = read_config(ctx)
         root = Path(config.paths.build)
         paths = sorted(

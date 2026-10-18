@@ -137,7 +137,7 @@ def table_v2(truths: list[GroundTruth], packs: list[Pack]) -> Table:
     output = table(truths, packs)
     mapping = PurposeMapping.read(Path(__file__).parents[2] / "mappings/purpose_packs.yaml")
     installed = {pack.family for pack in packs}
-    by_leaf: dict[str, Row] = {}
+    by_leaf: dict[tuple[str, bool], Row] = {}
     programs: list[ProgramCoverage] = []
     for gt in sorted(truths, key=lambda item: item.program_id):
         functions = [fn for fn in gt.functions if isinstance(fn, GroundFunctionV2) and fn.scorable]
@@ -168,7 +168,7 @@ def table_v2(truths: list[GroundTruth], packs: list[Pack]) -> Table:
             covered += ready
             key = fn.category or "none"
             row = by_leaf.setdefault(
-                key,
+                (key, ready),
                 {
                     "leaf": key,
                     "scorable_functions": 0,

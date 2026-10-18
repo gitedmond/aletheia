@@ -132,7 +132,11 @@ def _coverage(
     for claim, _, grade, _ in data.claims:
         key = (claim.source.source_id, variant_by_run[claim.run_id], claim.type)
         identity = (claim.binary_sha256, claim.subject.address)
-        if grade.on_target and grade.correct_strict is True and identity in eligible[key]:
+        if (
+            grade.on_target
+            and grade.correct_strict is True
+            and identity in eligible.get(key, set())
+        ):
             covered[key].add(identity)
     return {
         key: {
@@ -173,6 +177,7 @@ def generate(benchmark: Benchmark, runs: list[str], fit_root: Path) -> dict[str,
     data = collect(benchmark, runs)
     variants: dict[str, str] = {}
     programs: set[str] = set()
+    clusters: dict[tuple[str, str], set[str]] = defaultdict(set)
     run_info: dict[str, dict[str, Any]] = {}
     for manifest in data.manifests:
         if manifest.source_config.get("split") != "heldout":
@@ -180,9 +185,11 @@ def generate(benchmark: Benchmark, runs: list[str], fit_root: Path) -> dict[str,
         info = json.loads((benchmark.directory(manifest.run_id) / "run.json").read_bytes())
         run_info[manifest.run_id] = info
         variants[manifest.run_id] = info["variant_id"]
-        programs.add(
+        program = (
             info["program"] if info["program"].startswith("tierA/") else "tierA/" + info["program"]
         )
+        programs.add(program)
+        clusters[(info["source_id"], info["variant_id"])].add(program)
     rows: list[Sample] = [sample(c, g, v, program=p, split="heldout") for c, v, g, p in data.claims]
     adjusted = adjust_graph(rows, maps, likelihoods)
     groups: dict[tuple[str, str, str], list[Scored]] = defaultdict(list)
@@ -191,24 +198,24 @@ def generate(benchmark: Benchmark, runs: list[str], fit_root: Path) -> dict[str,
             Scored(sample=row, confidence=adjusted[row.claim_id])
         )
     coverage = _coverage(benchmark, data, runs)
-    truths: dict[str, dict[str, GroundTruth]] = defaultdict(dict)
+    truths: dict[tuple[str, str], dict[str, GroundTruth]] = defaultdict(dict)
     for info in run_info.values():
         variant = info["variant_id"]
         _, _, bundle = benchmark.bundle(info["program"], variant)
         gt = GroundTruth.model_validate_json((bundle / "private/ground_truth.json").read_bytes())
-        truths[variant][gt.binary_sha256] = gt
+        truths[(info["source_id"], variant)][gt.binary_sha256] = gt
     settings = benchmark.config.metrics
     populations: list[dict[str, Any]] = []
     for (source, variant, kind), selected in sorted(groups.items()):
         result = population(
             selected,
-            sorted(programs),
+            sorted(clusters[(source, variant)]),
             resamples=settings.bootstrap_resamples,
             seed=settings.bootstrap_seed,
         )
         head = headline(
             selected,
-            sorted(programs),
+            sorted(clusters[(source, variant)]),
             bootstrap_resamples=settings.bootstrap_resamples,
             bootstrap_seed=settings.bootstrap_seed,
         )
@@ -219,7 +226,7 @@ def generate(benchmark: Benchmark, runs: list[str], fit_root: Path) -> dict[str,
             [c for c, _, _ in group],
             [v for _, v, _ in group],
             settings,
-            ground_truths=list(truths[variant].values()),
+            ground_truths=list(truths[(source, variant)].values()),
             method_results=benchmark.observations([v for _, v, _ in group]),
         )
         # Whitelist aggregates: Headline also contains private program cluster identities.
@@ -248,6 +255,7 @@ def generate(benchmark: Benchmark, runs: list[str], fit_root: Path) -> dict[str,
         populations.append(item)
     reliability: dict[str, dict[str, int]] = {}
     aspect_groups: dict[str, list[Scored]] = defaultdict(list)
+    aspect_programs: dict[str, set[str]] = {}
     scored_by_id = {row.claim_id: row for row in rows}
     for claim, verdict, grade, _ in data.claims:
         for name, aspect in verdict.aspects.items():
@@ -264,6 +272,7 @@ def generate(benchmark: Benchmark, runs: list[str], fit_root: Path) -> dict[str,
                     aspect.strength or "none",
                 )
             )
+            aspect_programs[key] = clusters[(claim.source.source_id, variants[claim.run_id])]
             counts = reliability.setdefault(
                 key,
                 {
@@ -314,7 +323,7 @@ def generate(benchmark: Benchmark, runs: list[str], fit_root: Path) -> dict[str,
                 **counts,
                 **population(
                     aspect_groups[key],
-                    sorted(programs),
+                    sorted(aspect_programs[key]),
                     resamples=settings.bootstrap_resamples,
                     seed=settings.bootstrap_seed,
                 ),
