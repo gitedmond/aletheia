@@ -131,6 +131,7 @@ class Emulator:
         }
         self.file_handles: dict[int, tuple[bytes, list[int]]] = {}
         self.stdout = bytearray()
+        self.stdout_handle: int | None = None
         parser = cast(Any, importlib.import_module("elftools.elf.elffile"))
         errors = cast(Any, importlib.import_module("elftools.common.exceptions"))
         try:
@@ -432,10 +433,24 @@ class Emulator:
             ):
                 value = BASE + int(symbol["st_value"]) + (addend if kind == 1 else 0)
             elif (
-                kind in (1, 6) and symbol_type == "STT_OBJECT" and symbol["st_shndx"] == "SHN_UNDEF"
+                kind in (1, 6)
+                and (
+                    symbol_type == "STT_OBJECT"
+                    or (
+                        symbol.name == "stdout"
+                        and symbol_type == "STT_NOTYPE"
+                        and binding == "STB_GLOBAL"
+                    )
+                )
+                and symbol["st_shndx"] == "SHN_UNDEF"
             ):
                 if symbol.name not in data_objects:
                     data_objects[symbol.name] = self._allocate_heap(256)
+                    if symbol.name == "stdout":
+                        self.stdout_handle = self._allocate_heap(1)
+                        self.uc.mem_write(
+                            data_objects[symbol.name], struct.pack("<Q", self.stdout_handle)
+                        )
                 value = data_objects[symbol.name] + (addend if kind == 1 else 0)
             elif (
                 kind == 6

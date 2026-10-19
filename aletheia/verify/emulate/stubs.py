@@ -1,5 +1,6 @@
 """S1: deterministic libc primitives operating only on checked guest memory."""
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -69,6 +70,17 @@ def emulate_import(emu: "Emulator", name: str) -> int | None:
                 return left - right
             index += 1
         return 0
+    if name == "strchr":
+        index = 0
+        target = b & 0xFF
+        while True:
+            emu.charge_work(1)
+            value = emu.read_memory(a + index, 1)[0]
+            if value == target:
+                return a + index
+            if value == 0:
+                return 0
+            index += 1
     if name == "malloc":
         return emu.allocate(a)
     if name == "calloc":
@@ -120,6 +132,34 @@ def emulate_import(emu: "Emulator", name: str) -> int | None:
     if name == "fclose":
         emu.file_handles.pop(a, None)
         return 0
+    if name == "puts":
+        output = _cstring(emu, a)
+        emu.charge_work(1)
+        emu.stdout.extend(output + b"\n")
+        return 0
+    if name == "fwrite":
+        size, count = b, n
+        stream = int(emu.uc.reg_read(regs.UC_X86_REG_RCX))
+        if not _is_stdout(emu, stream):
+            return None
+        length = size * count
+        if length >= 2**64:
+            raise MemoryFault("fwrite size overflow")
+        emu.charge_work(length)
+        if length:
+            emu.stdout.extend(emu.read_memory(a, length))
+        return count if size else 0
+    if name in {"vfprintf", "__vfprintf_chk"}:
+        stream = a
+        if name == "vfprintf":
+            format_address, va_list = b, n
+        else:
+            if b not in (0, 1):
+                return None
+            format_address, va_list = n, int(emu.uc.reg_read(regs.UC_X86_REG_RCX))
+        if not _is_stdout(emu, stream):
+            return None
+        return _printf(emu, format_address, argument_reader=_va_list_reader(emu, va_list))
     if name in ("putchar", "putc", "_IO_putc"):
         emu.stdout.append(a & 0xFF)
         return a & 0xFF
@@ -139,23 +179,74 @@ def _cstring(emu: "Emulator", address: int) -> bytes:
         output.extend(value)
 
 
+def _is_stdout(emu: "Emulator", stream: int) -> bool:
+    return getattr(emu, "stdout_handle", None) == stream
+
+
+def _va_list_reader(emu: "Emulator", address: int) -> Callable[[], int]:
+    emu.charge_work(3)
+    state = emu.read_memory(address, 24)
+    gp_offset = int.from_bytes(state[:4], "little")
+    overflow_area = int.from_bytes(state[8:16], "little")
+    register_save_area = int.from_bytes(state[16:24], "little")
+    if gp_offset > 48 or gp_offset % 8:
+        raise MemoryFault("invalid x86-64 va_list register offset")
+
+    def read_argument() -> int:
+        nonlocal gp_offset, overflow_area
+        emu.charge_work(1)
+        if gp_offset < 48:
+            value = int.from_bytes(
+                emu.read_memory(register_save_area + gp_offset, 8), "little"
+            )
+            gp_offset += 8
+            return value
+        if overflow_area > 2**64 - 8:
+            raise MemoryFault("invalid x86-64 va_list overflow pointer")
+        value = int.from_bytes(emu.read_memory(overflow_area, 8), "little")
+        overflow_area += 8
+        return value
+
+    return read_argument
+
+
 # shortcut: printf handles the literal/%x/%X/%d/%u/%c/%s subset with 0 flags and
 # widths the corpus writers use; extend only when a pack needs more.
-def _printf(emu: "Emulator", format_address: int, fortified: bool = False) -> int:
+def _printf(
+    emu: "Emulator",
+    format_address: int,
+    fortified: bool = False,
+    argument_reader: Callable[[], int] | None = None,
+) -> int | None:
     registers = emu.registers
-    arguments = [
-        int(emu.uc.reg_read(register))
-        for register in (
-            registers.UC_X86_REG_RSI,
-            registers.UC_X86_REG_RDX,
-            registers.UC_X86_REG_RCX,
-            registers.UC_X86_REG_R8,
-            registers.UC_X86_REG_R9,
-        )[1 if fortified else 0 :]
-    ]
+    arguments = (
+        []
+        if argument_reader is not None
+        else [
+            int(emu.uc.reg_read(register))
+            for register in (
+                registers.UC_X86_REG_RSI,
+                registers.UC_X86_REG_RDX,
+                registers.UC_X86_REG_RCX,
+                registers.UC_X86_REG_R8,
+                registers.UC_X86_REG_R9,
+            )[1 if fortified else 0 :]
+        ]
+    )
     fmt = _cstring(emu, format_address)
     output = bytearray()
     index = 0
+
+    def next_argument() -> int:
+        nonlocal index
+        if argument_reader is not None:
+            return argument_reader()
+        if index >= len(arguments):
+            raise MemoryFault("printf varargs exceed registers")
+        value = arguments[index]
+        index += 1
+        return value
+
     position = 0
     while position < len(fmt):
         character = fmt[position]
@@ -174,22 +265,16 @@ def _printf(emu: "Emulator", format_address: int, fortified: bool = False) -> in
             width = width * 10 + (fmt[position] - 0x30)
             position += 1
         if position >= len(fmt) or fmt[position] not in b"xXducs":
-            raise MemoryFault("unsupported printf conversion")
+            return None
         conversion = chr(fmt[position])
         if zero and conversion in "sc":
-            raise MemoryFault("unsupported printf flag")
+            return None
         emu.charge_work(width)
         position += 1
         if conversion == "s":
-            if index >= len(arguments):
-                raise MemoryFault("printf varargs exceed registers")
-            rendered = _cstring(emu, arguments[index])
-            index += 1
+            rendered = _cstring(emu, next_argument())
         else:
-            if index >= len(arguments):
-                raise MemoryFault("printf varargs exceed registers")
-            value = arguments[index]
-            index += 1
+            value = next_argument()
             if conversion == "c":
                 rendered = bytes([value & 0xFF])
             elif conversion in "xX":

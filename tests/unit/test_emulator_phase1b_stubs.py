@@ -28,6 +28,7 @@ class Guest:
         self.virtual_files = {b"probe.dat": b"hi\x00there"}
         self.file_handles = {}
         self.stdout = bytearray()
+        self.stdout_handle = 192
         self.heap = 200
 
     def allocate(self, size):
@@ -126,6 +127,89 @@ def test_virtual_file_cursor_stubs_read_only_declared_files():
     assert emulate_import(guest, "fopen") == 0
 
 
+def test_strchr_matches_bytes_and_the_terminating_null():
+    guest = Guest([32, ord("b"), 0, 0, 0, 0])
+    _write_cstring(guest, 32, b"abc")
+    assert emulate_import(guest, "strchr") == 33
+    guest.args[1] = 0
+    assert emulate_import(guest, "strchr") == 35
+    guest.args[1] = ord("z")
+    assert emulate_import(guest, "strchr") == 0
+
+
+def test_puts_and_fwrite_write_only_the_virtual_stdout():
+    guest = Guest([32, 2, 2, 192, 0, 0])
+    _write_cstring(guest, 32, b"line")
+    assert emulate_import(guest, "puts") == 0
+    assert bytes(guest.stdout) == b"line\n"
+    guest.memory[40:44] = b"abcd"
+    guest.args[:4] = [40, 2, 2, guest.stdout_handle]
+    assert emulate_import(guest, "fwrite") == 2
+    assert bytes(guest.stdout) == b"line\nabcd"
+    guest.args[1:3] = [0, 3]
+    assert emulate_import(guest, "fwrite") == 0
+    assert bytes(guest.stdout) == b"line\nabcd"
+    guest.args[1:4] = [1, 1, 191]
+    assert emulate_import(guest, "fwrite") is None
+    guest.args[1:4] = [2**63, 2, guest.stdout_handle]
+    with pytest.raises(MemoryFault):
+        emulate_import(guest, "fwrite")
+
+
+def test_fwrite_charges_output_before_reading_guest_memory():
+    from aletheia.verify.emulate.core import BudgetExhausted
+
+    guest = Guest([999, 1, 100, 192, 0, 0])
+
+    def exhaust(_units):
+        raise BudgetExhausted
+
+    guest.charge_work = exhaust
+    with pytest.raises(BudgetExhausted):
+        emulate_import(guest, "fwrite")
+
+
+def _write_va_list(guest, address, values, *, gp_offset=0, overflow=160, save=96):
+    guest.write_memory(
+        address,
+        gp_offset.to_bytes(4, "little")
+        + (48).to_bytes(4, "little")
+        + overflow.to_bytes(8, "little")
+        + save.to_bytes(8, "little"),
+    )
+    for index, value in enumerate(values):
+        guest.write_memory(save + index * 8, value.to_bytes(8, "little"))
+
+
+@pytest.mark.parametrize("name,fortified", [("vfprintf", False), ("__vfprintf_chk", True)])
+def test_vfprintf_reads_the_bounded_sysv_va_list_subset(name, fortified):
+    guest = Guest([192, 1, 32, 64, 0, 0] if fortified else [192, 32, 64, 0, 0, 0])
+    _write_cstring(guest, 32, b"%08x|%s")
+    _write_cstring(guest, 128, b"ok")
+    _write_va_list(guest, 64, [255, 128], gp_offset=0)
+    assert emulate_import(guest, name) == 11
+    assert bytes(guest.stdout) == b"000000ff|ok"
+
+
+def test_vfprintf_reads_stack_overflow_arguments_and_rejects_other_streams():
+    guest = Guest([192, 32, 64, 0, 0, 0])
+    _write_cstring(guest, 32, b"%d")
+    _write_va_list(guest, 64, [], gp_offset=48)
+    guest.write_memory(160, (42).to_bytes(8, "little"))
+    assert emulate_import(guest, "vfprintf") == 2
+    assert bytes(guest.stdout) == b"42"
+    guest.args[0] = 191
+    assert emulate_import(guest, "vfprintf") is None
+    guest.args[0] = guest.stdout_handle
+    _write_cstring(guest, 32, b"%p")
+    assert emulate_import(guest, "vfprintf") is None
+    assert bytes(guest.stdout) == b"42"
+    fortified = Guest([192, 2, 32, 64, 0, 0])
+    _write_cstring(fortified, 32, b"%d")
+    _write_va_list(fortified, 64, [1])
+    assert emulate_import(fortified, "__vfprintf_chk") is None
+
+
 def test_putchar_and_printf_render_the_declared_subset_into_stdout():
     guest = Guest([32, 255, 0xDEADBEEF, 16, 0xEF, 0])
     _write_cstring(guest, 32, b"%02x|%08x|%s|%c|%%\n")
@@ -145,8 +229,7 @@ def test_putchar_and_printf_render_the_declared_subset_into_stdout():
 def test_printf_rejects_conversions_outside_the_declared_subset():
     guest = Guest([16, 1, 0, 0, 0, 0])
     _write_cstring(guest, 16, b"%p")
-    with pytest.raises(MemoryFault):
-        emulate_import(guest, "printf")
+    assert emulate_import(guest, "printf") is None
     guest = Guest([16, 1, 2, 3, 4, 5])
     _write_cstring(guest, 16, b"%x%x%x%x%x%x")
     with pytest.raises(MemoryFault):
@@ -157,8 +240,7 @@ def test_printf_rejects_conversions_outside_the_declared_subset():
 def test_printf_abstains_on_unsupported_flags_and_lengths(fmt):
     guest = Guest([32, 1, 0, 0, 0, 0])
     _write_cstring(guest, 32, fmt)
-    with pytest.raises(MemoryFault):
-        emulate_import(guest, "printf")
+    assert emulate_import(guest, "printf") is None
 
 
 def test_printf_padding_preserves_the_sign_and_charges_before_allocating():
