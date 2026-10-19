@@ -16,11 +16,29 @@ from aletheia.schema.models import GroundTruth
 from aletheia.verify.probes.pack import load_pack
 
 ROOT = Path(__file__).resolve().parents[1]
-SCOPE_DOCUMENT = ROOT / "spec" / "phase1b-x3-scope-v1.md"
-SCOPE_ID = "x3-direct-call-v1"
+SCOPE_DOCUMENT = ROOT / "spec" / "phase1b-x3-scope-v2.md"
+SCOPE_ID = "x3-direct-call-v2"
 EXPERIMENT_COMMIT = "f800009d43ee42fb1b7c25ec29e1f25871c2317e"
 OUTCOMES = ("VERIFIED", "CONTRADICTED", "INCONCLUSIVE", "UNVERIFIABLE")
 CRITERIA = tuple(f"X{i}" for i in range(1, 15))
+
+
+ROLE_ABI = {
+    "buf": ("ptr", 64),
+    "cstr": ("ptr", 64),
+    "cstr_b": ("ptr", 64),
+    "out": ("ptr", 64),
+    "inout": ("ptr", 64),
+    "key": ("ptr", 64),
+    "path": ("ptr", 64),
+    "out_ptr": ("ptr", 64),
+    "len_ptr": ("ptr", 64),
+    "seed": ("int", 32),
+    "byte": ("int", 32),
+    "u32": ("int", 32),
+    "len": ("int", 64),
+    "key_len": ("int", 64),
+}
 
 
 def scope_exclusion(function: Any, family: str, pack_directory: Path) -> str | None:
@@ -37,9 +55,17 @@ def scope_exclusion(function: Any, family: str, pack_directory: Path) -> str | N
     if not pack_path.is_file():
         return "no_pack"
     pack = load_pack(pack_path)
-    if not any(len(shape.roles) == len(abi.params) for shape in pack.call_shapes):
-        return "unsupported_abi_shape"
-    return None
+    for shape in pack.call_shapes:
+        if len(shape.roles) != len(abi.params):
+            continue
+        if function.roles and list(shape.roles) != function.roles:
+            continue
+        if all(
+            ROLE_ABI.get(role) == (param.kind, param.width)
+            for role, param in zip(shape.roles, abi.params, strict=True)
+        ):
+            return None
+    return "incompatible_abi_shape"
 
 
 def _population(outcomes: Counter[str]) -> dict[str, Any]:

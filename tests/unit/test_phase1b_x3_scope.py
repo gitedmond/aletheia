@@ -13,37 +13,51 @@ from tools.phase1b_x3_scope import (
 )
 
 
-def abi(count, *, complex=False, variadic=False):
-    return SimpleNamespace(
-        params=[object() for _ in range(count)],
+def function(params, *, roles=(), complex=False, variadic=False):
+    abi = SimpleNamespace(
+        params=[SimpleNamespace(kind=kind, width=width) for kind, width in params],
         abi_complex=complex,
         variadic=variadic,
     )
+    return SimpleNamespace(scorable=True, roles=list(roles), abi_signature=abi)
 
 
-def function(count, *, roles=(), complex=False, variadic=False):
-    return SimpleNamespace(
-        scorable=True,
-        roles=list(roles),
-        abi_signature=abi(count, complex=complex, variadic=variadic),
+def test_x3_scope_requires_compatible_roles_and_compiler_abi():
+    direct = function(
+        [("int", 32), ("ptr", 64), ("int", 64)],
+        roles=("seed", "buf", "len"),
     )
-
-
-def test_x3_scope_includes_supported_direct_shape_and_excludes_context_or_bad_abi():
-    direct = function(3, roles=("seed", "buf", "len"))
     assert scope_exclusion(direct, "crc32", DEFAULT_PACK_DIRECTORY) is None
+    unannotated = function([("ptr", 64), ("int", 64)])
+    assert scope_exclusion(unannotated, "djb2", DEFAULT_PACK_DIRECTORY) is None
     assert scope_exclusion(
-        function(3, roles=("ctx", "buf", "len")), "sha256", DEFAULT_PACK_DIRECTORY
+        function(
+            [("ptr", 64), ("int", 64), ("ptr", 64)],
+            roles=("ctx", "buf", "len"),
+        ),
+        "sha256",
+        DEFAULT_PACK_DIRECTORY,
     ) == "context_stateful"
-    assert (
-        scope_exclusion(function(2), "sha256", DEFAULT_PACK_DIRECTORY)
-        == "unsupported_abi_shape"
-    )
     assert scope_exclusion(
-        function(3, complex=True), "crc32", DEFAULT_PACK_DIRECTORY
+        function([("int", 32), ("int", 32)]), "sha256", DEFAULT_PACK_DIRECTORY
+    ) == "incompatible_abi_shape"
+    assert scope_exclusion(
+        function(
+            [("int", 32), ("ptr", 64), ("int", 64)],
+            roles=("seed", "buf", "len"),
+        ),
+        "sha256",
+        DEFAULT_PACK_DIRECTORY,
+    ) == "incompatible_abi_shape"
+    assert scope_exclusion(
+        function([("int", 32), ("ptr", 64), ("int", 64)], complex=True),
+        "crc32",
+        DEFAULT_PACK_DIRECTORY,
     ) == "unsupported_abi"
     assert scope_exclusion(
-        function(3, variadic=True), "crc32", DEFAULT_PACK_DIRECTORY
+        function([("int", 32), ("ptr", 64), ("int", 64)], variadic=True),
+        "crc32",
+        DEFAULT_PACK_DIRECTORY,
     ) == "unsupported_abi"
 
 
@@ -61,7 +75,7 @@ def test_x3_gate_amendment_changes_only_x3_and_keeps_author_gate():
         "experiment_source_commit": "f800009d43ee42fb1b7c25ec29e1f25871c2317e",
         "split": "heldout",
         "scoped_claims": {"claims": 10, "decisive": 6},
-        "excluded": {"unsupported_abi_shape": 2},
+        "excluded": {"incompatible_abi_shape": 2},
     }
     result = amend_gate(
         original,
