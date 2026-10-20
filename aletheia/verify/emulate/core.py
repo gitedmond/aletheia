@@ -81,6 +81,7 @@ class CallResult:
     uninitialized_state_reads: bool
     imports_called: list[str]
     stdout: bytes = b""
+    stderr: bytes = b""
 
 
 @dataclass
@@ -131,7 +132,9 @@ class Emulator:
         }
         self.file_handles: dict[int, tuple[bytes, list[int]]] = {}
         self.stdout = bytearray()
+        self.stderr = bytearray()
         self.stdout_handle: int | None = None
+        self.stderr_handle: int | None = None
         parser = cast(Any, importlib.import_module("elftools.elf.elffile"))
         errors = cast(Any, importlib.import_module("elftools.common.exceptions"))
         try:
@@ -437,7 +440,7 @@ class Emulator:
                 and (
                     symbol_type == "STT_OBJECT"
                     or (
-                        symbol.name == "stdout"
+                        symbol.name in ("stdout", "stderr")
                         and symbol_type == "STT_NOTYPE"
                         and binding == "STB_GLOBAL"
                     )
@@ -446,11 +449,13 @@ class Emulator:
             ):
                 if symbol.name not in data_objects:
                     data_objects[symbol.name] = self._allocate_heap(256)
-                    if symbol.name == "stdout":
-                        self.stdout_handle = self._allocate_heap(1)
-                        self.uc.mem_write(
-                            data_objects[symbol.name], struct.pack("<Q", self.stdout_handle)
-                        )
+                    if symbol.name in ("stdout", "stderr"):
+                        handle = self._allocate_heap(1)
+                        if symbol.name == "stdout":
+                            self.stdout_handle = handle
+                        else:
+                            self.stderr_handle = handle
+                        self.uc.mem_write(data_objects[symbol.name], struct.pack("<Q", handle))
                 value = data_objects[symbol.name] + (addend if kind == 1 else 0)
             elif (
                 kind == 6
@@ -494,6 +499,7 @@ class Emulator:
         self.instructions, self.fault, self.uninitialized, self.called = 0, None, False, []
         self.file_handles.clear()
         self.stdout = bytearray()
+        self.stderr = bytearray()
         self.uc.mem_write(TLS + 0x80, b"\0" * 4)
         if self.unsupported:
             self.fault = "unsupported_relocation"
@@ -554,6 +560,7 @@ class Emulator:
             self.uninitialized,
             sorted(set(self.called)),
             bytes(self.stdout),
+            bytes(self.stderr),
         )
 
     def _restore(self) -> None:

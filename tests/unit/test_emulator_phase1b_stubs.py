@@ -28,7 +28,9 @@ class Guest:
         self.virtual_files = {b"probe.dat": b"hi\x00there"}
         self.file_handles = {}
         self.stdout = bytearray()
+        self.stderr = bytearray()
         self.stdout_handle = 192
+        self.stderr_handle = 193
         self.heap = 200
 
     def allocate(self, size):
@@ -137,6 +139,22 @@ def test_strchr_matches_bytes_and_the_terminating_null():
     assert emulate_import(guest, "strchr") == 0
 
 
+def test_fputs_and_putc_write_only_the_virtual_standard_streams():
+    guest = Guest([32, 193, 0, 0, 0, 0])
+    _write_cstring(guest, 32, b"error")
+    assert emulate_import(guest, "fputs") == 0
+    guest.args[:2] = [ord("!"), guest.stderr_handle]
+    assert emulate_import(guest, "putc") == ord("!")
+    assert bytes(guest.stderr) == b"error!"
+    assert not guest.stdout
+
+    guest.args[:2] = [32, 191]
+    assert emulate_import(guest, "fputs") is None
+    guest.args[:2] = [ord("?"), 191]
+    assert emulate_import(guest, "putc") is None
+    assert bytes(guest.stderr) == b"error!"
+
+
 def test_puts_and_fwrite_write_only_the_virtual_stdout():
     guest = Guest([32, 2, 2, 192, 0, 0])
     _write_cstring(guest, 32, b"line")
@@ -189,6 +207,16 @@ def test_vfprintf_reads_the_bounded_sysv_va_list_subset(name, fortified):
     _write_va_list(guest, 64, [255, 128], gp_offset=0)
     assert emulate_import(guest, name) == 11
     assert bytes(guest.stdout) == b"000000ff|ok"
+
+
+@pytest.mark.parametrize("name,fortified", [("vfprintf", False), ("__vfprintf_chk", True)])
+def test_vfprintf_routes_standard_stderr_without_leaking_to_stdout(name, fortified):
+    guest = Guest([193, 1, 32, 64, 0, 0] if fortified else [193, 32, 64, 0, 0, 0])
+    _write_cstring(guest, 32, b"%d")
+    _write_va_list(guest, 64, [42])
+    assert emulate_import(guest, name) == 2
+    assert bytes(guest.stderr) == b"42"
+    assert not guest.stdout
 
 
 def test_vfprintf_reads_stack_overflow_arguments_and_rejects_other_streams():

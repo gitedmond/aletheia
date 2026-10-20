@@ -137,17 +137,24 @@ def emulate_import(emu: "Emulator", name: str) -> int | None:
         emu.charge_work(1)
         emu.stdout.extend(output + b"\n")
         return 0
+    if name == "fputs":
+        sink = _output_sink(emu, b)
+        if sink is None:
+            return None
+        sink.extend(_cstring(emu, a))
+        return 0
     if name == "fwrite":
         size, count = b, n
         stream = int(emu.uc.reg_read(regs.UC_X86_REG_RCX))
-        if not _is_stdout(emu, stream):
+        sink = _output_sink(emu, stream)
+        if sink is None:
             return None
         length = size * count
         if length >= 2**64:
             raise MemoryFault("fwrite size overflow")
         emu.charge_work(length)
         if length:
-            emu.stdout.extend(emu.read_memory(a, length))
+            sink.extend(emu.read_memory(a, length))
         return count if size else 0
     if name in {"vfprintf", "__vfprintf_chk"}:
         stream = a
@@ -157,11 +164,20 @@ def emulate_import(emu: "Emulator", name: str) -> int | None:
             if b not in (0, 1):
                 return None
             format_address, va_list = n, int(emu.uc.reg_read(regs.UC_X86_REG_RCX))
-        if not _is_stdout(emu, stream):
+        sink = _output_sink(emu, stream)
+        if sink is None:
             return None
-        return _printf(emu, format_address, argument_reader=_va_list_reader(emu, va_list))
-    if name in ("putchar", "putc", "_IO_putc"):
+        return _printf(
+            emu, format_address, argument_reader=_va_list_reader(emu, va_list), sink=sink
+        )
+    if name == "putchar":
         emu.stdout.append(a & 0xFF)
+        return a & 0xFF
+    if name in ("putc", "_IO_putc"):
+        sink = _output_sink(emu, b)
+        if sink is None:
+            return None
+        sink.append(a & 0xFF)
         return a & 0xFF
     if name in {"printf", "__printf_chk"}:
         emu.charge_work(1)
@@ -179,8 +195,12 @@ def _cstring(emu: "Emulator", address: int) -> bytes:
         output.extend(value)
 
 
-def _is_stdout(emu: "Emulator", stream: int) -> bool:
-    return getattr(emu, "stdout_handle", None) == stream
+def _output_sink(emu: "Emulator", stream: int) -> bytearray | None:
+    if getattr(emu, "stdout_handle", None) == stream:
+        return emu.stdout
+    if getattr(emu, "stderr_handle", None) == stream:
+        return emu.stderr
+    return None
 
 
 def _va_list_reader(emu: "Emulator", address: int) -> Callable[[], int]:
@@ -217,6 +237,7 @@ def _printf(
     format_address: int,
     fortified: bool = False,
     argument_reader: Callable[[], int] | None = None,
+    sink: bytearray | None = None,
 ) -> int | None:
     registers = emu.registers
     arguments = (
@@ -296,5 +317,5 @@ def _printf(
                 else padding + rendered
             )
         output.extend(rendered)
-    emu.stdout.extend(output)
+    (emu.stdout if sink is None else sink).extend(output)
     return len(output)
