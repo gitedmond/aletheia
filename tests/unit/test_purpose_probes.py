@@ -29,6 +29,28 @@ def test_protected_purpose_vectors():
         assert (result.output.hex() if result.output is not None else None) == row["output_hex"]
 
 
+@pytest.mark.parametrize(
+    ("oracle", "iv_hex", "digest_hex"),
+    [
+        (
+            "sha1_transform_std",
+            "0123456789abcdeffedcba9876543210f0e1d2c3",
+            "a9993e364706816aba3e25717850c26c9cd0d89d",
+        ),
+        (
+            "sha256_transform_std",
+            "67e6096a85ae67bb72f36e3c3af54fa57f520e518c68059babd9831f19cde05b",
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        ),
+    ],
+)
+def test_transform_oracles_match_published_abc_vector(oracle, iv_hex, digest_hex):
+    block = b"abc" + b"\x80" + b"\0" * 52 + (24).to_bytes(8, "big")
+    output = evaluate(oracle, bytes.fromhex(iv_hex) + block).output
+    words = b"".join(output[index : index + 4][::-1] for index in range(0, len(output), 4))
+    assert words.hex() == digest_hex
+
+
 @pytest.mark.parametrize("data", [b"", b"+1", b"01", b"-0", b"1x", b"-1"])
 def test_unsigned_decimal_rejects_noncanonical_or_negative_inputs(data):
     with pytest.raises(ValueError):

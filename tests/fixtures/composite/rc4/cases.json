@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "family": "rc4",
+  "binary_sha256": "f223fbe0eb86312778766ba062ae3a25dbdb394aa4f8d9a2dc07a893a47f54fa",
+  "references": [],
+  "near_miss": [],
+  "composite_cases": [
+    {
+      "name": "reference",
+      "init": "composite_init",
+      "crypt": "composite_crypt",
+      "expected": "VERIFIED"
+    },
+    {
+      "name": "wrong_crypt",
+      "init": "composite_init",
+      "crypt": "composite_wrong_crypt",
+      "expected": "CONTRADICTED"
+    }
+  ]
+}

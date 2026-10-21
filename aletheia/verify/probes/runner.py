@@ -1,6 +1,6 @@
 """Audit every declared shape and variant; a mismatch alone never proves contradiction."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import cast
 
@@ -28,10 +28,11 @@ from aletheia.verify.emulate.core import (
     CallResult,
     Emulator,
     InitializationBudgetExhausted,
+    MemoryFault,
 )
 from aletheia.verify.probes.inputs import generate_inputs, inputs_for_call
 from aletheia.verify.probes.minimize import minimize_counterexample
-from aletheia.verify.probes.oracles import OracleResult, evaluate, string_pair
+from aletheia.verify.probes.oracles import OracleResult, byte_pair, evaluate, string_pair
 from aletheia.verify.probes.pack import CallShape, Pack, VariantProbe
 from aletheia.verify.probes.purpose import PurposeMapping
 from aletheia.verify.static.arity import infer_arity
@@ -77,20 +78,54 @@ def run_input(
     emu: Emulator, entry: int, shape: CallShape, variant: str, probe: VariantProbe, data: bytes
 ) -> Trial:
     args: list[int | Buffer] = []
-    pair = string_pair(data) if "cstr_b" in shape.roles else None
+    pair: tuple[bytes, bytes] | None = None
+    if shape.id in {"sha1_transform", "sha256_transform"}:
+        width = 20 if shape.id == "sha1_transform" else 32
+        pair = (data[:width], data[width:])
+    elif "cstr_b" in shape.roles:
+        pair = string_pair(data)
+    elif {"buf_b", "key"} & set(shape.roles):
+        pair = byte_pair(data)
     for role in shape.roles:
         if role == "seed":
             args.append(probe.bind["seed"])
+        elif role == "u32":
+            args.append(int.from_bytes(data[:4].ljust(4, b"\0"), "little"))
+        elif role == "path":
+            emu.virtual_files[b"probe.dat"] = data
+            args.append(Buffer(b"probe.dat\0"))
+        elif role in {"out_ptr", "len_ptr"}:
+            args.append(Buffer(b"", 8))
         elif role == "len":
-            args.append(1 << 20 if shape.id == "strlen_bound" else len(data))
+            if shape.id == "strlen_bound":
+                args.append(1 << 20)
+            elif shape.id == "memcmp":
+                assert pair is not None
+                args.append(min(len(pair[0]), len(pair[1])))
+            elif shape.id == "xor":
+                assert pair is not None
+                args.append(len(pair[0]))
+            else:
+                args.append(len(data))
+        elif role == "byte":
+            args.append(data[0] if data else 0)
+        elif role == "key_len":
+            assert pair is not None
+            args.append(len(pair[1]))
         elif role == "buf":
-            args.append(Buffer(data))
+            args.append(Buffer(pair[0] if pair is not None else data))
+        elif role in {"buf_b", "key"}:
+            assert pair is not None
+            args.append(Buffer(pair[1]))
+        elif role == "inout":
+            assert pair is not None
+            args.append(Buffer(pair[0]))
         elif role in {"cstr", "cstr_b"}:
             value = pair[0 if role == "cstr" else 1] if pair else data
             args.append(Buffer(value + b"\0"))
         else:
             size = shape.output_size(len(data))
-            args.append(Buffer(b"\xa5" * size if shape.id == "memcpy" else b"", size))
+            args.append(Buffer(b"\xa5" * size if shape.id in {"memcpy", "memset"} else b"", size))
     oracle = evaluate(probe.oracle, data, **probe.bind)
     expected = expected_hex(oracle, shape)
     result = emu.call(entry, args, shape.return_width)
@@ -107,6 +142,29 @@ def run_input(
         )
         length = len(oracle.output or b"") if shape.comparison == "output" else result.ret
         actual += result.out_buffers[index][:length]
+    elif "inout" in shape.roles:
+        index = sum(
+            role in {"buf", "cstr", "cstr_b", "inout"}
+            for role in shape.roles[: shape.roles.index("inout")]
+        )
+        length = len(oracle.output or b"")
+        actual += result.out_buffers[index][:length]
+    elif shape.id == "path_out_len" and result.ret == 0:
+        pointer = int.from_bytes(result.out_buffers[1][:8], "little")
+        length = int.from_bytes(result.out_buffers[2][:8], "little")
+        content = b""
+        if pointer and length <= 16 * 1024**2:
+            try:
+                content = emu.read_memory(pointer, length + 1)
+            except MemoryFault:
+                content = b""
+        actual += length.to_bytes(8, "little") + content
+        result = replace(
+            result,
+            uninitialized_state_reads=(result.uninitialized_state_reads or emu.uninitialized),
+        )
+    elif shape.id in {"print_bytes", "hex_print32"}:
+        actual = result.stdout
     if result.uninitialized_state_reads:
         status = "state_dependent"
     elif result.fault is not None:

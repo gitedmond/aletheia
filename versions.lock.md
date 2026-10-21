@@ -134,12 +134,13 @@ sha256 = "6bac2a01979e210d9eac1d4d56747ec709ea60654744d66705dc3c36e7629e50"
 "wcwidth" = "0.9.2"
 "xmltodict" = "1.0.4"
 [images]
-build = "sha256:32287de49948decfc85fa7f7d63f5636be723cfa34429524d617329ed98adbca"
-analysis = "sha256:ba2695133fd3b74d0e96eeea69fa2a1b5eb83340c75789164153c389cc2056fd"
+build = "sha256:11f52a49adbc79c8224386bbc76139b4d4f2df66f61582ce059c08dd774b3731"
+analysis = "sha256:67260f6d0b91ea07bc691c330b9be713476da1390288ef4d7023c5408745c1bb"
 base = "ubuntu@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55"
 [ubuntu]
 snapshot = "20261013T000000Z"
 [host]
+ollama = "0.40.5"
 docker = "29.1.3"
 containerd = "2.2.1"
 runc = "1.3.4"

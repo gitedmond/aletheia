@@ -12,6 +12,17 @@ pytestmark = pytest.mark.integration
 
 SOURCE = r"""
 #include <stddef.h>
+#include <stdarg.h>
+typedef struct _IO_FILE FILE;
+extern FILE *stdout;
+extern FILE *stderr;
+extern size_t fwrite(const void *, size_t, size_t, FILE *);
+extern int fputs(const char *, FILE *);
+extern int putc(int, FILE *);
+extern int vfprintf(FILE *, const char *, va_list);
+extern int __vfprintf_chk(FILE *, int, const char *, va_list);
+extern char *strchr(const char *, int);
+extern int puts(const char *);
 extern void *memcpy(void *, const void *, size_t);
 extern void *memmove(void *, const void *, size_t);
 extern void *memset(void *, int, size_t);
@@ -32,6 +43,41 @@ int compare(const void *a,const void *b,size_t n) { int v=memcmp(a,b,n); return 
 size_t length(const char *a) { return strlen(a); }
 int strings(const char *a,const char *b) { int v=strcmp(a,b); return (v>0)-(v<0); }
 int prefix(const char *a,const char *b,size_t n) { int v=strncmp(a,b,n); return (v>0)-(v<0); }
+char *find_char(const char *a,int c) { return strchr(a,c); }
+int put_line(const char *a) { return puts(a); }
+size_t write_bytes(const char *a,size_t n) { return fwrite(a,1,n,stdout); }
+int write_error(const char *a) { return fputs(a,stderr); }
+int put_error(int c) { return putc(c,stderr); }
+size_t write_stderr_bytes(const char *a,size_t n) { return fwrite(a,1,n,stderr); }
+size_t write_other_stream(FILE *stream,const char *a,size_t n) { return fwrite(a,1,n,stream); }
+int print_v(const char *fmt, ...) {
+ va_list args;
+ va_start(args,fmt);
+ int result=vfprintf(stdout,fmt,args);
+ va_end(args);
+ return result;
+}
+int print_vfortified(const char *fmt, ...) {
+ va_list args;
+ va_start(args,fmt);
+ int result=__vfprintf_chk(stdout,1,fmt,args);
+ va_end(args);
+ return result;
+}
+int print_v_error(const char *fmt, ...) {
+ va_list args;
+ va_start(args,fmt);
+ int result=vfprintf(stderr,fmt,args);
+ va_end(args);
+ return result;
+}
+int print_vfortified_error(const char *fmt, ...) {
+ va_list args;
+ va_start(args,fmt);
+ int result=__vfprintf_chk(stderr,1,fmt,args);
+ va_end(args);
+ return result;
+}
 unsigned allocate(size_t n) { unsigned char *p=malloc(n); if(!p)return 42; p[0]=17; return p[0]; }
 unsigned zero_allocate(size_t n,size_t m) { unsigned char *p=calloc(n,m); if(!p)return 42;
  return p[0]|p[n*m-1]; }
@@ -93,6 +139,96 @@ def test_native_import_stub(stub_binary, tmp_path, stub, name, args, expected, o
     assert stub in result["imports_called"]
     if out is not None:
         assert result["out_buffers"][0] == out
+
+
+def test_string_and_output_import_stubs_use_compiled_machine_code(stub_binary, tmp_path):
+    binary, symbols = stub_binary
+    found = emulate(
+        tmp_path / "found",
+        binary,
+        [(symbols["find_char"], ["61626300", ord("b")], 64)],
+    )["calls"][0]
+    absent = emulate(
+        tmp_path / "absent",
+        binary,
+        [(symbols["find_char"], ["61626300", ord("z")], 64)],
+    )["calls"][0]
+    terminator = emulate(
+        tmp_path / "terminator",
+        binary,
+        [(symbols["find_char"], ["61626300", 0], 64)],
+    )["calls"][0]
+    assert found["ret"] and found["fault"] is None and "strchr" in found["imports_called"]
+    assert absent["ret"] == 0 and absent["fault"] is None
+    assert terminator["ret"] and terminator["fault"] is None
+    line = emulate(
+        tmp_path / "puts",
+        binary,
+        [(symbols["put_line"], ["68656c6c6f00"], 32)],
+    )["calls"][0]
+    assert line["ret"] == 0 and line["stdout"] == "68656c6c6f0a"
+    written = emulate(
+        tmp_path / "fwrite",
+        binary,
+        [(symbols["write_bytes"], ["414243", 3], 64)],
+    )
+    assert written["calls"][0]["ret"] == 3
+    assert written["calls"][0]["stdout"] == "414243"
+    assert "fwrite" in written["calls"][0]["imports_called"]
+    assert "data_import:stdout" in written["data_imports"]
+    streams = emulate(
+        tmp_path / "standard-streams",
+        binary,
+        [
+            (symbols["write_error"], ["6572726f7200"], 32),
+            (symbols["write_bytes"], ["4f4b", 2], 64),
+        ],
+    )
+    assert streams["calls"][0]["ret"] == 0
+    assert streams["calls"][0]["stdout"] == ""
+    assert streams["calls"][0]["stderr"] == "6572726f72"
+    assert streams["calls"][1]["stdout"] == "4f4b"
+    assert streams["calls"][1]["stderr"] == ""
+    assert "data_import:stderr" in streams["data_imports"]
+    error_bytes = emulate(
+        tmp_path / "fwrite-stderr",
+        binary,
+        [(symbols["write_stderr_bytes"], ["414243", 3], 64)],
+    )["calls"][0]
+    assert error_bytes["ret"] == 3 and error_bytes["stderr"] == "414243"
+    error_char = emulate(
+        tmp_path / "putc-stderr",
+        binary,
+        [(symbols["put_error"], [ord("!")], 32)],
+    )["calls"][0]
+    assert error_char["ret"] == ord("!") and error_char["stderr"] == "21"
+    other_stream = emulate(
+        tmp_path / "other-stream",
+        binary,
+        [(symbols["write_other_stream"], [1, "414243", 3], 64)],
+    )["calls"][0]
+    assert other_stream["fault"] == "unsupported_import:fwrite"
+    args = [b"%08x|%s\0".hex(), 255, "6f6b00"]
+    for name in ("print_v", "print_vfortified"):
+        result = emulate(tmp_path / name, binary, [(symbols[name], args, 32)])["calls"][0]
+        assert result["ret"] == 11 and result["fault"] is None, result
+        assert result["stdout"] == "30303030303066667c6f6b"
+        expected_import = "vfprintf" if name == "print_v" else "__vfprintf_chk"
+        assert expected_import in result["imports_called"]
+    for name in ("print_v_error", "print_vfortified_error"):
+        result = emulate(
+            tmp_path / name,
+            binary,
+            [(symbols[name], args, 32)],
+        )["calls"][0]
+        assert result["ret"] == 11 and result["fault"] is None, result
+        assert result["stdout"] == "" and result["stderr"] == "30303030303066667c6f6b"
+    unsupported_format = emulate(
+        tmp_path / "unsupported-format",
+        binary,
+        [(symbols["print_v"], [b"%p\0".hex(), 1], 32)],
+    )["calls"][0]
+    assert unsupported_format["fault"] == "unsupported_import:vfprintf"
 
 
 def test_stub_memory_permissions_initialization_and_allocator_bounds(stub_binary, tmp_path):

@@ -1,5 +1,6 @@
 """S1: deterministic libc primitives operating only on checked guest memory."""
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -69,6 +70,17 @@ def emulate_import(emu: "Emulator", name: str) -> int | None:
                 return left - right
             index += 1
         return 0
+    if name == "strchr":
+        index = 0
+        target = b & 0xFF
+        while True:
+            emu.charge_work(1)
+            value = emu.read_memory(a + index, 1)[0]
+            if value == target:
+                return a + index
+            if value == 0:
+                return 0
+            index += 1
     if name == "malloc":
         return emu.allocate(a)
     if name == "calloc":
@@ -93,4 +105,217 @@ def emulate_import(emu: "Emulator", name: str) -> int | None:
         return 0
     if name == "__stack_chk_fail":
         raise MemoryFault("stack canary check failed")
+    if name == "fopen":
+        path = _cstring(emu, a)
+        if _cstring(emu, b) not in {b"r", b"rb"}:
+            raise MemoryFault("unsupported virtual-file mode")
+        if path not in emu.virtual_files:
+            return 0
+        handle = emu.allocate(16)
+        if not handle:
+            raise MemoryFault("file handle allocation failed")
+        emu.file_handles[handle] = (path, [0])
+        return handle
+    if name == "fgetc":
+        entry = emu.file_handles.get(a)
+        emu.charge_work(1)
+        if entry is None:
+            return -1
+        content = emu.virtual_files[entry[0]]
+        position = entry[1][0]
+        if position >= len(content):
+            return -1
+        entry[1][0] = position + 1
+        return int(content[position])
+    if name == "ferror":
+        return 0
+    if name == "fclose":
+        emu.file_handles.pop(a, None)
+        return 0
+    if name == "puts":
+        output = _cstring(emu, a)
+        emu.charge_work(1)
+        emu.stdout.extend(output + b"\n")
+        return 0
+    if name == "fputs":
+        sink = _output_sink(emu, b)
+        if sink is None:
+            return None
+        sink.extend(_cstring(emu, a))
+        return 0
+    if name == "fwrite":
+        size, count = b, n
+        stream = int(emu.uc.reg_read(regs.UC_X86_REG_RCX))
+        sink = _output_sink(emu, stream)
+        if sink is None:
+            return None
+        length = size * count
+        if length >= 2**64:
+            raise MemoryFault("fwrite size overflow")
+        emu.charge_work(length)
+        if length:
+            sink.extend(emu.read_memory(a, length))
+        return count if size else 0
+    if name in {"vfprintf", "__vfprintf_chk"}:
+        stream = a
+        if name == "vfprintf":
+            format_address, va_list = b, n
+        else:
+            if b not in (0, 1):
+                return None
+            format_address, va_list = n, int(emu.uc.reg_read(regs.UC_X86_REG_RCX))
+        sink = _output_sink(emu, stream)
+        if sink is None:
+            return None
+        return _printf(
+            emu, format_address, argument_reader=_va_list_reader(emu, va_list), sink=sink
+        )
+    if name == "putchar":
+        emu.stdout.append(a & 0xFF)
+        return a & 0xFF
+    if name in ("putc", "_IO_putc"):
+        sink = _output_sink(emu, b)
+        if sink is None:
+            return None
+        sink.append(a & 0xFF)
+        return a & 0xFF
+    if name in {"printf", "__printf_chk"}:
+        emu.charge_work(1)
+        return _printf(emu, b if name == "__printf_chk" else a, name == "__printf_chk")
     return None
+
+
+def _cstring(emu: "Emulator", address: int) -> bytes:
+    output = bytearray()
+    while True:
+        emu.charge_work(1)
+        value = emu.read_memory(address + len(output), 1)
+        if value == b"\0":
+            return bytes(output)
+        output.extend(value)
+
+
+def _output_sink(emu: "Emulator", stream: int) -> bytearray | None:
+    if getattr(emu, "stdout_handle", None) == stream:
+        return emu.stdout
+    if getattr(emu, "stderr_handle", None) == stream:
+        return emu.stderr
+    return None
+
+
+def _va_list_reader(emu: "Emulator", address: int) -> Callable[[], int]:
+    emu.charge_work(3)
+    state = emu.read_memory(address, 24)
+    gp_offset = int.from_bytes(state[:4], "little")
+    overflow_area = int.from_bytes(state[8:16], "little")
+    register_save_area = int.from_bytes(state[16:24], "little")
+    if gp_offset > 48 or gp_offset % 8:
+        raise MemoryFault("invalid x86-64 va_list register offset")
+
+    def read_argument() -> int:
+        nonlocal gp_offset, overflow_area
+        emu.charge_work(1)
+        if gp_offset < 48:
+            value = int.from_bytes(
+                emu.read_memory(register_save_area + gp_offset, 8), "little"
+            )
+            gp_offset += 8
+            return value
+        if overflow_area > 2**64 - 8:
+            raise MemoryFault("invalid x86-64 va_list overflow pointer")
+        value = int.from_bytes(emu.read_memory(overflow_area, 8), "little")
+        overflow_area += 8
+        return value
+
+    return read_argument
+
+
+# shortcut: printf handles the literal/%x/%X/%d/%u/%c/%s subset with 0 flags and
+# widths the corpus writers use; extend only when a pack needs more.
+def _printf(
+    emu: "Emulator",
+    format_address: int,
+    fortified: bool = False,
+    argument_reader: Callable[[], int] | None = None,
+    sink: bytearray | None = None,
+) -> int | None:
+    registers = emu.registers
+    arguments = (
+        []
+        if argument_reader is not None
+        else [
+            int(emu.uc.reg_read(register))
+            for register in (
+                registers.UC_X86_REG_RSI,
+                registers.UC_X86_REG_RDX,
+                registers.UC_X86_REG_RCX,
+                registers.UC_X86_REG_R8,
+                registers.UC_X86_REG_R9,
+            )[1 if fortified else 0 :]
+        ]
+    )
+    fmt = _cstring(emu, format_address)
+    output = bytearray()
+    index = 0
+
+    def next_argument() -> int:
+        nonlocal index
+        if argument_reader is not None:
+            return argument_reader()
+        if index >= len(arguments):
+            raise MemoryFault("printf varargs exceed registers")
+        value = arguments[index]
+        index += 1
+        return value
+
+    position = 0
+    while position < len(fmt):
+        character = fmt[position]
+        if character != 0x25:
+            output.append(character)
+            position += 1
+            continue
+        position += 1
+        if position < len(fmt) and fmt[position] == 0x25:
+            output.append(0x25)
+            position += 1
+            continue
+        zero = position < len(fmt) and fmt[position] == 0x30
+        width = 0
+        while position < len(fmt) and 0x30 <= fmt[position] <= 0x39:
+            width = width * 10 + (fmt[position] - 0x30)
+            position += 1
+        if position >= len(fmt) or fmt[position] not in b"xXducs":
+            return None
+        conversion = chr(fmt[position])
+        if zero and conversion in "sc":
+            return None
+        emu.charge_work(width)
+        position += 1
+        if conversion == "s":
+            rendered = _cstring(emu, next_argument())
+        else:
+            value = next_argument()
+            if conversion == "c":
+                rendered = bytes([value & 0xFF])
+            elif conversion in "xX":
+                digits = format(value & 0xFFFFFFFF, "x")
+                rendered = (digits if conversion == "x" else digits.upper()).encode("ascii")
+            elif conversion == "u":
+                rendered = str(value & 0xFFFFFFFF).encode("ascii")
+            else:
+                signed = value & 0xFFFFFFFF
+                if signed >= 2**31:
+                    signed -= 2**32
+                rendered = str(signed).encode("ascii")
+        if width > len(rendered):
+            filler = b"0" if zero and conversion != "s" else b" "
+            padding = filler * (width - len(rendered))
+            rendered = (
+                b"-" + padding + rendered[1:]
+                if zero and rendered.startswith(b"-")
+                else padding + rendered
+            )
+        output.extend(rendered)
+    (emu.stdout if sink is None else sink).extend(output)
+    return len(output)

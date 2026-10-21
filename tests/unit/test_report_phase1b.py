@@ -75,7 +75,11 @@ def test_v2_potential_does_not_count_static_signatures_or_incomplete_composites(
             "acceptable_categories": [category],
             "abi_signature": {
                 "return": {"class": "int", "width": 32},
-                "params": [],
+                "params": (
+                    [{"class": "ptr", "width": 64}]
+                    if category in {"string.length", "crypto.hash.md5.init"}
+                    else []
+                ),
                 "variadic": False,
                 "abi_complex": False,
             },
@@ -108,6 +112,12 @@ def test_v2_potential_does_not_count_static_signatures_or_incomplete_composites(
         fn = gt.functions[1].model_copy(deep=True)
         fn.address = f"0x{i:08x}"
         fn.category = "crypto.hash.md5." + role
+        fn.abi_signature.params = [
+            gt.functions[1].abi_signature.params[0].model_copy()
+            for _ in range(3 if role == "update" else 2)
+        ]
+        if role == "update":
+            fn.abi_signature.params[-1].kind = "int"
         fn.acceptable_categories = [fn.category]
         complete.functions.append(fn)
     mixed = table_v2([gt, complete], packs)
@@ -116,6 +126,57 @@ def test_v2_potential_does_not_count_static_signatures_or_incomplete_composites(
         (1, False),
         (1, True),
     ]
+
+
+def test_coverage_requires_a_supported_compiler_abi():
+    from aletheia.schema.models import GroundTruth
+    from aletheia.verify.probes.pack import load_pack
+
+    functions = []
+    for index, (category, kinds) in enumerate(
+        [
+            ("io.file.read", ["ptr", "ptr", "ptr"]),
+            ("io.file.read", ["ptr", "ptr"]),
+            ("io.file.write", ["ptr", "int"]),
+            ("io.file.write", ["int", "ptr"]),
+        ],
+        4096,
+    ):
+        functions.append(
+            {
+                "address": f"0x{index:08x}",
+                "size": 32,
+                "name": f"fn{index}",
+                "algorithm": {"family": "none"},
+                "scorable": True,
+                "category": category,
+                "acceptable_categories": [category],
+                "roles": [],
+                "source_types": None,
+                "abi_signature": {
+                    "return": {"class": "int", "width": 32},
+                    "params": [{"class": kind, "width": 64} for kind in kinds],
+                    "abi_complex": False,
+                    "variadic": False,
+                },
+            }
+        )
+    gt = GroundTruth.model_validate(
+        {
+            "schema_version": "2.0",
+            "algorithms_version": "2.0",
+            "binary_sha256": "a" * 64,
+            "program_id": "tierA/shapes",
+            "variant_id": "baseline",
+            "build_flags": "test",
+            "functions": functions,
+        }
+    )
+    result = table_v2(
+        [gt], [load_pack(Path("packs") / f"{name}.yaml") for name in ("file-read", "print")]
+    )
+    assert result["scorable_functions"] == 4
+    assert result["decidable_functions"] == 2
 
 
 def test_report_clusters_follow_source_variant_runs_including_empty_runs(tmp_path, monkeypatch):

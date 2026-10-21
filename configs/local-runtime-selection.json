@@ -1,1 +1,146 @@
-{"artifacts":{"agent.json":"d9874837168d1c0f0ecdea0fb78e4855f7d6f998960fea63631642cef73c6e56","claims.json":"fa3e06f5fa54dcc912db7c17fde7f1932f52f5e8696b135b84c79fe6e3254ac5","trajectory.jsonl":"6d5933af163b439ce6fa3b1311426ee7ab7c18e18875327e58a50667694d9b68"},"context_hash":"2e65ceb55ff96bb46b843ae48b2d9c58f6d99a66ce9ef72410d84478284ca991","context_window":32768,"endpoint":"http://127.0.0.1:11434/v1","limitations":["Protocol smoke on one public dev program, not an accuracy result.","The Qwen3 4B and Phi4-mini candidates failed with model_protocol and zero claims.","All three configurations remain in the evaluation matrix; failures are counted.","Hosted spending is capped at zero."],"model":"aletheia-qwen3-8b-p1b-32k","model_file_sha256":"a3de86cd1c132c822487ededd47a324c50491393e6565cd14bafa40d0b8e686f","runtime":"Ollama","runtime_version":"0.32.5","schema_valid_claims":2,"selected_config_id":"local-a","smoke_config_id":"local-a","smoke_result":{"input_tokens":44749,"malformed_calls":3,"output_tokens":583,"provider_requests":10,"reason":null,"status":"completed","upstream_restarts":0},"smoke_run_id":"r_0000000000002402","transport":"openai-compatible-windows-loopback"}
+{
+  "analysis_image": "sha256:6f37a700f69046d0f61b5609f058b401d4df4271680adebd5b9df4f84bb43983",
+  "artifacts": {
+    "agent.json": "e3300b487f5026e3b86a89a29a8214d03d170fdba26163972b8bf24a82608a1b",
+    "claims.json": "8d22c48667ae74a44a8835bac4453ffc72241036da445856d485e88e4a1d52c0",
+    "trajectory.jsonl": "5fc9ce272da8df93a148206af97b807b26a19c1731b6eb4f941a42c4f30d93d5"
+  },
+  "benchmark_replay_exit_code": 0,
+  "cache_replay_status": "passed",
+  "context_hash": "2e65ceb55ff96bb46b843ae48b2d9c58f6d99a66ce9ef72410d84478284ca991",
+  "context_window": 32768,
+  "endpoint": "http://127.0.0.1:11434/v1",
+  "historical_selection": {
+    "artifacts": {
+      "agent.json": "d9874837168d1c0f0ecdea0fb78e4855f7d6f998960fea63631642cef73c6e56",
+      "claims.json": "fa3e06f5fa54dcc912db7c17fde7f1932f52f5e8696b135b84c79fe6e3254ac5",
+      "trajectory.jsonl": "6d5933af163b439ce6fa3b1311426ee7ab7c18e18875327e58a50667694d9b68"
+    },
+    "context_hash": "2e65ceb55ff96bb46b843ae48b2d9c58f6d99a66ce9ef72410d84478284ca991",
+    "context_window": 32768,
+    "endpoint": "http://127.0.0.1:11434/v1",
+    "limitations": [
+      "Protocol smoke on one public dev program, not an accuracy result.",
+      "The Qwen3 4B and Phi4-mini candidates failed with model_protocol and zero claims.",
+      "All three configurations remain in the evaluation matrix; failures are counted.",
+      "Hosted spending is capped at zero."
+    ],
+    "model": "aletheia-qwen3-8b-p1b-32k",
+    "model_file_sha256": "a3de86cd1c132c822487ededd47a324c50491393e6565cd14bafa40d0b8e686f",
+    "runtime": "Ollama",
+    "runtime_version": "0.32.5",
+    "schema_valid_claims": 2,
+    "selected_config_id": "local-a",
+    "smoke_config_id": "local-a",
+    "smoke_result": {
+      "input_tokens": 44749,
+      "malformed_calls": 3,
+      "output_tokens": 583,
+      "provider_requests": 10,
+      "reason": null,
+      "status": "completed",
+      "upstream_restarts": 0
+    },
+    "smoke_run_id": "r_0000000000002402",
+    "transport": "openai-compatible-windows-loopback"
+  },
+  "limitations": [
+    "Current-runtime public dev smoke yielded 2 schema-valid claims, independently verified/scored and replayed.",
+    "The agent loop ended with model_protocol, not a clean finish. It is not a protocol-success or accuracy result.",
+    "The current-runtime b64 pilot failed model_protocol with zero claims; both earlier transport-failure pilots are retained.",
+    "All three original model configurations remain in the prospective matrix. Protocol failures and partial claims are retained.",
+    "Hosted benchmark spending remains zero. Diagnostic sample indices 10000-10003 are outside the planned cohort."
+  ],
+  "model": "aletheia-qwen3-8b-p1b-32k",
+  "model_file_sha256": "a3de86cd1c132c822487ededd47a324c50491393e6565cd14bafa40d0b8e686f",
+  "package_source_hash": "fdcd5cbae582481ab6a9358ad54a6a5f2d8a5c54dbd570d6693cd1f4ae39887c",
+  "prompt_hash": "9d1df9c6c4785c4a40fc9957a446ab4b81c79ad4dd0abb5cc60bf2d1441a0204",
+  "runtime": "Ollama",
+  "runtime_version": "0.40.5",
+  "schema_valid_claims": 2,
+  "selected_config_id": "local-a",
+  "smoke_config_id": "local-a",
+  "smoke_result": {
+    "input_tokens": 44793,
+    "malformed_calls": 4,
+    "output_tokens": 623,
+    "provider_requests": 10,
+    "reason": "model_protocol",
+    "status": "failed",
+    "upstream_restarts": 0
+  },
+  "smoke_run_id": "r_ed815a28b3bcad93",
+  "transport": "openai-compatible-windows-loopback",
+  "follow_up_diagnostic_smokes": {
+    "runtime": "Ollama",
+    "runtime_version": "0.40.5",
+    "context_window": 32768,
+    "note": "One-shot public-dev diagnostics outside the planned cohort; raw claims and trajectories remain in local cache. Local-a stayed the best-supported candidate by claim count, but no current-runtime smoke had a clean protocol finish.",
+    "smokes": [
+      {
+        "config_id": "local-a",
+        "program": "xorcrypt",
+        "sample_index": 10004,
+        "analysis_image": "sha256:898a7365ccaf454e7705eef0b9b00748ab6f2dab2db0fc9514023d334b0821c2",
+        "package_source_hash": "0b7aa9ed1efe9cae867b91e8e164d1b42b8d8e02aef5d59c77c1251906921583",
+        "status": "failed",
+        "reason": "model_protocol",
+        "schema_valid_claims": 5,
+        "malformed_calls": 3,
+        "provider_requests": 2,
+        "upstream_restarts": 0,
+        "benchmark_replay_exit_code": 0,
+        "cache_replay_status": "passed",
+        "elapsed_seconds": 61.823
+      },
+      {
+        "config_id": "local-b",
+        "program": "xorcrypt",
+        "sample_index": 10005,
+        "analysis_image": "sha256:898a7365ccaf454e7705eef0b9b00748ab6f2dab2db0fc9514023d334b0821c2",
+        "package_source_hash": "0b7aa9ed1efe9cae867b91e8e164d1b42b8d8e02aef5d59c77c1251906921583",
+        "status": "failed",
+        "reason": "model_protocol",
+        "schema_valid_claims": 0,
+        "malformed_calls": 3,
+        "provider_requests": 3,
+        "upstream_restarts": 0,
+        "benchmark_replay_exit_code": 0,
+        "cache_replay_status": "passed",
+        "elapsed_seconds": 27.012
+      },
+      {
+        "config_id": "local-c",
+        "program": "xorcrypt",
+        "sample_index": 10006,
+        "analysis_image": "sha256:898a7365ccaf454e7705eef0b9b00748ab6f2dab2db0fc9514023d334b0821c2",
+        "package_source_hash": "0b7aa9ed1efe9cae867b91e8e164d1b42b8d8e02aef5d59c77c1251906921583",
+        "status": "failed",
+        "reason": "model_protocol",
+        "schema_valid_claims": 0,
+        "malformed_calls": 3,
+        "provider_requests": 3,
+        "upstream_restarts": 0,
+        "benchmark_replay_exit_code": 0,
+        "cache_replay_status": "passed",
+        "elapsed_seconds": 46.148
+      },
+      {
+        "config_id": "local-a",
+        "program": "xorcrypt",
+        "sample_index": 10007,
+        "analysis_image": "sha256:67260f6d0b91ea07bc691c330b9be713476da1390288ef4d7023c5408745c1bb",
+        "package_source_hash": "6a90d32b58eef4d373d942570ae5f3378754bdbe4e237498a1ce4a2c45cd9144",
+        "status": "failed",
+        "reason": "model_protocol",
+        "schema_valid_claims": 5,
+        "malformed_calls": 3,
+        "provider_requests": 2,
+        "upstream_restarts": 0,
+        "benchmark_replay_exit_code": 0,
+        "cache_replay_status": "passed",
+        "elapsed_seconds": 65.981
+      }
+    ]
+  }
+}

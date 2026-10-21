@@ -1,8 +1,9 @@
 """Ground-truth counts against declared probe support, without binary analysis."""
 
+from collections import Counter
 from typing import TypedDict
 
-from aletheia.schema.models import REGISTRY, GroundTruth
+from aletheia.schema.models import REGISTRY, GroundFunctionV2, GroundTruth
 from aletheia.verify.probes.pack import Pack
 
 
@@ -125,11 +126,45 @@ def markdown(report: Table) -> str:
     return "\n".join(lines)
 
 
+def supports_abi(
+    function: GroundFunctionV2, pack: Pack, variants: list[str], *, composite: bool = False
+) -> bool:
+    abi = function.abi_signature
+    if abi is None or abi.abi_complex or abi.variadic:
+        return False
+    kinds = [param.kind for param in abi.params]
+    if composite:
+        role = (function.category or "").rsplit(".", 1)[-1]
+        shapes = (
+            [["ptr", "ptr", "int"]]
+            if pack.family == "rc4"
+            else {
+                "init": [["ptr"]],
+                "update": [["ptr", "ptr", "int"]],
+                "final": [["ptr", "ptr"]],
+            }.get(role, [])
+        )
+    else:
+        scalars = {"seed", "len", "byte", "key_len", "u32"}
+        shapes = [
+            ["int" if role in scalars else "ptr" for role in shape.roles]
+            for shape in pack.call_shapes
+            if any(
+                variant in pack.variants
+                and (
+                    pack.variants[variant].call_shapes is None
+                    or shape.id in (pack.variants[variant].call_shapes or [])
+                )
+                for variant in variants
+            )
+        ]
+    return kinds in shapes
+
+
 def table_v2(truths: list[GroundTruth], packs: list[Pack]) -> Table:
     """Potential E2 union of algorithm and purpose scopes, never static signature evidence."""
     from pathlib import Path
 
-    from aletheia.schema.models import GroundFunctionV2
     from aletheia.verify.probes.purpose import PurposeMapping
 
     if any(gt.schema_version != "2.0" for gt in truths):
@@ -141,28 +176,33 @@ def table_v2(truths: list[GroundTruth], packs: list[Pack]) -> Table:
     programs: list[ProgramCoverage] = []
     for gt in sorted(truths, key=lambda item: item.program_id):
         functions = [fn for fn in gt.functions if isinstance(fn, GroundFunctionV2) and fn.scorable]
-        categories = {fn.category for fn in functions}
         covered = 0
         for fn in functions:
             scope = mapping.map.get(fn.category or "")
-            composite_ready = scope is not None and (
-                not scope.composite
-                or all(
-                    f"crypto.hash.{scope.pack}.{role}" in categories
-                    for role in ("init", "update", "final")
+            purpose_pack = next((p for p in packs if scope and p.family == scope.pack), None)
+            composite_ready = True
+            if scope and scope.composite and purpose_pack:
+                categories = Counter(
+                    other.category
+                    for other in functions
+                    if supports_abi(other, purpose_pack, scope.variants, composite=True)
                 )
-            )
+                composite_ready = all(
+                    categories[category] >= needed
+                    for category, needed in Counter(scope.composite_categories).items()
+                )
             algorithm_ready = any(
-                p.family == fn.algorithm.family and fn.algorithm.variant in p.variants
+                p.family == fn.algorithm.family
+                and fn.algorithm.variant in p.variants
+                and supports_abi(fn, p, [fn.algorithm.variant])
                 for p in packs
             )
             purpose_ready = (
                 scope is not None
                 and scope.pack in installed
+                and purpose_pack is not None
                 and composite_ready
-                and any(
-                    p.family == scope.pack and set(scope.variants) & set(p.variants) for p in packs
-                )
+                and supports_abi(fn, purpose_pack, scope.variants, composite=scope.composite)
             )
             ready = algorithm_ready or purpose_ready
             covered += ready
@@ -188,7 +228,7 @@ def table_v2(truths: list[GroundTruth], packs: list[Pack]) -> Table:
                 )
             else:
                 row["known_blockers"] = sorted(
-                    set(row["known_blockers"]) | {"no_complete_e2_scope"}
+                    set(row["known_blockers"]) | {"no_complete_e2_scope_or_supported_abi"}
                 )
         programs.append(
             {

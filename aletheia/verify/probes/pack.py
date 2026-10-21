@@ -9,7 +9,23 @@ from pydantic import Field, model_validator
 from aletheia.schema.models import REGISTRY, Strict
 from aletheia.verify.probes.oracles import ORACLE_VARIANTS, PURPOSE_VARIANTS
 
-type Role = Literal["seed", "buf", "len", "cstr", "cstr_b", "out"]
+type Role = Literal[
+    "seed",
+    "buf",
+    "len",
+    "cstr",
+    "cstr_b",
+    "out",
+    "byte",
+    "buf_b",
+    "key",
+    "key_len",
+    "inout",
+    "path",
+    "out_ptr",
+    "len_ptr",
+    "u32",
+]
 Identifier = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]*$")]
 HexInput = Annotated[str, Field(pattern=r"^(?:[0-9a-f]{2})*$")]
 SHAPES: dict[str, list[Role]] = {
@@ -17,6 +33,11 @@ SHAPES: dict[str, list[Role]] = {
     "strlen_bound": ["cstr", "len"],
     "strcmp": ["cstr", "cstr_b"],
     "memcpy": ["out", "buf", "len"],
+    "memset": ["out", "byte", "len"],
+    "memcmp": ["buf", "buf_b", "len"],
+    "xor": ["inout", "len", "key", "key_len"],
+    "sha1_transform": ["inout", "buf_b"],
+    "sha256_transform": ["inout", "buf_b"],
     "hex": ["buf", "len", "out"],
     "parse_int32": ["cstr"],
     "parse_int64": ["cstr"],
@@ -28,11 +49,22 @@ SHAPES: dict[str, list[Role]] = {
     "buf_len_decode_out": ["buf", "len", "out"],
     "cstr": ["cstr"],
     "buf_len_out": ["buf", "len", "out"],
+    "path_out_len": ["path", "out_ptr", "len_ptr"],
+    "print_bytes": ["buf", "len"],
+    "hex_print32": ["u32"],
 }
 FAMILY_SHAPES: dict[str, set[str]] = {
     "strlen": {"strlen_cstr", "strlen_bound"},
     "strcmp": {"strcmp"},
     "memcpy": {"memcpy"},
+    "memset": {"memset"},
+    "memcmp": {"memcmp"},
+    "xor": {"xor"},
+    "rc4": set(),
+    "file-read": {"path_out_len"},
+    "print": {"print_bytes", "hex_print32"},
+    "sha1_transform": {"sha1_transform"},
+    "sha256_transform": {"sha256_transform"},
     "hex": {"hex"},
     "parse-int": {"parse_int32", "parse_int64"},
     "crc32": {"seed_buf_len", "buf_len"},
@@ -51,7 +83,10 @@ class CallShape(Strict):
     return_width: Literal[16, 32, 64]
     comparison: Literal["return_output", "output", "sign"] = "return_output"
     out_size: (
-        Literal["base64_encode", "base64_decode", "md5", "sha1", "sha256", "memcpy", "hex"] | None
+        Literal[
+            "base64_encode", "base64_decode", "md5", "sha1", "sha256", "memcpy", "memset", "hex"
+        ]
+        | None
     ) = None
 
     @model_validator(mode="after")
@@ -61,13 +96,22 @@ class CallShape(Strict):
             "strlen_bound",
             "strcmp",
             "memcpy",
+            "memset",
+            "memcmp",
+            "xor",
             "hex",
             "parse_int32",
             "parse_int64",
         }:
-            output = self.id if self.id in {"memcpy", "hex"} else None
-            comparison = "output" if output else "sign" if self.id == "strcmp" else "return_output"
-            width = 32 if self.id in {"strcmp", "parse_int32"} else 64
+            output = self.id if self.id in {"memcpy", "hex", "memset"} else None
+            comparison = (
+                "output"
+                if self.id in {"memcpy", "hex", "memset", "xor"}
+                else "sign"
+                if self.id in {"strcmp", "memcmp"}
+                else "return_output"
+            )
+            width = 32 if self.id in {"strcmp", "parse_int32", "memcmp"} else 64
             if (
                 self.roles != SHAPES[self.id]
                 or self.out_size != output
@@ -75,6 +119,33 @@ class CallShape(Strict):
                 or self.return_width != width
             ):
                 raise ValueError("purpose call shape semantics mismatch")
+            return self
+        if self.id in {"sha1_transform", "sha256_transform"}:
+            if (
+                self.roles != SHAPES[self.id]
+                or self.out_size is not None
+                or self.comparison != "output"
+                or self.return_width != 64
+            ):
+                raise ValueError("transform call shape semantics mismatch")
+            return self
+        if self.id == "path_out_len":
+            if (
+                self.roles != SHAPES[self.id]
+                or self.out_size is not None
+                or self.comparison != "return_output"
+                or self.return_width != 32
+            ):
+                raise ValueError("file-read call shape semantics mismatch")
+            return self
+        if self.id in {"print_bytes", "hex_print32"}:
+            if (
+                self.roles != SHAPES[self.id]
+                or self.out_size is not None
+                or self.comparison != "output"
+                or self.return_width != 64
+            ):
+                raise ValueError("print call shape semantics mismatch")
             return self
         digest_shape = self.id in {"buf_len_digest_out", "out_buf_len_digest"}
         if digest_shape != (self.comparison == "output"):
@@ -100,7 +171,7 @@ class CallShape(Strict):
             raise ValueError("negative input length")
         if self.out_size is None:
             return 0
-        if self.out_size == "memcpy":
+        if self.out_size in {"memcpy", "memset"}:
             return input_len + 16
         if self.out_size == "hex":
             return 2 * input_len + 1
@@ -127,13 +198,21 @@ class VariantProbe(Strict):
 class RandomInputs(Strict):
     count: int = Field(ge=0)
     max_len: int = Field(ge=0)
+    exact_len: int | None = Field(default=None, ge=0)
     seed: int
+
+    @model_validator(mode="after")
+    def length_range(self) -> Self:
+        if self.exact_len is not None and self.exact_len > self.max_len:
+            raise ValueError("exact_len exceeds max_len")
+        return self
 
 
 class Inputs(Strict):
     fixed: list[str]
     boundary_lengths: bool = False
     string_pairs: bool = False
+    byte_pairs: bool = False
     string_data: bool = False
     fixed_pairs: list[Annotated[list[HexInput], Field(min_length=2, max_length=2)]] = Field(
         default_factory=lambda: []
@@ -143,11 +222,17 @@ class Inputs(Strict):
 
     @model_validator(mode="after")
     def nonempty(self) -> Self:
-        if self.string_pairs:
+        if self.string_pairs and self.byte_pairs:
+            raise ValueError("pair generation cannot mix C-string and byte pairs")
+        if self.string_pairs or self.byte_pairs:
             if self.fixed or self.fixed_hex or self.boundary_lengths or self.string_data:
                 raise ValueError("pair generation accepts only fixed_pairs and random inputs")
             if self.random.max_len > 65535:
-                raise ValueError("string pair exceeds its length encoding")
+                raise ValueError(
+                    "string pair exceeds its length encoding"
+                    if self.string_pairs
+                    else "byte pair exceeds its length encoding"
+                )
         elif self.fixed_pairs:
             raise ValueError("fixed_pairs requires string_pairs generation")
         if not (
@@ -164,7 +249,7 @@ class Inputs(Strict):
 class Pack(Strict):
     family: str
     version: int = Field(gt=0)
-    call_shapes: list[CallShape] = Field(min_length=1)
+    call_shapes: list[CallShape] = Field(default_factory=lambda: list[CallShape]())
     variants: dict[str, VariantProbe] = Field(min_length=1)
     inputs: Inputs
     near_miss: list[Identifier]
@@ -177,12 +262,28 @@ class Pack(Strict):
         ids = [shape.id for shape in self.call_shapes]
         if len(ids) != len(set(ids)):
             raise ValueError("duplicate call shape")
+        if not ids and self.family != "rc4":
+            raise ValueError("pack requires at least one call shape")
         if not set(ids) <= FAMILY_SHAPES[self.family]:
             raise ValueError("call shape is not supported for this family")
         if self.family in {"md5", "sha1", "sha256"} and any(
             shape.out_size != self.family for shape in self.call_shapes
         ):
             raise ValueError("digest allocation must match the pack family")
+        if self.family in {"sha1_transform", "sha256_transform"}:
+            size = (20 if self.family == "sha1_transform" else 32) + 64
+            spec = self.inputs
+            if (
+                spec.fixed
+                or spec.boundary_lengths
+                or spec.string_data
+                or spec.string_pairs
+                or spec.byte_pairs
+                or spec.fixed_pairs
+                or spec.random.exact_len != size
+                or any(len(bytes.fromhex(value)) != size for value in spec.fixed_hex)
+            ):
+                raise ValueError("transform packs require exact state-plus-block inputs")
         needs_seed = "seed_buf_len" in ids
         for variant, probe in self.variants.items():
             if probe.call_shapes is not None and (

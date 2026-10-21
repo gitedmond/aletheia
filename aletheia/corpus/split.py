@@ -29,6 +29,26 @@ def _functions(program: Path) -> set[str]:
     }
 
 
+def history_scan(repo: Path, heldout: dict[str, Path]) -> dict[str, object]:
+    """Fail when a held-out program or blob occurs anywhere in public git history."""
+    if _git(repo, "rev-parse", "--is-shallow-repository").strip() != b"false":
+        raise PrivateAccessError("public source history requires a non-shallow repository")
+    # Check every reachable blob, so a source committed under another name also fails.
+    objects = {
+        line.split()[0] for line in _git(repo, "rev-list", "--objects", "--all").splitlines()
+    }
+    commits = int(_git(repo, "rev-list", "--all", "--count").strip())
+    for name, path in sorted(heldout.items()):
+        if _git(repo, "log", "--all", "--format=%H", "--", "corpus/tierA/" + name).strip():
+            raise PrivateAccessError("held-out program occurs in public git history")
+        for source in sorted((path / "src").rglob("*")):
+            if source.is_file():
+                oid = _git(repo, "hash-object", "--stdin", input=source.read_bytes()).strip()
+                if oid in objects:
+                    raise PrivateAccessError("held-out source occurs in public git history")
+    return {"status": "clean", "scanned_commits": commits}
+
+
 def split_corpus(repo: Path, guard: PrivateGuard, seed: int) -> dict[str, object]:
     repo = guard.public_path(repo)
     if guard.root is None:
@@ -64,6 +84,7 @@ def split_corpus(repo: Path, guard: PrivateGuard, seed: int) -> dict[str, object
     objects = {
         line.split()[0] for line in _git(repo, "rev-list", "--objects", "--all").splitlines()
     }
+    history_scan(repo, {name: candidates[name] for name in heldout})
     private_names: set[str] = set()
     public_names = set[str]().union(
         *(_functions(p) for p in public.glob("*") if p.name not in heldout)
@@ -78,13 +99,6 @@ def split_corpus(repo: Path, guard: PrivateGuard, seed: int) -> dict[str, object
         public_names.update(token.decode() for token in re.findall(rb"[A-Za-z_]\w*", published))
     for name in heldout:
         path = candidates[name]
-        if _git(repo, "log", "--all", "--format=%H", "--", "corpus/tierA/" + name).strip():
-            raise PrivateAccessError("held-out program occurs in public git history")
-        for source in sorted((path / "src").rglob("*")):
-            if source.is_file():
-                oid = _git(repo, "hash-object", "--stdin", input=source.read_bytes()).strip()
-                if oid in objects:
-                    raise PrivateAccessError("held-out source occurs in public git history")
         private_names.update(_functions(path))
     record: dict[str, object] = {
         "schema_version": "1.0",

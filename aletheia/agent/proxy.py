@@ -13,6 +13,7 @@ from aletheia.heldout.guard import PrivateGuard
 from aletheia.llm.provider import AgentBudgets, ToolFunction, ToolSpec
 from aletheia.schema.canonical import canonical_bytes
 from aletheia.schema.models import (
+    REGISTRY,
     Address,
     Algorithm,
     Call,
@@ -233,12 +234,20 @@ class HarnessProxy:
                 try:
                     result = self.report(arguments, revise=name == "revise_claim")
                 except ValidationError as exc:
+                    errors = exc.errors(include_input=False, include_url=False)[:8]
                     result = {
                         "status": "error",
                         "reason": "invalid_claim",
                         "message": "; ".join(
-                            ".".join(map(str, error["loc"])) + ": " + error["type"]
-                            for error in exc.errors(include_input=False, include_url=False)[:8]
+                            ".".join(map(str, error["loc"]))
+                            + ": "
+                            + (
+                                "unknown_family; registered families: "
+                                + ", ".join(sorted(REGISTRY))
+                                if str((error.get("ctx") or {}).get("error")) == "unknown_family"
+                                else error["type"]
+                            )
+                            for error in errors
                         ),
                     }
                 except ValueError:

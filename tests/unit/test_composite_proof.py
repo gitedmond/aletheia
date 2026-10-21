@@ -125,3 +125,53 @@ def test_composite_proof_requires_complete_clean_reproduced_sequences(damage, fa
         )
     else:
         assert proof.failure() is None
+
+
+def test_rc4_complete_scope_requires_the_declared_keys_as_well_as_payloads():
+    from aletheia.verify.probes.oracles import byte_pair
+
+    pack = load_pack(Path("packs/rc4.yaml"))
+    spec = pack.inputs.model_copy(
+        update={"random": pack.inputs.random.model_copy(update={"count": 16})}
+    )
+    pairs = [byte_pair(value) for value in generate_inputs(spec)]
+    rows = [
+        {
+            "final_shape": shape,
+            "input_hex": data.hex(),
+            "key_hex": key.hex(),
+            "chunks": [data.hex()],
+            "expected_hex": data.hex(),
+            "actual_hex": data.hex(),
+            "status": "match",
+            "instructions": 1,
+            "imports_called": [],
+        }
+        for shape in ("roles_a", "roles_b")
+        for data, key in pairs
+    ]
+    analysis = GhidraAnalysis.model_validate(
+        {"binary_sha256": "a" * 64, "options_sha256": "b" * 64, "functions": []}
+    )
+    verdict = Verdict(
+        claim_id="c_" + "a" * 24,
+        intrinsic_verdict="INCONCLUSIVE",
+        reason="binding_not_verified",
+        verifier_version="0.1.0",
+        env_digest="sha256:" + "e" * 64,
+    )
+    evidence = GroupEvidence.model_validate(
+        {
+            "binary_sha256": "a" * 64,
+            "family": "rc4",
+            "members": [],
+            "arity": {},
+            "observations": rows,
+            "planned_inputs_per_shape": len(pairs),
+            "skipped_inputs": [],
+            "minimization": [],
+        }
+    )
+    assert group_preconditions(evidence, [], analysis, pack, verdict)[4]
+    evidence.observations[0].key_hex += "ff"
+    assert not group_preconditions(evidence, [], analysis, pack, verdict)[4]

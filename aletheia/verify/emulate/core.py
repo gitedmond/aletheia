@@ -80,6 +80,8 @@ class CallResult:
     fault: str | None
     uninitialized_state_reads: bool
     imports_called: list[str]
+    stdout: bytes = b""
+    stderr: bytes = b""
 
 
 @dataclass
@@ -96,7 +98,9 @@ class InitializationBudgetExhausted(ValueError):
 
 
 class Emulator:
-    def __init__(self, stripped: Path, budget: Budgets):
+    def __init__(
+        self, stripped: Path, budget: Budgets, virtual_files: dict[bytes, bytes] | None = None
+    ):
         require_job_sandbox(Path("/job"))
         path = guarded_input(Path("/job"), "in/" + stripped.name)
         if path != stripped:
@@ -121,6 +125,16 @@ class Emulator:
         self.uninitialized = False
         self.called: list[str] = []
         self.unsupported = False
+        # shortcut: emulator-only virtual files satisfy fopen/fgetc; never host FS.
+        # Upgrade only via the B17 review if real descriptor semantics are ever needed.
+        self.virtual_files = {
+            name: bytes(content) for name, content in (virtual_files or {}).items()
+        }
+        self.file_handles: dict[int, tuple[bytes, list[int]]] = {}
+        self.stdout = bytearray()
+        self.stderr = bytearray()
+        self.stdout_handle: int | None = None
+        self.stderr_handle: int | None = None
         parser = cast(Any, importlib.import_module("elftools.elf.elffile"))
         errors = cast(Any, importlib.import_module("elftools.common.exceptions"))
         try:
@@ -422,10 +436,26 @@ class Emulator:
             ):
                 value = BASE + int(symbol["st_value"]) + (addend if kind == 1 else 0)
             elif (
-                kind in (1, 6) and symbol_type == "STT_OBJECT" and symbol["st_shndx"] == "SHN_UNDEF"
+                kind in (1, 6)
+                and (
+                    symbol_type == "STT_OBJECT"
+                    or (
+                        symbol.name in ("stdout", "stderr")
+                        and symbol_type == "STT_NOTYPE"
+                        and binding == "STB_GLOBAL"
+                    )
+                )
+                and symbol["st_shndx"] == "SHN_UNDEF"
             ):
                 if symbol.name not in data_objects:
                     data_objects[symbol.name] = self._allocate_heap(256)
+                    if symbol.name in ("stdout", "stderr"):
+                        handle = self._allocate_heap(1)
+                        if symbol.name == "stdout":
+                            self.stdout_handle = handle
+                        else:
+                            self.stderr_handle = handle
+                        self.uc.mem_write(data_objects[symbol.name], struct.pack("<Q", handle))
                 value = data_objects[symbol.name] + (addend if kind == 1 else 0)
             elif (
                 kind == 6
@@ -467,6 +497,9 @@ class Emulator:
 
     def _invoke(self, entry: int, args: list[int | Buffer], ret_width: int) -> CallResult:
         self.instructions, self.fault, self.uninitialized, self.called = 0, None, False, []
+        self.file_handles.clear()
+        self.stdout = bytearray()
+        self.stderr = bytearray()
         self.uc.mem_write(TLS + 0x80, b"\0" * 4)
         if self.unsupported:
             self.fault = "unsupported_relocation"
@@ -526,6 +559,8 @@ class Emulator:
             self.fault,
             self.uninitialized,
             sorted(set(self.called)),
+            bytes(self.stdout),
+            bytes(self.stderr),
         )
 
     def _restore(self) -> None:

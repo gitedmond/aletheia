@@ -312,6 +312,494 @@
       "input_hex": "3138343436373434303733373039353531363135",
       "return_value": 18446744073709551615,
       "output_hex": null
+    },
+    {
+      "family": "memset",
+      "variant": "std",
+      "oracle": "memset_std",
+      "input_hex": "",
+      "return_value": 0,
+      "output_hex": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "family": "memset",
+      "variant": "std",
+      "oracle": "memset_std",
+      "input_hex": "01",
+      "return_value": 0,
+      "output_hex": "01a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "family": "memset",
+      "variant": "std",
+      "oracle": "memset_std",
+      "input_hex": "00",
+      "return_value": 0,
+      "output_hex": "00a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "family": "memset",
+      "variant": "std",
+      "oracle": "memset_std",
+      "input_hex": "ab",
+      "return_value": 0,
+      "output_hex": "aba5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "family": "memset",
+      "variant": "std",
+      "oracle": "memset_std",
+      "input_hex": "ff00ff",
+      "return_value": 0,
+      "output_hex": "ffffffa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "family": "memset",
+      "variant": "std",
+      "oracle": "memset_std",
+      "input_hex": "0505050505",
+      "return_value": 0,
+      "output_hex": "0505050505a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "family": "memset",
+      "variant": "std",
+      "oracle": "memset_std",
+      "input_hex": "0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
+      "return_value": 0,
+      "output_hex": "0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "family": "memcmp",
+      "variant": "std",
+      "oracle": "memcmp_std",
+      "input_hex": "0300616263616264",
+      "return_value": -1,
+      "output_hex": null
+    },
+    {
+      "family": "memcmp",
+      "variant": "std",
+      "oracle": "memcmp_std",
+      "input_hex": "01006261",
+      "return_value": 1,
+      "output_hex": null
+    },
+    {
+      "family": "memcmp",
+      "variant": "std",
+      "oracle": "memcmp_std",
+      "input_hex": "01008001",
+      "return_value": 1,
+      "output_hex": null
+    },
+    {
+      "family": "memcmp",
+      "variant": "std",
+      "oracle": "memcmp_std",
+      "input_hex": "0000",
+      "return_value": 0,
+      "output_hex": null
+    },
+    {
+      "family": "memcmp",
+      "variant": "std",
+      "oracle": "memcmp_std",
+      "input_hex": "0100616161",
+      "return_value": 0,
+      "output_hex": null
+    },
+    {
+      "family": "memcmp",
+      "variant": "std",
+      "oracle": "memcmp_std",
+      "input_hex": "0200616161",
+      "return_value": 0,
+      "output_hex": null
+    },
+    {
+      "family": "memcmp",
+      "variant": "std",
+      "oracle": "memcmp_std",
+      "input_hex": "020061626261",
+      "return_value": -1,
+      "output_hex": null
+    },
+    {
+      "family": "memcmp",
+      "variant": "std",
+      "oracle": "memcmp_std",
+      "input_hex": "01000001",
+      "return_value": -1,
+      "output_hex": null
+    },
+    {
+      "family": "memcmp",
+      "variant": "std",
+      "oracle": "memcmp_std",
+      "input_hex": "0200ff00ff01",
+      "return_value": -1,
+      "output_hex": null
+    },
+    {
+      "family": "memcmp",
+      "variant": "std",
+      "oracle": "memcmp_std",
+      "input_hex": "03000100ff010001",
+      "return_value": 1,
+      "output_hex": null
+    },
+    {
+      "family": "xor",
+      "variant": "std",
+      "oracle": "xor_std",
+      "input_hex": "01000101",
+      "return_value": 0,
+      "output_hex": "00"
+    },
+    {
+      "family": "xor",
+      "variant": "std",
+      "oracle": "xor_std",
+      "input_hex": "000001",
+      "return_value": 0,
+      "output_hex": ""
+    },
+    {
+      "family": "xor",
+      "variant": "std",
+      "oracle": "xor_std",
+      "input_hex": "010001",
+      "return_value": 0,
+      "output_hex": "01"
+    },
+    {
+      "family": "xor",
+      "variant": "std",
+      "oracle": "xor_std",
+      "input_hex": "0500010203040501020304050607",
+      "return_value": 0,
+      "output_hex": "0000000000"
+    },
+    {
+      "family": "xor",
+      "variant": "std",
+      "oracle": "xor_std",
+      "input_hex": "0500010203040501",
+      "return_value": 0,
+      "output_hex": "0003020504"
+    },
+    {
+      "family": "xor",
+      "variant": "std",
+      "oracle": "xor_std",
+      "input_hex": "0600000102030405a1b2c3",
+      "return_value": 0,
+      "output_hex": "a1b3c1a2b6c6"
+    },
+    {
+      "family": "xor",
+      "variant": "std",
+      "oracle": "xor_std",
+      "input_hex": "050000ff00ff00ffaa",
+      "return_value": 0,
+      "output_hex": "ff55ff55ff"
+    },
+    {
+      "family": "xor",
+      "variant": "std",
+      "oracle": "xor_std",
+      "input_hex": "0400deadbeef0102030405060708090a0b0c",
+      "return_value": 0,
+      "output_hex": "dfafbdeb"
+    },
+    {
+      "family": "sha1_transform",
+      "variant": "std",
+      "oracle": "sha1_transform_std",
+      "input_hex": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "return_value": 0,
+      "output_hex": "ed47159ec291ec57c88bfa30545a78c7e3a5efa7"
+    },
+    {
+      "family": "sha1_transform",
+      "variant": "std",
+      "oracle": "sha1_transform_std",
+      "input_hex": "000102030405060708090a0b0c0d0e0f10111213000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+      "return_value": 0,
+      "output_hex": "3ddcba7fb4c161d44f9ce05d50d5f06085b23dfa"
+    },
+    {
+      "family": "sha1_transform",
+      "variant": "std",
+      "oracle": "sha1_transform_std",
+      "input_hex": "0123456789abcdeffedcba9876543210f0e1d2c300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "return_value": 0,
+      "output_hex": "e504b492ed8c58564ecd1a6c683f05bf933af709"
+    },
+    {
+      "family": "sha1_transform",
+      "variant": "std",
+      "oracle": "sha1_transform_std",
+      "input_hex": "0123456789abcdeffedcba9876543210f0e1d2c361626380000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000018",
+      "return_value": 0,
+      "output_hex": "363e99a96a81064771253eba6cc250789dd8d09c"
+    },
+    {
+      "family": "sha1_transform",
+      "variant": "std",
+      "oracle": "sha1_transform_std",
+      "input_hex": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "return_value": 0,
+      "output_hex": "9b15483ffa51ce2d0a931e8a683b0802e8d670ef"
+    },
+    {
+      "family": "sha256_transform",
+      "variant": "std",
+      "oracle": "sha256_transform_std",
+      "input_hex": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "return_value": 0,
+      "output_hex": "1416a57ca83b5c422fdd54cee70a02c2d174e5b60f6d1398cc267eaea6e70bbf"
+    },
+    {
+      "family": "sha256_transform",
+      "variant": "std",
+      "oracle": "sha256_transform_std",
+      "input_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+      "return_value": 0,
+      "output_hex": "4f46e74687b8af598322461d0b278265fea4bb709b78de0497b120750ba5ac87"
+    },
+    {
+      "family": "sha256_transform",
+      "variant": "std",
+      "oracle": "sha256_transform_std",
+      "input_hex": "67e6096a85ae67bb72f36e3c3af54fa57f520e518c68059babd9831f19cde05b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "return_value": 0,
+      "output_hex": "be9856da69b4b91799573362cabe9f7791d4e58c4362d2c0eaf9febad8a93718"
+    },
+    {
+      "family": "sha256_transform",
+      "variant": "std",
+      "oracle": "sha256_transform_std",
+      "input_hex": "67e6096a85ae67bb72f36e3c3af54fa57f520e518c68059babd9831f19cde05b61626380000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000018",
+      "return_value": 0,
+      "output_hex": "bf1678baeacf018fde4041412322ae5da36103b09c7a179661ff10b4ad1500f2"
+    },
+    {
+      "family": "sha256_transform",
+      "variant": "std",
+      "oracle": "sha256_transform_std",
+      "input_hex": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "return_value": 0,
+      "output_hex": "7a1298056e7011afff1f407749c530d767c8840ba36c8ca9f9c0f3d7798ba706"
+    },
+    {
+      "family": "file-read",
+      "variant": "std",
+      "oracle": "read_std",
+      "input_hex": "",
+      "return_value": 0,
+      "output_hex": "000000000000000000"
+    },
+    {
+      "family": "file-read",
+      "variant": "std",
+      "oracle": "read_std",
+      "input_hex": "61",
+      "return_value": 0,
+      "output_hex": "01000000000000006100"
+    },
+    {
+      "family": "file-read",
+      "variant": "std",
+      "oracle": "read_std",
+      "input_hex": "68656c6c6f",
+      "return_value": 0,
+      "output_hex": "050000000000000068656c6c6f00"
+    },
+    {
+      "family": "file-read",
+      "variant": "std",
+      "oracle": "read_std",
+      "input_hex": "68656c6c6f20776f726c64",
+      "return_value": 0,
+      "output_hex": "0b0000000000000068656c6c6f20776f726c6400"
+    },
+    {
+      "family": "file-read",
+      "variant": "std",
+      "oracle": "read_std",
+      "input_hex": "00",
+      "return_value": 0,
+      "output_hex": "01000000000000000000"
+    },
+    {
+      "family": "file-read",
+      "variant": "std",
+      "oracle": "read_std",
+      "input_hex": "00ff0041",
+      "return_value": 0,
+      "output_hex": "040000000000000000ff004100"
+    },
+    {
+      "family": "file-read",
+      "variant": "std",
+      "oracle": "read_std",
+      "input_hex": "0a0d0a",
+      "return_value": 0,
+      "output_hex": "03000000000000000a0d0a00"
+    },
+    {
+      "family": "file-read",
+      "variant": "std",
+      "oracle": "read_std",
+      "input_hex": "fefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe",
+      "return_value": 0,
+      "output_hex": "0110000000000000fefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe00"
+    },
+    {
+      "family": "print",
+      "variant": "bytes",
+      "oracle": "print_bytes_std",
+      "input_hex": "",
+      "return_value": 0,
+      "output_hex": "0a"
+    },
+    {
+      "family": "print",
+      "variant": "bytes",
+      "oracle": "print_bytes_std",
+      "input_hex": "41",
+      "return_value": 0,
+      "output_hex": "34310a"
+    },
+    {
+      "family": "print",
+      "variant": "bytes",
+      "oracle": "print_bytes_std",
+      "input_hex": "6162",
+      "return_value": 0,
+      "output_hex": "363136320a"
+    },
+    {
+      "family": "print",
+      "variant": "bytes",
+      "oracle": "print_bytes_std",
+      "input_hex": "00",
+      "return_value": 0,
+      "output_hex": "30300a"
+    },
+    {
+      "family": "print",
+      "variant": "bytes",
+      "oracle": "print_bytes_std",
+      "input_hex": "0a",
+      "return_value": 0,
+      "output_hex": "30610a"
+    },
+    {
+      "family": "print",
+      "variant": "bytes",
+      "oracle": "print_bytes_std",
+      "input_hex": "00ff10",
+      "return_value": 0,
+      "output_hex": "3030666631300a"
+    },
+    {
+      "family": "print",
+      "variant": "bytes",
+      "oracle": "print_bytes_std",
+      "input_hex": "deadbeef",
+      "return_value": 0,
+      "output_hex": "64656164626565660a"
+    },
+    {
+      "family": "print",
+      "variant": "bytes",
+      "oracle": "print_bytes_std",
+      "input_hex": "00ff00ff",
+      "return_value": 0,
+      "output_hex": "30306666303066660a"
+    },
+    {
+      "family": "print",
+      "variant": "bytes",
+      "oracle": "print_bytes_std",
+      "input_hex": "0000ff00",
+      "return_value": 0,
+      "output_hex": "30303030666630300a"
+    },
+    {
+      "family": "print",
+      "variant": "hex32",
+      "oracle": "hex_print32_std",
+      "input_hex": "",
+      "return_value": 0,
+      "output_hex": "30303030303030300a"
+    },
+    {
+      "family": "print",
+      "variant": "hex32",
+      "oracle": "hex_print32_std",
+      "input_hex": "41",
+      "return_value": 0,
+      "output_hex": "30303030303034310a"
+    },
+    {
+      "family": "print",
+      "variant": "hex32",
+      "oracle": "hex_print32_std",
+      "input_hex": "6162",
+      "return_value": 0,
+      "output_hex": "30303030363236310a"
+    },
+    {
+      "family": "print",
+      "variant": "hex32",
+      "oracle": "hex_print32_std",
+      "input_hex": "00",
+      "return_value": 0,
+      "output_hex": "30303030303030300a"
+    },
+    {
+      "family": "print",
+      "variant": "hex32",
+      "oracle": "hex_print32_std",
+      "input_hex": "0a",
+      "return_value": 0,
+      "output_hex": "30303030303030610a"
+    },
+    {
+      "family": "print",
+      "variant": "hex32",
+      "oracle": "hex_print32_std",
+      "input_hex": "00ff10",
+      "return_value": 0,
+      "output_hex": "30303130666630300a"
+    },
+    {
+      "family": "print",
+      "variant": "hex32",
+      "oracle": "hex_print32_std",
+      "input_hex": "deadbeef",
+      "return_value": 0,
+      "output_hex": "65666265616464650a"
+    },
+    {
+      "family": "print",
+      "variant": "hex32",
+      "oracle": "hex_print32_std",
+      "input_hex": "00ff00ff",
+      "return_value": 0,
+      "output_hex": "66663030666630300a"
+    },
+    {
+      "family": "print",
+      "variant": "hex32",
+      "oracle": "hex_print32_std",
+      "input_hex": "0000ff00",
+      "return_value": 0,
+      "output_hex": "30306666303030300a"
     }
   ],
   "review_basis": "Fixed standard-operation values, independently calculated with direct byte/length comparisons and Python standard-library operations, then checked against native references. Author-delegated review; no independent human validation claimed."

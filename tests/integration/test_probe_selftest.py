@@ -44,5 +44,28 @@ def test_fnv_production_binding_contradiction_and_incomplete_family_scope(tmp_pa
 @pytest.mark.slow
 def test_all_supported_references_near_misses_and_required_outcomes(tmp_path):
     report = invoke_selftest(tmp_path)
-    assert report["families"] == ["adler32", "base64", "crc32", "djb2", "fnv"]
+    assert report["families"] == [
+        "adler32",
+        "base64",
+        "crc32",
+        "djb2",
+        "file-read",
+        "fletcher16",
+        "fnv",
+        "hex",
+        "md5",
+        "memcmp",
+        "memcpy",
+        "memset",
+        "parse-int",
+        "print",
+        "rc4",
+        "sha1",
+        "sha1_transform",
+        "sha256",
+        "sha256_transform",
+        "strcmp",
+        "strlen",
+        "xor",
+    ]
     assert report["static_fixtures_passed"]

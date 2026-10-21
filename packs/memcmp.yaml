@@ -1,0 +1,45 @@
+version: 1
+near_miss:
+- memcmp_signed
+- memcmp_equal
+- memcmp_first
+inputs:
+  fixed: []
+  random:
+    count: 64
+    max_len: 4096
+    seed: 20261013
+  byte_pairs: true
+  fixed_pairs:
+  - - '616263'
+    - '616264'
+  - - '62'
+    - '61'
+  - - '80'
+    - '01'
+  - - ''
+    - ''
+  - - '61'
+    - '6161'
+  - - '6161'
+    - '61'
+  - - '6162'
+    - '6261'
+  - - '00'
+    - '01'
+  - - 'ff00'
+    - 'ff01'
+  - - '0100ff'
+    - '010001'
+family: memcmp
+call_shapes:
+- id: memcmp
+  roles:
+  - buf
+  - buf_b
+  - len
+  return_width: 32
+  comparison: sign
+variants:
+  std:
+    oracle: memcmp_std

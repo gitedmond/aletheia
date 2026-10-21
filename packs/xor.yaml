@@ -1,0 +1,42 @@
+version: 1
+near_miss:
+- xor_prefix_only
+- xor_shifted_key
+- xor_skip_zero
+inputs:
+  fixed: []
+  random:
+    count: 64
+    max_len: 4096
+    seed: 20261013
+  byte_pairs: true
+  fixed_pairs:
+  - - '01'
+    - '01'
+  - - ''
+    - '01'
+  - - '01'
+    - ''
+  - - '0102030405'
+    - '01020304050607'
+  - - '0102030405'
+    - '01'
+  - - '000102030405'
+    - 'a1b2c3'
+  - - '00ff00ff00'
+    - 'ffaa'
+  - - 'deadbeef'
+    - '0102030405060708090a0b0c'
+family: xor
+call_shapes:
+- id: xor
+  roles:
+  - inout
+  - len
+  - key
+  - key_len
+  return_width: 64
+  comparison: output
+variants:
+  std:
+    oracle: xor_std
