@@ -7,7 +7,7 @@ import re
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from pydantic import JsonValue, TypeAdapter
 
@@ -65,7 +65,15 @@ def file_hash(path: Path) -> str:
 
 
 class Benchmark:
-    def __init__(self, config: Config):
+    def __init__(
+        self,
+        config: Config,
+        *,
+        variant: str | None = None,
+        algorithms_version: Literal["1.0", "2.0"] = "1.0",
+    ):
+        self.variant = variant
+        self.algorithms_version: Literal["1.0", "2.0"] = algorithms_version
         for path in (config.paths.build, config.paths.runs, config.paths.artifacts):
             if config.guard.split == "heldout":
                 config.guard.private_output(Path(path))
@@ -108,10 +116,13 @@ class Benchmark:
             if path.is_dir() and list(path.glob("*/targets.json"))
         )
 
-    def bundle(self, program: str) -> tuple[BinaryRef, Targets, Path]:
+    def bundle(self, program: str, variant: str | None = None) -> tuple[BinaryRef, Targets, Path]:
         if re.fullmatch(r"[a-z][a-z0-9-]*", program) is None:
             raise ValueError("invalid program name")
         paths = sorted((Path(self.config.paths.build) / program).glob("*/targets.json"))
+        selected = variant or self.variant
+        if selected is not None:
+            paths = [path for path in paths if path.parent.name == selected]
         if len(paths) != 1:
             raise ValueError("program requires exactly one built variant")
         targets = Targets.model_validate_json(paths[0].read_bytes())
@@ -134,8 +145,10 @@ class Benchmark:
             )
         ]
 
-    def manifest_input(self, program: str, source: str) -> ManifestInput:
-        binary, targets, directory = self.bundle(program)
+    def manifest_input(
+        self, program: str, source: str, *, variant: str | None = None
+    ) -> ManifestInput:
+        binary, targets, directory = self.bundle(program, variant)
         package = Path(__file__).parent
         code_hash = content_hash(
             {
@@ -148,10 +161,13 @@ class Benchmark:
                 self.runner(), store, self.config.budgets, Path(self.config.ghidra.analysis_options)
             )
         return ManifestInput(
+            algorithms_version=self.algorithms_version,
             source_config=cast(
                 dict[str, JsonValue],
                 {
                     "program": program,
+                    "variant_id": binary.variant_id,
+                    "split": self.config.guard.split,
                     "source": source,
                     "targets_hash": content_hash(targets),
                     "ground_truth_hash": file_hash(directory / "private/ground_truth.json"),
@@ -223,7 +239,9 @@ class Benchmark:
         counts: dict[str, int] | None = None,
         exclusions: dict[str, int] | None = None,
     ) -> str:
-        binary, targets, _ = self.bundle(program)
+        binary, targets, _ = self.bundle(
+            program, str(manifest.source_config.get("variant_id", self.variant or "")) or None
+        )
         if manifest.binaries != [binary.binary_sha256] or any(
             claim.run_id != manifest.run_id or claim.binary_sha256 != binary.binary_sha256
             for claim in claims
@@ -238,6 +256,10 @@ class Benchmark:
             claim.source.source_id != source_id or claim.source.origin != origin for claim in claims
         ):
             raise ValueError("claim/source identity mismatch")
+        if manifest.algorithms_version == "1.0" and any(
+            c.algorithms_version == "2.0" for c in claims
+        ):
+            raise ValueError("claim algorithm version exceeds manifest algorithm version")
         keys = [
             (c.subject.address, c.type, c.body.callee if isinstance(c.body, Call) else "")
             for c in claims
@@ -275,7 +297,7 @@ class Benchmark:
                     binary.binary_sha256,
                     identity[0],
                     binary.variant_id,
-                    "dev",
+                    self.config.guard.split,
                     str(binary.stripped),
                     identity[2],
                 )
@@ -290,6 +312,7 @@ class Benchmark:
             destination / "run.json",
             {
                 "program": program,
+                "variant_id": binary.variant_id,
                 "source_id": source_id,
                 "origin": origin,
                 "unmapped_counts": counts or {},
@@ -308,7 +331,7 @@ class Benchmark:
             truth = GroundTruth.model_validate_json(
                 (directory / "private/ground_truth.json").read_bytes()
             )
-            manifest = manifest.model_copy(update={"algorithms_version": truth.algorithms_version})
+            manifest.algorithms_version = truth.algorithms_version
             generated = generate(truth, manifest, manifest.seeds["scripted"])
             return [
                 self.ingest(program, case.manifest, case.claims, exclusions=generated.exclusions)
@@ -348,7 +371,14 @@ class Benchmark:
             ),
         }
         run_manifest = RunManifest.create(
-            manifest.model_copy(update={"source_config": source_config})
+            manifest.model_copy(
+                update={
+                    "source_config": source_config,
+                    "algorithms_version": "2.0"
+                    if any(c.algorithms_version == "2.0" for c in claims)
+                    else manifest.algorithms_version,
+                }
+            )
         )
         rebound = [
             Claim.intake(
@@ -376,7 +406,7 @@ class Benchmark:
     def verify(self, run: str, *, no_cache: bool = False) -> None:
         destination = self.directory(run)
         metadata = json.loads((destination / "run.json").read_bytes())
-        binary, targets, _ = self.bundle(metadata["program"])
+        binary, targets, _ = self.bundle(metadata["program"], metadata.get("variant_id"))
         runner = self.runner(no_cache=no_cache)
         with self.store() as store:
             claims = self.claims(store, run)
@@ -469,7 +499,7 @@ class Benchmark:
         for run in sorted(set(runs)):
             destination = self.directory(run)
             metadata = json.loads((destination / "run.json").read_bytes())
-            _, targets, directory = self.bundle(metadata["program"])
+            _, targets, directory = self.bundle(metadata["program"], metadata.get("variant_id"))
             truth = GroundTruth.model_validate_json(
                 (directory / "private/ground_truth.json").read_bytes()
             )
@@ -481,7 +511,7 @@ class Benchmark:
                     verdicts,
                     truth,
                     targets,
-                    taxonomy_kappa=self.grading_context.taxonomy_kappa
+                    taxonomy_kappa=self.grading_context.primary_kappa
                     if self.grading_context
                     else None,
                 )

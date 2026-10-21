@@ -308,3 +308,14 @@ def test_dev_configuration_rejects_a_private_grading_context(tmp_path):
     )
     with pytest.raises(PrivateAccessError, match="--split heldout"):
         cfg.for_split("dev")
+
+
+def test_assisted_agreement_is_descriptive_not_a_primary_purpose_label():
+    from aletheia.grade.context import GradingContext
+
+    context = GradingContext.read(Path("configs/grading-phase1b.json"))
+    assert context.human_validated is False and context.taxonomy_kappa["checksum"] == 1.0
+    gt = truth()
+    item = claim(gt, "function_purpose", {"category": "checksum.crc32"})
+    (result,) = apply(gt, [item], context.primary_kappa)
+    assert result.correct_claimed is None and result.correct_strict is None

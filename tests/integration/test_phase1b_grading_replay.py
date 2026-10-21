@@ -18,12 +18,23 @@ def test_v2_signature_and_purpose_scoring_replay_with_pinned_agreement(tmp_path)
     cfg.paths.build = str(tmp_path / "build")
     cfg.paths.runs = str(tmp_path / "runs")
     cfg.paths.artifacts = str(tmp_path / "artifacts")
-    cfg.grading.agreement = "configs/grading-phase1b.json"
+    # Synthetic contract data tests the happy path without using assisted corpus labels.
+    from aletheia.grade.context import GradingContext
+
+    context = GradingContext(
+        agreement_sha256="0" * 64,
+        taxonomy_kappa={"checksum": 1.0},
+        human_validated=True,
+        method="synthetic-contract-fixture",
+    )
+    policy = tmp_path / "synthetic-agreement.json"
+    policy.write_text(context.model_dump_json())
+    cfg.grading.agreement = str(policy)
     build_program(
         Path("corpus/tierA/crc32tool"),
         Variant(cfg.sandbox.image_build, Path(cfg.paths.build), ground_truth_version="2.0"),
     )
-    benchmark = Benchmark(cfg)
+    benchmark = Benchmark(cfg, algorithms_version="2.0")
     binary, _, bundle = benchmark.bundle("crc32tool")
     truth = GroundTruth.model_validate_json((bundle / "private/ground_truth.json").read_bytes())
     function = next(f for f in truth.functions if f.name == "crc32_update")
