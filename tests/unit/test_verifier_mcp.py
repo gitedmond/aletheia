@@ -296,3 +296,109 @@ def test_mcp_startup_errors_use_stderr(tmp_path):
     )
     assert result.exit_code == 7 and not result.stdout
     assert '"error_code": "private_path"' in result.stderr
+
+
+def test_invalid_and_unknown_evidence_are_client_errors(session):
+    load(session)
+    for artifact in ("bad", "sha256:xx", "sha256:" + "f" * 64):
+        assert session.get_evidence(artifact)["error_code"] == "invalid_claim"
+
+
+def test_waiting_verification_does_not_block_stdio_tool_dispatch(session):
+    import asyncio
+
+    from aletheia.mcp_server import make_server
+
+    digest = load(session)["binary_sha256"]
+    started, release = threading.Event(), threading.Event()
+    original = session.backend.verify
+
+    def blocked(*args):
+        started.set()
+        assert release.wait(5)
+        return original(*args)
+
+    session.backend.verify = blocked
+    server = make_server(session)
+
+    async def exercise():
+        tools = await server.list_tools()
+        schema = next(t.inputSchema for t in tools if t.name == "verify_claims")
+        assert "claims" in schema["properties"] and "config_id" in schema["properties"]
+        pending = asyncio.create_task(
+            server.call_tool("verify_claims", {"claims": [claim(digest)]})
+        )
+        try:
+            assert await asyncio.to_thread(started.wait, 2)
+            result = await asyncio.wait_for(server.call_tool("list_supported", {}), timeout=0.5)
+            assert result is not None
+        finally:
+            release.set()
+            await pending
+
+    asyncio.run(exercise())
+
+
+def test_verification_submission_is_atomic_with_binary_validation(session, monkeypatch):
+    digest = load(session)["binary_sha256"]
+    original = session.schedule
+
+    def submit(*args):
+        # A different thread cannot purge between validation and job registration.
+        available = []
+
+        def try_lock():
+            acquired = session.lock.acquire(blocking=False)
+            available.append(acquired)
+            if acquired:
+                session.lock.release()
+
+        probe = threading.Thread(target=try_lock)
+        probe.start()
+        probe.join(timeout=2)
+        assert available == [False]
+        return original(*args)
+
+    monkeypatch.setattr(session, "schedule", submit)
+    assert session.verify_claim(claim(digest))["status"] == "ok"
+    assert session.purge(digest)["status"] == "ok"
+
+
+def test_completed_verification_keeps_future_when_purged_before_wait(session, monkeypatch):
+    digest = load(session)["binary_sha256"]
+    wait = session.wait_job
+
+    def purge_before_wait(job_id, future):
+        future.result(timeout=2)
+        assert session.purge(digest)["status"] == "ok"
+        return wait(job_id, future)
+
+    monkeypatch.setattr(session, "wait_job", purge_before_wait)
+    assert session.verify_claim(claim(digest))["status"] == "ok"
+    assert digest not in session.binaries and not (session.root / digest).exists()
+
+
+def test_evidence_read_cannot_recreate_purged_storage(session, monkeypatch):
+    digest = load(session)["binary_sha256"]
+    artifact = ArtifactStore(session.root / digest / "artifacts").put(b"{}")
+
+    def open_artifacts(path):
+        available = []
+
+        def try_lock():
+            acquired = session.lock.acquire(blocking=False)
+            available.append(acquired)
+            if acquired:
+                session.lock.release()
+
+        probe = threading.Thread(target=try_lock)
+        probe.start()
+        probe.join(timeout=2)
+        assert available == [False]
+        return ArtifactStore(path)
+
+    monkeypatch.setattr("aletheia.mcp_server.ArtifactStore", open_artifacts)
+    assert session.get_evidence(artifact)["status"] == "ok"
+    assert session.purge(digest)["status"] == "ok"
+    assert session.get_evidence(artifact)["error_code"] == "invalid_claim"
+    assert not (session.root / digest).exists()
