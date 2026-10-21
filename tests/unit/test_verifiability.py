@@ -124,3 +124,9 @@ def test_cli_table_for_all_five_programs_does_not_invent_missing_packs(tmp_path,
     path.write_text(json.dumps(changed))
     response = runner.invoke(app, ["--json", "verifiability"])
     assert response.exit_code == 1 and "identity" in response.output
+
+
+def test_phase1b_cli_requires_explicit_variant():
+    response = CliRunner().invoke(app, ["--json", "verifiability", "--phase1b"])
+    assert response.exit_code == 1
+    assert "--phase1b requires --variant" in response.output
